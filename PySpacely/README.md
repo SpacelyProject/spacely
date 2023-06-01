@@ -37,12 +37,20 @@ The code requires:
 ### How do I run it?
 1. [Clone the repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository?platform=windows&tool=cli#cloning-a-repository)
 2. Open the terminal
-3. Spacely utilizes [Python virtual environments](https://docs.python.org/3/library/venv.html). Thus, you need to activate
-   it using `.\venv\Scripts\activate`
-4. When updating, ensure your dependencies are up-to-date:`python -m pip install -r requirements.txt`
+3. It is recommended to use [Python virtual environments](https://docs.python.org/3/library/venv.html)
+     - Doing so will avoid packages conflict
+     - This repository contains a [standard](https://www.jetbrains.com/help/pycharm/managing-dependencies.html) 
+       dependency-defining `requirements.txt` file.
+     - To bootstrap the environment run: `python -m venv venv`
+     - To activate the virtual env.: `.\venv\Scripts\activate`
+4. Update/install dependencies dependencies
+     - Run `python -m pip install -r requirements.txt`
+     - **Note:** *when pulling new changes that include `requirements.txt` change you will need to re-run the `pip install` 
+       command.*
 5. Run `python .\Spacely.py --help` to get started
 
-The repository contains a PowerShell `.\Spacely.ps1` script that will activate venv on demand.
+The repository contains a PowerShell `.\Spacely.ps1` script that automates all of the above, but adds to the initial 
+launch time.
 
 ### How do I collaborate?
 First look at the [basics of Git](../README.md#how-do-i-collaborate). Beyond that, it's encouraged to work on features
