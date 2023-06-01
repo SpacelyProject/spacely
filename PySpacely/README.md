@@ -40,7 +40,7 @@ The code requires:
 3. Spacely utilizes [Python virtual environments](https://docs.python.org/3/library/venv.html). Thus, you need to activate
    it using `.\venv\Scripts\activate`
 4. When updating, ensure your dependencies are up-to-date:`python -m pip install -r requirements.txt`
-5. Run `python .\Spavely.py --help` to get started
+5. Run `python .\Spacely.py --help` to get started
 
 The repository contains a PowerShell `.\Spacely.ps1` script that will activate venv on demand.
 
