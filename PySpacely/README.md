@@ -43,10 +43,12 @@ The code requires:
        dependency-defining `requirements.txt` file.
      - To bootstrap the environment run: `python -m venv venv`
      - To activate the virtual env.: `.\venv\Scripts\activate`
-4. Update/install dependencies dependencies
+4. Update/install dependencies
      - Run `python -m pip install -r requirements.txt`
      - **Note:** *when pulling new changes that include `requirements.txt` change you will need to re-run the `pip install` 
        command.*
+     - If you're getting errors about *"Repository not found"* check the [Git Docs](https://github.com/Fermilab-Microelectronics/general-docs/blob/main/git/private-repos-and-package-managers.md)
+     - During development you may want to link dependencies instead (see 2. in [Git Docs](https://github.com/Fermilab-Microelectronics/general-docs/blob/main/git/README.md))
 5. Run `python .\Spacely.py --help` to get started
 
 The repository contains a PowerShell `.\Spacely.ps1` script that automates all of the above, but adds to the initial 
