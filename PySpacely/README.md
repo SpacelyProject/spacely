@@ -33,8 +33,13 @@ The code requires:
      very good modern choice.
    - Neither Windows Command Prompt (aka. `cmd`) nor Python IDLE Shell are ANSI-complaint.
 
+### How do I run it using scripts?
+1. [Clone the repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository?platform=windows&tool=cli#cloning-a-repository)
+2. Open the terminal with Windows PowerShell
+3. Run `.\SetupWindows.ps1`
+4. Run `python .\Spacely.py --help` to get started
 
-### How do I run it?
+### How do I run it manually?
 1. [Clone the repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository?platform=windows&tool=cli#cloning-a-repository)
 2. Open the terminal
 3. It is recommended to use [Python virtual environments](https://docs.python.org/3/library/venv.html)
