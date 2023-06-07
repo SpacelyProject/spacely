@@ -47,14 +47,6 @@ log = None
 
 ## INSTRUMENT CONTROL FUNCTIONS ##
 
-def foo_bar(voltage: int, multiplier: float) -> float:
-    """
-    kljslkfjdslfkjs
-    """
-    # ddddd
-    return voltage * multiplier
-
-
 def config_AWG_as_DC(val_mV: float) -> None:
     global port
     if EMULATE_ASIC:
@@ -76,10 +68,53 @@ def set_Vin_mV(val_mV: float) -> None:
         AWG.set_offset(val_mV)
         #AWG.send_line("VOLT:OFFS "+str(round(val_mV/1000,4)))
         #time.sleep(0.1)
+
+
+def set_pulse_mag(val_mV: float) -> None:
+    pulse = round(val_mV / 1000,6)
+    AWG.send_line("VOLT "+str(pulse))
+
+
+def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
+
+
+    AWG.send_line("OUTPUT OFF")
+    
+    AWG.send_line("FUNC PULS")
+
+    #Pulse will be from (2.5 - pulse) to 2.5
+    pulse = round(pulse_mag_mV / 1000,6)
+    offset = round(2.5 - pulse_mag_mV/2000,6)
+    w = round(pulse_width_us*1e-6,10)
+
+    AWG.send_line("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
+    AWG.send_line("PULSE:WIDTH "+str(w)) #Pw = 1.5 us (from start of Rst to after presamp)
+    AWG.send_line("VOLT:OFFS "+str(offset))
+    AWG.send_line("VOLT "+str(pulse))
+
+    #Bursts will be triggered by Trig In (w/ a negative slope)
+    #Note: Trig In will be connected to Reset
+    #      Sending a 1us pulse starting during reset will result in a negative edge just after reset.
+    AWG.send_line("BURS:MODE TRIG")
+    AWG.send_line("TRIG:SOUR EXT")
+    AWG.send_line("TRIG:SLOP NEG")
+    #Each Trig In will result in 1 burst
+    AWG.send_line("BURS:NCYC 1")
+
+    #Enable bursts
+    AWG.send_line("BURS:STAT ON")
+
+    AWG.send_line("OUTP ON")
+
+    
+
         
 # config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
 # source follower, based on the external trigger. 
 def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
+
+    #Safety!
+    AWG.send_line("OUTP OFF")
 
     #Output a user-defined function...
     AWG.send_line("FUNC USER")
@@ -87,16 +122,32 @@ def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
     
     #Set up the skipper arbitrary waveform
     AWG.send_line("FREQ 1000000") #50 ns / div
-    AWG.send_line("VOLT 1.4") #2 Volt pp magnitude
-    AWG.send_line("VOLT:OFFS 2.5") #4.0 Vreset
+    AWG.send_line("VOLT:OFFS 2.5\n") #4.0 Vreset
+    AWG.flush_buffer()
 
+    #NOTE: With Vpp = 2.0V, +1.0 = +1.0V and -1.0 = -1.0V.
     p = round(pedestal_mag_mV / 1000,6)
     s = round((signal_mag_mV + pedestal_mag_mV)/1000,6)
 
-    wave = [0,-p,-p,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
+    #wave = [0,-p,-p,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
+
+    # Modified timing:
+    wave = [0,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
+    
     print(wave)
 
-    AWG.send_line("DATA VOLATILE, "+", ".join([str(x) for x in wave]))
+    AWG.send_line("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
+
+    AWG.flush_buffer()
+    #NOTE: There is a bug in the AWG, where sending data w/ DATA VOLATILE
+    #will completely scramble the Vpp magnitude. So we need to write Vpp
+    #just after sending data. EDIT: Still doesn't solve the problem. :(
+    AWG.send_line("VOLT 2.0\n") #2 Volt pp magnitude
+    AWG.flush_buffer()
+    #AWG.send_line("VOLT:HIGH 3.5") #2 Volt pp magnitude
+    AWG.flush_buffer()
+    #AWG.send_line("VOLT:LOW 1.5") #2 Volt pp magnitude
+    AWG.flush_buffer()
     
     #Bursts will be triggered by Trig In (w/ a positive slope)
     #Note: Trig In will be connected to PostSamp
@@ -108,6 +159,8 @@ def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
     
     #Enable bursts
     AWG.send_line("BURS:STAT ON")
+
+    AWG.send_line("OUTP ON")
 
 def format_voltage(value: float, precision: int = 5) -> str:
     if value is None:
@@ -615,10 +668,11 @@ def ROUTINE1_CapTrim_Debug():
         r = r.replace("conv","").replace("?","").strip()
         print(captrim_code, captrim_string, int(r,2))
         
-    
+def ROUTINE2_Full_Channel_Scan():
+    Vin_sweep_full_chain(Vtest_min_mV=100,Vtest_max_mV=1000,increment_uV=10000)
 
 
-ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug]
+ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan]
 
 # Lists serial ports available in the system
 def list_serial_ports():
@@ -992,7 +1046,8 @@ while True:
                     if not ARDUINO_CONNECTED:
                         log.error("Cannot send command: HAL not connected. Use \"arduino\" command to connect.")
                         continue
-                    r = command_ng(log, port, cmd_txt[1:])
+                    #r = command_ng(log, port, cmd_txt[1:])
+                    r = command(port, cmd_txt[1:]) # for now it uses the old command due to streaming support
                 
                 case '~':
                     #Routines should be called as "~r0"
