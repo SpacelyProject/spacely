@@ -12,14 +12,12 @@ Push-Location "$dir"
 
 # Activate Python's virtual environment if not active
 if (-Not (Test-Path env:VIRTUAL_ENV)) {
-    echo "Python virtual environment not active - activating"
-
-    if (-Not (Test-Path -Path C:\temp\important_file.txt -PathType Leaf)) {
-        echo "Python virtual environment not found - creating"
-        python -m venv venv
-        python -m pip install -r requirements.txt
+    if (-Not (Test-Path -Path ".\venv\Scripts\activate" -PathType Leaf)) {
+        echo "Python virtual environment not found - you should probably run SetupWindows.ps1 first"
+        exit
     }
 
+    echo "Python virtual environment not active - activating"
 	.\venv\Scripts\activate
 }
 
