@@ -14,9 +14,14 @@ Each of the components has its own documentation, kept alongside the code. A goo
 and [ArudinoHAL README](ArduinoHAL/README.md).
 
 ### How do I collaborate?
-This project utilizes a free [Git distributed source control system](https://git-scm.com). If you have no experience 
-working with Git, make sure to check [official Git SCM videos](https://git-scm.com/videos) and/or excellent [tutorial on Git basics](https://www.freecodecamp.org/news/learn-the-basics-of-git-in-under-10-minutes-da548267cc91/).
+This project utilizes a free [Git distributed source control system](https://git-scm.com). If you have no experience
+using it, make sure you start from our [Git Basics](https://github.com/Fermilab-Microelectronics/general-docs/tree/main/git#faq---git-basics)
+section of the documentation.
 
-When in doubt, don't hesitate to reach to [any of the contributors](https://github.com/Fermilab-Microelectronics/spacely/commits/main).
+You should `git clone` this repository to get started. **DO NOT** download a zip file or any other way directly from
+`github.com` website, as this will provide you with more-or-less read-only copy of the code.
+
+After you clone the code make sure you check the README files in PySpacely and ArudinoHAL directories. When in doubt, 
+don't hesitate to reach to [any of the contributors](https://github.com/Fermilab-Microelectronics/spacely/commits/main).
 
 
