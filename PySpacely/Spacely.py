@@ -80,7 +80,7 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
 
 
     AWG.send_line("OUTPUT OFF")
-    
+
     AWG.send_line("FUNC PULS")
 
     #Pulse will be from (2.5 - pulse) to 2.5
@@ -107,7 +107,6 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
 
     AWG.send_line("OUTP ON")
 
-    
 
         
 # config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
@@ -134,7 +133,7 @@ def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
 
     # Modified timing:
     wave = [0,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
-    
+
     print(wave)
 
     AWG.send_line("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
@@ -165,13 +164,13 @@ def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
 
 def format_voltage(value: float, precision: int = 5) -> str:
     if value is None:
-        return "N/A"    
+        return "N/A"
     return si_format(value, precision, u'{value} {prefix}V')
 
 def format_current(value: float, precision: int = 5) -> str:
     if value is None:
         return "N/A"
-    return si_format(value, precision, u'{value} {prefix}A')    
+    return si_format(value, precision, u'{value} {prefix}A')
 
 def clean_terminal() -> None:
     """
@@ -181,30 +180,30 @@ def clean_terminal() -> None:
     #os.system('cls')
     #print(chr(27) + "[2J")
 
-def report_NI(repeat_delay: float|None = 1):    
+def report_NI(repeat_delay: float|None = 1):
     v_stats = {}
     i_stats = {}
-    
+
     def get_row(rail: str, ni: Source_Port) -> list:
         if ni is None:
             empty = ["OFF"] * 11
             empty[0] = rail
             return empty
-        
+
         stat_key = rail
         v_stats.setdefault(stat_key, [])
         i_stats.setdefault(stat_key, [])
-        
+
         v_now = ni.get_voltage()
         i_now = ni.get_current()
         v_stats[stat_key].append(v_now)
         i_stats[stat_key].append(i_now)
-        
+
         if ni.nominal_voltage is not None:
             nominal_val = format_voltage(ni.nominal_voltage, 4)
         else:
             nominal_val = format_current(ni.nominal_current, 4)
-        
+
         return [
             rail,
             format_voltage(v_now, 4),
@@ -212,48 +211,48 @@ def report_NI(repeat_delay: float|None = 1):
             nominal_val,
             format_current(ni.current_limit, 4),
             format_voltage(min(v_stats[stat_key]), 2),
-            format_voltage(mean(v_stats[stat_key]), 2),            
+            format_voltage(mean(v_stats[stat_key]), 2),
             format_voltage(max(v_stats[stat_key]), 2),
             format_current(min(i_stats[stat_key]), 2),
-            format_current(mean(i_stats[stat_key]), 2),            
+            format_current(mean(i_stats[stat_key]), 2),
             format_current(max(i_stats[stat_key]), 2)
         ]
-    
+
     def add_rails(pt: PrettyTable, ports: dict) -> None:
         rails_count = len(ports)
         row_counter = 0
         for rail, ni in ports.items():
             row_counter += 1
             pt.add_row(get_row(rail, ni), divider=True if row_counter == rails_count else False)
-    
-    def tabulate_all_rails() -> PrettyTable:        
+
+    def tabulate_all_rails() -> PrettyTable:
         pt = PrettyTable()
         pt.field_names = ["Rail", "V now", "I now", "Setpoint", "I limit", "V min", "V avg", "V max", "I min", "I avg", "I max"]
         pt.align = 'r'
         add_rails(pt, V_PORT)
         add_rails(pt, I_PORT)
         return pt
-    
-    
+
+
     if repeat_delay is None:
         print(tabulate_all_rails())
         return
-        
+
     try:
         while True:
             pt = tabulate_all_rails() # this takes a second
             clean_terminal()
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"NI PSU Status at {now}\n")            
+            print(f"NI PSU Status at {now}\n")
             print(pt)
-            print(f"Redrawing in {repeat_delay}s (Ctrl+C to stop)")            
+            print(f"Redrawing in {repeat_delay}s (Ctrl+C to stop)")
             time.sleep(repeat_delay)
-        
+
     except KeyboardInterrupt:
         clean_terminal()
         print(tabulate_all_rails())
 
-#Updates the voltage limit of all Isources. 
+#Updates the voltage limit of all Isources.
 def update_all_Vlimit(new_voltage_limit):
     for key in I_PORT.keys():
         I_PORT[key].update_voltage_limit(new_voltage_limit)
@@ -264,7 +263,7 @@ def reserve_dated_file(contents_desc: str, extension: str = 'csv', directory: st
     time = datetime.now().strftime("%Y-%m-%d_%a_%H-%M-%S")
     contents_desc = '_'.join(contents_desc.split())
     file = f"{time}_{contents_desc}.{extension}"
-        
+
     if directory is not None:
         directory = directory.rstrip('/')
         os.makedirs(directory, exist_ok=True)
@@ -273,7 +272,7 @@ def reserve_dated_file(contents_desc: str, extension: str = 'csv', directory: st
     with open(file, 'w') as fhandle:
         os.utime(file)
         fhandle.close()
-        
+
     return file
 
 def bitstring_avg(bitstring):
@@ -284,7 +283,7 @@ def bitstring_avg(bitstring):
         if bitstring[i]=="1":
             avg = avg + 1.0/len(bitstring)
 
-    log.debug(avg)       
+    log.debug(avg)
     return round(avg,2)
 
 def liststring_avg_stdev(liststring):
@@ -325,11 +324,11 @@ def progress_pct(completed, total):
 # find_DNL returns the mid-point DNL of the CDAC transfer function for the presently set CapTrim value.
 def find_DNL(Vtest_min_mV = 495, Vtest_max_mV = 505,increment_uV = 100, logfile=None):
     global port
-    
+
      #Generate a range w/ steps of 0.1mV
     cdac_codes = ["0111111111","1000000000","1000000001"]
     avg_response = [[],[],[]]
-    Vtest_sweep = [round(x*0.1,1) for x in range(10*Vtest_min_mV,10*Vtest_max_mV,int(increment_uV/100))] 
+    Vtest_sweep = [round(x*0.1,1) for x in range(10*Vtest_min_mV,10*Vtest_max_mV,int(increment_uV/100))]
     Vtrip = [0,0,0]
 
     #config_AWG_as_DC(0)
@@ -387,7 +386,7 @@ def Vin_sweep(Vtest_min_mV: int = 0, Vtest_max_mV: int = 10, increment_uV: int =
     filename = reserve_dated_file(f"Vin sweep {Vtest_min_mV}mV to {Vtest_max_mV}mV by {increment_uV}", directory="output/sweep")
 
     print("Writing Vtest Sweep to "+filename)
-    
+
     Vtest_sweep = [round(x*0.1,1) for x in range(10*Vtest_min_mV,10*Vtest_max_mV,int(increment_uV/100))]
 
 
@@ -398,7 +397,7 @@ def Vin_sweep(Vtest_min_mV: int = 0, Vtest_max_mV: int = 10, increment_uV: int =
 
         if PROGRESS:
             print("[",end="")
-        
+
         for v in range(len(Vtest_sweep)):
             set_Vin_mV(Vtest_sweep[v])
             #log.debug(Vtest_sweep[v])
@@ -430,10 +429,10 @@ def Vin_histogram(Vtest_mV: int, points: int) -> dict[int, int]:
     global port
 
     config_AWG_as_DC(Vtest_mV)
-    
+
     #r = command(port, "convNx:"+str(points), printresponse=False, timeout_s=10)
     r = command_ng(log, port, f"convNx:{points}")
-    
+
     #log.debug(f"convNx returned: {r}") # this will return A LOT of lines!
     log.debug(f"Number of values returned: {len(r.split())}")
 
@@ -467,11 +466,11 @@ def center_code(Vtest_init_mV: float, samples_per_val: int = 1000):
                 count_below += bin_count
 
         log.debug(f"Vtest:{Vtest:.2f}mV, mode:{mode}, count_below_mode:{count_below}, count_above_mode:{count_above}")
-        
+
         # That shouldn't be the case really... something is probably misconnected
         if mode == 0:
             log.warning(f"Suspicious mode of 0 for Vtest={Vtest:.2f}mV")
-        
+
         #If we are less centered than the previous guess, take the
         #last one and be done with it.
         #PROOF that this loop is non-infinite: count_outside is strictly decreasing and positive.
@@ -507,13 +506,13 @@ def dump_noise_sweep_histogram(Vtest_sweep, vtest_min_mv: int, vtest_max_mv: int
                         'count_in_bin': bin_count
                     })
             file.close()
-        
+
         log.notice(f"Histograms for Vin Noise Sweep saved to \"{filename}\"")
         return True
-        
+
     except Exception as e:
         log.error(f"Noise sweep failed due to {type(e).__name__}: {e}")
-        return False    
+        return False
 
 def dump_noise_sweep_stats(Vtest_sweep, vtest_min_mv: int, vtest_max_mv: int, histograms: dict) -> bool:
     try:
@@ -530,37 +529,37 @@ def dump_noise_sweep_stats(Vtest_sweep, vtest_min_mv: int, vtest_max_mv: int, hi
                 main_bin = max(histogram, key=histogram.get) # bin that has the most most counts
                 row['v_test'] = Vtest
                 row['count_main_bin'] = histogram[main_bin] # how many counts in the "most popular" bin
-                row['count_outside_bin'] = sum(histogram.values()) - row['count_main_bin'] # counts outside of the main bin                   
-                
+                row['count_outside_bin'] = sum(histogram.values()) - row['count_main_bin'] # counts outside of the main bin
+
                 if row['count_outside_bin'] == 0:
                     log.warning(f"Count_outside_bin is 0 for {Vtest}mV")
                     row['z_score'] = 1e99
-                    row['rms_noise_in_lsb'] = 0               
+                    row['rms_noise_in_lsb'] = 0
                 else:
                     row['z_score'] = NormalDist().inv_cdf(1 - ((row['count_outside_bin'] / (row['count_outside_bin']+row['count_main_bin']))/2))
                     row['rms_noise_in_lsb'] = 0.5 / row['z_score']
                 cw.writerow(row)
             file.close()
-        
+
         log.notice(f"Histograms for Vin Noise Sweep stats saved to \"{filename}\"")
         return True
-        
+
     except Exception as e:
         log.error(f"Noise sweep failed due to {type(e).__name__}: {e}")
-        return False    
+        return False
 
 
 def Vin_noise_sweep(vtest_min_mv: int = 0, vtest_max_mv: int = 10, step_mv: int = 1, samples_per_pt: int = 1000000) -> bool:
 #    if vtest_max_mv-vtest_min_mv < 10:
 #       log.error("Noise requires at least 10mV of a difference between min and max")
-#        return 
+#        return
     if vtest_min_mv >= vtest_max_mv:
         log.error("Noise sweep requires min < max")
         return
     if step_mv < 1 or step_mv > (vtest_max_mv - vtest_min_mv):
         log.error("Noise sweep requires step to be >=1 and between min and max")
         return
-        
+
     #Vtest_sweep = [x for x in range(vtest_min_mv, vtest_max_mv, int((vtest_max_mv - vtest_min_mv) / 10))]
     Vtest_sweep = [x for x in range(vtest_min_mv, vtest_max_mv, step_mv)]
 
@@ -568,15 +567,15 @@ def Vin_noise_sweep(vtest_min_mv: int = 0, vtest_max_mv: int = 10, step_mv: int 
     for Vtest in Vtest_sweep:
         log.info(f"Generating histogram for VTest={Vtest:.2f}mV with {samples_per_pt} samples/pt")
         histograms[Vtest] = Vin_histogram(center_code(Vtest), samples_per_pt)
-        
+
     dump_noise_sweep_histogram(Vtest_sweep, vtest_min_mv, vtest_max_mv, histograms)
     dump_noise_sweep_stats(Vtest_sweep, vtest_min_mv, vtest_max_mv, histograms)
-       
-        
+
+
     log.notice(f"Noise sweep finished")
     return True
 
-        
+
 ## TEST ROUTINES
 
 def check_dependencies(dependency_list):
@@ -596,7 +595,7 @@ def check_dependencies(dependency_list):
                 return_val = False
 
     return return_val
-    
+
 
 R0_VTEST_MIN = 470
 R0_VTEST_MAX = 515
@@ -625,7 +624,7 @@ def ROUTINE0_CDAC_Trim():
     > Chip voltages are powered on.
     > AWG is connected to Vtest.
     > VINSF is connected to 0.0V""")
-    
+
     input("Press Enter to proceed.")
 
 
@@ -635,7 +634,7 @@ def ROUTINE0_CDAC_Trim():
 
     with open(filename, 'wb') as write_file:
         write_file.write(b'CapTrim Code,CapTrim String,DNL\n')
-        
+
         for captrim_code in range(0,64):
             captrim_string = format(captrim_code,'b').zfill(6)
 
@@ -657,7 +656,7 @@ def ROUTINE0_CDAC_Trim():
 def fix_latchup():
     V_PORT["VDD_ASIC"].set_voltage(1.2,current_limit=1)
 
-#Simply do one conversion for each CapTrim value. 
+#Simply do one conversion for each CapTrim value.
 def ROUTINE1_CapTrim_Debug():
 
     for captrim_code in range(0,64):
@@ -668,7 +667,7 @@ def ROUTINE1_CapTrim_Debug():
         r = command_ng(log, port, "conv")
         r = r.replace("conv","").replace("?","").strip()
         print(captrim_code, captrim_string, int(r,2))
-        
+
 def ROUTINE2_Full_Channel_Scan():
     Vin_sweep_full_chain(Vtest_min_mV=100,Vtest_max_mV=1000,increment_uV=10000)
 
@@ -679,7 +678,7 @@ ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Sc
 def list_serial_ports():
     ports = serial.tools.list_ports.comports()
     print(f"\nThere are {len(ports)} port(s):")
-    
+
     for port, name, hwid in sorted(ports):
         print(f" {port}: {name}")
     print("---")
@@ -688,15 +687,15 @@ def list_serial_ports():
 def initialize_Arduino(interactive: bool = True):
     """
     Initializes connection to the Arudino HAL
-    
+
     :param interactive: Whether to ask questions about settings (True), or assume defaults (False)
     """
     global ARDUINO_CONNECTED
     if ARDUINO_CONNECTED:
         log.warning("HAL already initialized; reinitializing")
-        deinitialize_Arduino()    
-    
-    
+        deinitialize_Arduino()
+
+
     while True:
         if interactive:
             SERIAL_PORT = input(f"PORT? (Hit enter for {DEFAULT_SERIAL_PORT}, ? for list) >>>")
@@ -713,14 +712,14 @@ def initialize_Arduino(interactive: bool = True):
                 BAUD = DEFAULT_BAUD
         else:
             SERIAL_PORT = DEFAULT_SERIAL_PORT
-            BAUD = DEFAULT_BAUD                 
+            BAUD = DEFAULT_BAUD
 
         log.info(f"Connecting to HAL on {SERIAL_PORT}@{BAUD}")
         port = open_port(SERIAL_PORT, BAUD)
         if port != -1:
             print("Port opened successfully :)")
             break
-        
+
         if interactive:
             log.error(f"Port openning failed! Try again.")
         else:
@@ -732,7 +731,7 @@ def initialize_Arduino(interactive: bool = True):
 
     #Handshake function will not return unless handshake is successful.
     command_ng(log, port, "echo:off")
-    handshake_with_arduino_ng(log, port)    
+    handshake_with_arduino_ng(log, port)
     log.info(f"HAL ID: {command_ng(log, port, 'IDN?')}")
 
     ARDUINO_CONNECTED = True
@@ -742,7 +741,7 @@ def initialize_Arduino(interactive: bool = True):
 def deinitialize_Arduino() -> None:
     if port is None:
         return
-    
+
     log.blocking('Deinitializing HAL')
     port.close()
     global ARDUINO_CONNECTED
@@ -756,13 +755,13 @@ def initialize_NI():
     global NI_CONNECTED
     if NI_CONNECTED:
         log.warning("NI already initialized; reinitializing")
-        deinitialize_NI()        
-    
+        deinitialize_NI()
+
     log.debug("NI INSTR init")
     try:
         for instr_name in INSTR_INIT_SEQUENCE:
             log.blocking(f"Initializing NI INSTR \"{instr_name}\"")
-            INSTR[instr_name] = nidcpower_init(instr_name)    
+            INSTR[instr_name] = nidcpower_init(instr_name)
             log.block_res()
         log.debug("NI INSTR init done")
 
@@ -789,7 +788,7 @@ def initialize_NI():
         else:
             log.emerg("NI INSTR failed (do you have \"NI-DCPower ver >=2022-Q4\" driver installed?)")
         raise
-    
+
     NI_CONNECTED = True
     log.notice("NI PXI initialized")
 
@@ -797,13 +796,13 @@ def initialize_NI():
 def cycle_NI():
     deinitialize_NI()
     initialize_NI()
-    
-def deinitialize_NI() -> None:    
+
+def deinitialize_NI() -> None:
     for instr_name, session in INSTR.items():
         if session is None:
             log.debug(f"Skipping NI {instr_name} deinit - not initialized")
             continue
-        
+
         try:
             log.blocking(f"Deinitializing NI INSTR \"{instr_name}\"")
             nidcpower_deinit(session)
@@ -813,7 +812,7 @@ def deinitialize_NI() -> None:
             log.block_res(False)
             log.error(f"Failed to deinitialize NI \"{instr_name}\": {str(e)}")
             pass # we cannot throw here - other things must de-init regardless
-            
+
     log.debug("NI deinit done")
     global NI_CONNECTED
     NI_CONNECTED = False
@@ -847,11 +846,11 @@ def initialize_AWG(interactive: bool = True) -> AgilentAWG:
         AWG = AgilentAWG(log, PROLOGIX_IPADDR, AWG_GPIBADDR)
         AWG.connect()
         AWG.set_limit(V_LEVEL["Vref"])
-        
+
         # Connection succesful
-        if AWG.is_connected():           
+        if AWG.is_connected():
             break
-        
+
         AWG = None
         AWG_CONNECTED = False
         if interactive:
@@ -859,25 +858,26 @@ def initialize_AWG(interactive: bool = True) -> AgilentAWG:
         else:
             log.warning(f"AWG connection failed - falling back to interactive mode")
             interactive = True
-            
-    
+
+
     AWG_CONNECTED = True
 
 
     AWG.send_line("OUTP:LOAD INF") #AWG will be driving a MOSFET gate; set to high impedance mode.
     AWG.set_local_controls(True)
-    
+    AWG.display_text("Managed by Spacely")
+
     log.notice("AWG connected & initialized")
     return AWG
 
 def deinitialize_AWG() -> None:
     global AWG_CONNECTED
     global AWG
-    
+
     if AWG is None:
         log.debug(f"Skipping AWG deinit - not initialized")
         return
-    
+
     log.blocking(f"Deinitializing AWG")
     AWG.set_output(False)
     AWG.disconnect()
@@ -886,7 +886,7 @@ def deinitialize_AWG() -> None:
 
 ### MAIN ###
 
-# Parse command line arguments 
+# Parse command line arguments
 argp = argparse.ArgumentParser(prog='Spacely')
 argp.add_argument('--hal', action=argparse.BooleanOptionalAction, help='Perform Arudino HAL init')
 argp.add_argument('--ni', action=argparse.BooleanOptionalAction, help='Perform NI voltage sources init')
@@ -908,10 +908,10 @@ log = liblog.AnsiTerminalLogger( # by default log to terminal and use ANSI
 if cmd_args.file_log is not False:
     log = liblog.ChainLogger([log]) # add default logger (created above) to the chain
     log_file = cmd_args.file_log # user can specify file manually like --file-log super_important_test.log
-    
+
     if cmd_args.file_log is None: # ...but if only --file-log is used without a value we will pick a name
         log_file = reserve_dated_file('output log', directory='logs', extension='log')
-    
+
     log.info(f"Logging to file {log_file}")
     file_strategy = liblog.FileOutputStrategy(log_file)
     file_logger = liblog.PlainLogger(file_strategy)
@@ -923,7 +923,7 @@ def exit_handler():
     deinitialize_AWG()
     deinitialize_NI()
     deinitialize_Arduino()
-    
+
 atexit.register(exit_handler)
 
 print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+")
@@ -966,7 +966,7 @@ if init_awg:
         log.error('ASIC emulation enabled - AWG should NOT be initialized!')
     else:
         initialize_AWG(interactive=not assume_defaults)
-                
+
 else:
     log.debug('AWG init skipped')
 
@@ -979,7 +979,7 @@ print("# Spacely ready to take commands (see \"help\" for details)")
 while True:
     try:
         cmd_txt = input('> ')
-    # DO NOT add "EOFError" here - it will break report_NI(1) and 
+    # DO NOT add "EOFError" here - it will break report_NI(1) and
     # anything that uses KeyboardInterrupt! Python has a broken exception
     # unwinding on Windows. If you do this, run report_NI(1), press Ctrl+C
     # the inner function will handle Ctrl+C just fine. But any subsequent
@@ -991,8 +991,8 @@ while True:
     except KeyboardInterrupt:
         print("exit")
         break
-    
-    log.debug(f"Running: {cmd_txt}")    
+
+    log.debug(f"Running: {cmd_txt}")
     ### Full commands
     match cmd_txt.lower():
         case '': # noop - just print another command prompt
@@ -1001,7 +1001,7 @@ while True:
             break
         case '?' | 'help':
             print("Spacely can execute the follwing commands:\n")
-            print("\t? or help - show this help message")            
+            print("\t? or help - show this help message")
             print("\texit - terminate the console; same as Ctrl+C")
             print("\tarduino - (re)initialize HAL")
             print("\tni - (re)initialize NI instruments")
@@ -1023,7 +1023,7 @@ while True:
 
         case 'initialize_Arduino()':
             print("Use 'arduino' to initialize the Arduino. :-)")
-            
+
         case 'arduino':
             port=initialize_Arduino()
         case 'ni':
@@ -1040,7 +1040,7 @@ while True:
             print("")
             log.debug("Terminal cleared on user request")
             continue
-        
+
         case _: ### "Starts with" commands
             match cmd_txt[0].lower():
                 case '?':
@@ -1049,14 +1049,14 @@ while True:
                         continue
                     #r = command_ng(log, port, cmd_txt[1:])
                     r = command(port, cmd_txt[1:]) # for now it uses the old command due to streaming support
-                
+
                 case '~':
                     #Routines should be called as "~r0"
                     ROUTINES[int(cmd_txt[2])]()
-                
+
                 case '#':
                     log.notice(cmd_txt[1:].strip())
-                    
+
                 case _:
                    try:
                         log.debug(f"Executing \"{cmd_txt}\" as code")
