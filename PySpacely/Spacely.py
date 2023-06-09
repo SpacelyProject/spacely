@@ -21,7 +21,8 @@ from si_prefix import si_format
 from statistics import mean, NormalDist
 import csv
 
-from src.hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
+sys.path.append(os.path.abspath("./src"))
+from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
