@@ -108,22 +108,23 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
     AWG.send_line("OUTP ON")
 
 
-        
-# config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
-# source follower, based on the external trigger. 
-def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
 
-    #Safety!
-    AWG.send_line("OUTP OFF")
+
+# config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
+# source follower, based on the external trigger.
+#
+# GZ 6/9/2023: I removed all flush_buffer() calls here; you shouldn't manipulate buffers externally
+#              unless there's some proven bug existing that it needs it
+def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
+    AWG.set_output(False)
 
     #Output a user-defined function...
-    AWG.send_line("FUNC USER")
-    AWG.send_line("FUNC:USER VOLATILE")
-    
+    AWG.send_line_awg("FUNC USER")
+    AWG.send_line_awg("FUNC:USER VOLATILE")
+
     #Set up the skipper arbitrary waveform
-    AWG.send_line("FREQ 1000000") #50 ns / div
-    AWG.send_line("VOLT:OFFS 2.5\n") #4.0 Vreset
-    AWG.flush_buffer()
+    AWG.send_line_awg("FREQ 1000000") #50 ns / div
+    AWG.send_line_awg("VOLT:OFFS 2.5") #4.0 Vreset
 
     #NOTE: With Vpp = 2.0V, +1.0 = +1.0V and -1.0 = -1.0V.
     p = round(pedestal_mag_mV / 1000,6)
@@ -136,31 +137,27 @@ def config_AWG_as_Skipper(pedestal_mag_mV,signal_mag_mV):
 
     print(wave)
 
-    AWG.send_line("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
+    AWG.send_line_awg("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
 
-    AWG.flush_buffer()
     #NOTE: There is a bug in the AWG, where sending data w/ DATA VOLATILE
     #will completely scramble the Vpp magnitude. So we need to write Vpp
     #just after sending data. EDIT: Still doesn't solve the problem. :(
-    AWG.send_line("VOLT 2.0\n") #2 Volt pp magnitude
-    AWG.flush_buffer()
+    AWG.send_line_awg("VOLT 2.0") #2 Volt pp magnitude
     #AWG.send_line("VOLT:HIGH 3.5") #2 Volt pp magnitude
-    AWG.flush_buffer()
     #AWG.send_line("VOLT:LOW 1.5") #2 Volt pp magnitude
-    AWG.flush_buffer()
-    
+
     #Bursts will be triggered by Trig In (w/ a positive slope)
     #Note: Trig In will be connected to PostSamp
-    AWG.send_line("BURS:MODE TRIG")
-    AWG.send_line("TRIG:SOUR EXT")
-    AWG.send_line("TRIG:SLOP POS")
+    AWG.send_line_awg("BURS:MODE TRIG")
+    AWG.send_line_awg("TRIG:SOUR EXT")
+    AWG.send_line_awg("TRIG:SLOP POS")
     #Each Trig In will result in 1 burst
-    AWG.send_line("BURS:NCYC 1")
-    
-    #Enable bursts
-    AWG.send_line("BURS:STAT ON")
+    AWG.send_line_awg("BURS:NCYC 1")
 
-    AWG.send_line("OUTP ON")
+    #Enable bursts
+    AWG.send_line_awg("BURS:STAT ON")
+
+    AWG.set_output(True)
 
 def format_voltage(value: float, precision: int = 5) -> str:
     if value is None:
