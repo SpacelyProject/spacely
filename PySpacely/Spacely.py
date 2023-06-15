@@ -76,7 +76,7 @@ def set_pulse_mag(val_mV: float) -> None:
     AWG.send_line("VOLT "+str(pulse))
 
 
-def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
+def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28):
 
 
     AWG.send_line("OUTPUT OFF")
@@ -89,16 +89,16 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=6.3):
     w = round(pulse_width_us*1e-6,10)
 
     AWG.send_line("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
-    AWG.send_line("PULSE:WIDTH "+str(w)) #Pw = 1.5 us (from start of Rst to after presamp)
+    AWG.send_line("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
     AWG.send_line("VOLT:OFFS "+str(offset))
     AWG.send_line("VOLT "+str(pulse))
 
-    #Bursts will be triggered by Trig In (w/ a negative slope)
-    #Note: Trig In will be connected to Reset
-    #      Sending a 1us pulse starting during reset will result in a negative edge just after reset.
+    #Bursts will be triggered by Trig In (w/ a positive slope)
+    #Note: Trig In will be connected to PreSamp
+   
     AWG.send_line("BURS:MODE TRIG")
     AWG.send_line("TRIG:SOUR EXT")
-    AWG.send_line("TRIG:SLOP NEG")
+    AWG.send_line("TRIG:SLOP POS")
     #Each Trig In will result in 1 burst
     AWG.send_line("BURS:NCYC 1")
 
@@ -120,7 +120,6 @@ def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
 
     #Output a user-defined function...
     AWG.send_line_awg("FUNC USER")
-    AWG.send_line_awg("FUNC:USER VOLATILE")
 
     #Set up the skipper arbitrary waveform
     AWG.send_line_awg("FREQ 1000000") #50 ns / div
@@ -156,6 +155,8 @@ def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
 
     #Enable bursts
     AWG.send_line_awg("BURS:STAT ON")
+
+    AWG.send_line_awg("FUNC:USER VOLATILE")
 
     AWG.set_output(True)
 
