@@ -58,7 +58,7 @@ def config_AWG_as_DC(val_mV: float) -> None:
     else:
         awgdc = str(round(val_mV/1000,4))
         #log.debug(f"AWG_as_DC set to {awgdc}")
-        AWG.send_line("FUNC DC")
+        AWG.send_line_awg("FUNC DC")
         AWG.set_offset(val_mV)
         AWG.set_output(True)
 
@@ -74,41 +74,36 @@ def set_Vin_mV(val_mV: float) -> None:
 
 def set_pulse_mag(val_mV: float) -> None:
     pulse = round(val_mV / 1000,6)
-    AWG.send_line("VOLT "+str(pulse))
+    AWG.send_line_awg("VOLT "+str(pulse))
 
 
 def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28):
-
-
-    AWG.send_line("OUTPUT OFF")
-
-    AWG.send_line("FUNC PULS")
+    AWG.set_output(False)
+    AWG.send_line_awg("FUNC PULS")
 
     #Pulse will be from (2.5 - pulse) to 2.5
     pulse = round(pulse_mag_mV / 1000,6)
     offset = round(2.5 - pulse_mag_mV/2000,6)
     w = round(pulse_width_us*1e-6,10)
 
-    AWG.send_line("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
-    AWG.send_line("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
-    AWG.send_line("VOLT:OFFS "+str(offset))
-    AWG.send_line("VOLT "+str(pulse))
+    AWG.send_line_awg("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
+    AWG.send_line_awg("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
+    AWG.send_line_awg("VOLT:OFFS "+str(offset))
+    AWG.send_line_awg("VOLT "+str(pulse))
 
     #Bursts will be triggered by Trig In (w/ a positive slope)
     #Note: Trig In will be connected to PreSamp
    
-    AWG.send_line("BURS:MODE TRIG")
-    AWG.send_line("TRIG:SOUR EXT")
-    AWG.send_line("TRIG:SLOP POS")
+    AWG.send_line_awg("BURS:MODE TRIG")
+    AWG.send_line_awg("TRIG:SOUR EXT")
+    AWG.send_line_awg("TRIG:SLOP POS")
     #Each Trig In will result in 1 burst
-    AWG.send_line("BURS:NCYC 1")
+    AWG.send_line_awg("BURS:NCYC 1")
 
     #Enable bursts
-    AWG.send_line("BURS:STAT ON")
+    AWG.send_line_awg("BURS:STAT ON")
 
-    AWG.send_line("OUTP ON")
-
-
+    AWG.set_output(True)
 
 
 # config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
@@ -862,7 +857,7 @@ def initialize_AWG(interactive: bool = True) -> AgilentAWG:
     AWG_CONNECTED = True
 
 
-    AWG.send_line("OUTP:LOAD INF") #AWG will be driving a MOSFET gate; set to high impedance mode.
+    AWG.send_line_awg("OUTP:LOAD INF") #AWG will be driving a MOSFET gate; set to high impedance mode.
     AWG.set_local_controls(True)
     AWG.display_text("Managed by Spacely")
 
