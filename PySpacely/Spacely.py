@@ -23,6 +23,7 @@ import csv
 
 sys.path.append(os.path.abspath("./src"))
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
+from pattern_runner import GenericPatternRunner
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
