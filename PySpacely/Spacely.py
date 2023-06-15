@@ -412,6 +412,33 @@ def Vin_sweep(Vtest_min_mV: int = 0, Vtest_max_mV: int = 10, increment_uV: int =
         print("]")
 
 
+def Vin_sweep_full_chain(Vtest_min_mV: int = 10, Vtest_max_mV: int = 100, increment_uV: int = 10000):
+    global port
+
+    if Vtest_min_mV <= 2:
+        log.error("In full-channel mode, step voltage must be > 2 mV")
+        return
+        
+    filename = reserve_dated_file(f"Vin sweep FULL {Vtest_min_mV}mV to {Vtest_max_mV}mV by {increment_uV}", directory="output/sweep")
+    print("Writing full-chain Vtest Sweep to "+filename)
+    
+    Vtest_sweep = [round(x*0.1,1) for x in range(10*Vtest_min_mV,10*Vtest_max_mV,int(increment_uV/100))]
+    config_AWG_as_Pulse(Vtest_sweep[0])
+
+    with open(filename, 'wb') as write_file: #Overwrites the file if it exists.
+        write_file.write(b'Vtest,Avg Response[codes],Std Dev[codes]\n')
+        
+        for v in range(len(Vtest_sweep)):
+            set_pulse_mag(Vtest_sweep[v])
+            r = command_ng(log, port, "samp100x")
+            r = r.replace("samp100x","").replace("?","").strip()
+
+            x = liststring_avg_stdev(r)
+
+            write_file.write((str(Vtest_sweep[v])+","+str(x[0])+","+str(x[1])+"\n").encode())
+
+
+
 def Vin_histogram(Vtest_mV: int, points: int) -> dict[int, int]:
     """
     Sets Vin and takes a specified number of points, returning a histogram of the resulting output codes.
@@ -663,6 +690,7 @@ def ROUTINE1_CapTrim_Debug():
         print(captrim_code, captrim_string, int(r,2))
 
 def ROUTINE2_Full_Channel_Scan():
+    """r2: Do a Vin sweep, across the full channel (including preamplifier)."""
     Vin_sweep_full_chain(Vtest_min_mV=100,Vtest_max_mV=1000,increment_uV=10000)
 
 
