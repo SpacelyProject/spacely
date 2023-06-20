@@ -43,7 +43,7 @@ INSTR = {SMU_A:None,
 #   SMU-A => slot 13 as in cfg above; provides vdda, vref, vdd12, ib2; J6 on flange
 #   SMU-B => slot 14 as in cfg above; provides iterm_ts, ife, icharge, icomp; J7 on flange
 
-V_SEQUENCE = [ "VCC_LT", "Vref", "Vdd12", "VDD_ASIC",  "Ib2", "vdda", "VDD_LVDS"]
+V_SEQUENCE = [ "VCC_LT", "Vref", "Vdd12", "VDD_ASIC",  "Ib2", "Iterm", "vdda", "VDD_LVDS"]
 
 
 V_INSTR = {"vdda" : SMU_A,
@@ -113,7 +113,7 @@ V_PORT = {"vdda": None,
 
 
 #Current Channels
-I_SEQUENCE = ["Icomp", "Ife", "Icharge", "Iterm"]
+I_SEQUENCE = ["Icomp", "Ife", "Icharge"]
 I_INSTR = {
           
           "Ife":     SMU_B,

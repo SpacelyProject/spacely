@@ -23,7 +23,7 @@ import csv
 
 sys.path.append(os.path.abspath("./src"))
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
-from pattern_runner import GenericPatternRunner
+from pattern_runner import PatternRunner
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
@@ -695,7 +695,18 @@ def ROUTINE2_Full_Channel_Scan():
     Vin_sweep_full_chain(Vtest_min_mV=100,Vtest_max_mV=1000,increment_uV=10000)
 
 
-ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan]
+def ROUTINE3_FPGA_Debug():
+    """r3: Basic interaction with the FPGA"""
+    fpga = NiFpga(log, "PXI1Slot5")
+    fpga.start("C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueBitfile_6_20_a.lvbitx")
+
+    testpat = PatternRunner(log,fpga, "C:\\Users\\Public\\Documents\\Glue_Waveforms\\test_iospec.txt")
+    
+    testpat.update_pattern([1,3,7]*200)
+    testpat.run_pattern_once()
+    testpat.read_output_file("C:\\Users\\Public\\Documents\\Glue_Waveforms\\test_out.glue")
+
+ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Debug]
 
 # Lists serial ports available in the system
 def list_serial_ports():
