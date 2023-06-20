@@ -3,11 +3,11 @@
 // This software allows testing the SPROCKET1 test pixel,
 // including performing the role of the SAR logic.
 
-String DOCSTRING = "This Arduino is running SPROCKET_HAL_Test v0.10SLOW, updated 5/19/2023. Macros: ";
+String DOCSTRING = "This Arduino is running SPROCKET_HAL_Test v0.11TEST, updated 6/5/2023. Macros: ";
 
 //makeinclude GPIO_user.cpp DO NOT MODIFY THIS LINE
-#include "includes/GPIO_user.h"
-#include "includes/generic_hal.h"
+#include "GPIO_user.h"
+#include "generic_hal.h"
 
 #define GPIO_NUMBER (16U)
 
@@ -48,7 +48,7 @@ String u;
 #elif defined(PORTENTA)
 //** Note: Portenta GPIO interface methods are adapted from the Portenta GPIO HAL:
 //https://github.com/arduino/portentax8-stm32h7-fw/blob/b2d8715d5a4619f4dc6ab258e1f1017789342ce4/libraries/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c
-
+/* OLD Pinout before we got the new breakout board!
 #define assert_qequal() GPIOC->BSRR = GPIO_PIN_7
 #define deassert_qequal() GPIOC->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER
 #define assert_dacclr() GPIOC->BSRR = GPIO_PIN_6;
@@ -59,6 +59,18 @@ String u;
 #define assert_caplo() GPIOG->BSRR = GPIO_PIN_7
 #define deassert_caplo() GPIOG->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER
 #define get_comp() ((GPIOK->IDR & GPIO_PIN_1) != 0x00U)
+*/
+
+#define assert_qequal() GPIOH->BSRR = GPIO_PIN_15
+#define deassert_qequal() GPIOH->BSRR = (uint32_t)GPIO_PIN_15 << GPIO_NUMBER
+#define assert_dacclr() GPIOJ->BSRR = GPIO_PIN_11;
+#define deassert_dacclr() GPIOJ->BSRR = (uint32_t)GPIO_PIN_11 << GPIO_NUMBER
+//Recall that capHi is actually capHib, an active LOW signal.
+#define assert_caphi() GPIOH->BSRR = (uint32_t)GPIO_PIN_12 << GPIO_NUMBER
+#define deassert_caphi() GPIOH->BSRR = GPIO_PIN_12
+#define assert_caplo() GPIOI->BSRR = GPIO_PIN_6
+#define deassert_caplo() GPIOI->BSRR = (uint32_t)GPIO_PIN_6 << GPIO_NUMBER
+#define get_comp() ((GPIOI->IDR & GPIO_PIN_2) != 0x00U)
 
 #elif defined(UNO)
 
@@ -69,7 +81,7 @@ String u;
 // *** FE CONTROL MACROS ***
 
 #if defined(PORTENTA)
-
+/* OLD Pinout before we got the new Portenta Breakout
 #define assert_presamp() GPIOC->BSRR = GPIO_PIN_2
 #define deassert_presamp() GPIOC->BSRR = (uint32_t)GPIO_PIN_2 << GPIO_NUMBER
 #define assert_postsamp() GPIOH->BSRR = GPIO_PIN_15
@@ -79,6 +91,18 @@ String u;
 
 //PH15 should not be connected to anything.
 #define NOP GPIOG->BSRR = GPIO_PIN_10;
+*/
+
+#define assert_presamp() GPIOK->BSRR = GPIO_PIN_1
+#define deassert_presamp() GPIOK->BSRR = (uint32_t)GPIO_PIN_1 << GPIO_NUMBER
+#define assert_postsamp() GPIOC->BSRR = GPIO_PIN_6
+#define deassert_postsamp() GPIOC->BSRR = (uint32_t)GPIO_PIN_6 << GPIO_NUMBER 
+//Remember that rst is ACTIVE LOW so, we assert it by pulling it low.
+#define assert_rst() GPIOJ->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER
+#define deassert_rst() GPIOJ->BSRR = GPIO_PIN_7
+
+//PH15 should not be connected to anything.
+#define NOP GPIOH->BSRR = GPIO_PIN_6;
 
 #elif defined(UNO)
 //The corresponding pins do not exist on the UNO
@@ -95,7 +119,7 @@ String u;
 // *** Unconditional macros ***
 
 
-
+/* OLD Pinout before new Portenta Breakout
 #define write_captrim_0(val) digitalWrite(D6, val); 
 #define write_captrim_1(val) digitalWrite(D7, val); 
 #define write_captrim_2(val) digitalWrite(D8, val);
@@ -104,8 +128,16 @@ String u;
 #define write_captrim_5(val) digitalWrite(D12, val);
 #define write_range2(val) digitalWrite(D13, val);
 #define write_testen(val) digitalWrite(D14, val);
-
-
+*/
+#define write_captrim_0(val)  (val) ? GPIOH->BSRR = GPIO_PIN_11 : GPIOH->BSRR = (uint32_t)GPIO_PIN_11 << GPIO_NUMBER;
+#define write_captrim_1(val) (val) ? GPIOC->BSRR = GPIO_PIN_7 : GPIOC->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER;
+#define write_captrim_2(val) (val) ? GPIOI->BSRR = GPIO_PIN_4 : GPIOI->BSRR = (uint32_t)GPIO_PIN_4 << GPIO_NUMBER;
+#define write_captrim_3(val) (val) ? GPIOA->BSRR = GPIO_PIN_8 : GPIOA->BSRR = (uint32_t)GPIO_PIN_8 << GPIO_NUMBER;
+#define write_captrim_4(val) (val) ? GPIOH->BSRR = GPIO_PIN_10 : GPIOH->BSRR = (uint32_t)GPIO_PIN_10 << GPIO_NUMBER;
+#define write_captrim_5(val) (val) ? GPIOH->BSRR = GPIO_PIN_14 : GPIOH->BSRR = (uint32_t)GPIO_PIN_14 << GPIO_NUMBER;
+#define write_range2(val) (val) ? GPIOI->BSRR = GPIO_PIN_7 : GPIOI->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER;
+#define write_testen(val) (val) ? GPIOH->BSRR = GPIO_PIN_9 : GPIOH->BSRR = (uint32_t)GPIO_PIN_9 << GPIO_NUMBER;
+#define write_rangelock(val) (val) ? GPIOG->BSRR = GPIO_PIN_7 : GPIOG->BSRR = (uint32_t)GPIO_PIN_7 << GPIO_NUMBER;
 //All CDAC pulses should have a width of 90ns.
 #define pulse_dacclr() \
   assert_dacclr(); NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP;NOP; \
@@ -136,22 +168,46 @@ void setup() {
   set_config("");
 
 #if defined(PORTENTA)
-  //Configure pings as outputs.
-  GPIO_Config(0b111100, 0b0);
-  int output_pins[] = {D0,D1, D2, D3, D4, D5, D6, D7 , D8, D9, D11, D12, D13, D14, D19, D20, D21};
-  for (int i = 0; i < 17; i++) {
-    pinMode(output_pins[i], OUTPUT);
-  }
-  pinMode(D1, INPUT);
+  //CompOut
+  pinMode(PI_2,INPUT);
+
+  //ADC Control Signals
+  pinMode(PH_15,OUTPUT);
+  pinMode(PJ_11,OUTPUT);
+  pinMode(PH_12,OUTPUT);
+  pinMode(PI_6,OUTPUT);
+
+  //Phase control signals
+  pinMode(PK_1,OUTPUT);
+  pinMode(PC_6,OUTPUT);
+  pinMode(PJ_7,OUTPUT);
+
+  //CapTrim, range2, testen
+  pinMode(PH_11,OUTPUT);
+  pinMode(PC_7,OUTPUT);
+  pinMode(PI_4,OUTPUT);
+  pinMode(PA_8,OUTPUT);
+  pinMode(PH_10,OUTPUT);
+  pinMode(PH_14,OUTPUT);
+  pinMode(PI_7,OUTPUT);
+  pinMode(PH_9,OUTPUT);
+
+  //RangeLock
+  pinMode(PG_7, OUTPUT);
 #endif
 
   CompInp = 0.5;
+
+  //Always write Rangelock=0
+  write_rangelock(0);
 }
 
 void loop() {
 
+  //Always write Rangelock=0
+  write_rangelock(0);
 
-  //Accept and hand
+  //Accept and handle user input
   get_user_string(u);
   
   if (user_echo) {
@@ -190,6 +246,14 @@ if (u.substring(0, 6) == "echo:o") {
   } else if (u == "adcsmoke") {
     adc_smoke_test();
   } 
+  else if (u == "getcomp") {
+      if (get_comp()) {
+        Serial.println("1");
+      }
+      else {
+        Serial.println("0");
+      }
+    }
   else if (u == "deassert") {
       deassert_cdac_fe_signals();
     }
@@ -409,7 +473,6 @@ void adc_smoke_test() {
         pulse_qequal();
         Serial.println("Expected voltage: 0.75 Vref");
       }
-
       if (i == 3) {
         pulse_caplo();
         pulse_qequal();
@@ -483,9 +546,11 @@ void do_sample(char* data) {
   NOP;NOP;NOP; NOP;NOP;NOP; NOP;NOP;NOP; //1470ns
   deassert_postsamp();//1500 ns --> PW(Presampv --> Postsampv) = 300ns
 
+  //  assert_rst(); //AQ added 6/5/2023 to see if it would make FE sweeps work. 
   //This should already have interrupts disabled but just in case...
   do_conversion(data);
   interrupts();
+  
 }
 
 void do_sample_100x() {
@@ -520,12 +585,14 @@ void run_front_end() {
       assert_postsamp();   //930ns
       assert_presamp();  //960ns
       NOP;NOP;NOP;NOP;NOP;NOP;NOP;//1200 ns
-      deassert_postsamp(); //1200 ns --> PW(Postsamp^ --> Presampv) = 240ns
+      deassert_presamp(); //1200 ns --> PW(Postsamp^ --> Presampv) = 240ns
       NOP;NOP;NOP; NOP;NOP;NOP; NOP;NOP;NOP; //1470ns
-      deassert_presamp();//1500 ns --> PW(Presampv --> Postsampv) = 300ns
+      deassert_postsamp();//1500 ns --> PW(Presampv --> Postsampv) = 300ns
       interrupts();
       
-      delayMicroseconds(10);
+      delayMicroseconds(5);
+      assert_rst();
+      delayMicroseconds(5);
       //assert_rst();
       //deassert_rst();
     }
