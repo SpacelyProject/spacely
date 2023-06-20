@@ -29,7 +29,7 @@ from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
 
 #Global Configuration data.
-from SPROCKET1_Config import *
+from Master_Config import *
 
 
 
@@ -51,7 +51,7 @@ log = None
 
 def config_AWG_as_DC(val_mV: float) -> None:
     global port
-    if EMULATE_ASIC:
+    if USE_ARDUINO and EMULATE_ASIC:
         emucomp = str(val_mV*0.001)
         log.debug(f"EMULATE_ASCI compinp={emucomp}")
         command_ng(log, port,"compinp:"+str(val_mV*0.001))
@@ -953,14 +953,14 @@ print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+")
 print("+       Welcome to Spacely!       +")
 print("+ Let's do some science together. +")
 print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+\n")
-if EMULATE_ASIC:
+if USE_ARDUINO and EMULATE_ASIC:
     print("**ASIC will be EMULATED by ARDUINO**")
 
 
 assume_defaults = cmd_args.defaults
 #Default Setup
 init_hal = cmd_args.hal
-if init_hal is None: # only ask if cmd arg wasn't specified
+if init_hal is None and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
     cmd_txt = input("DEFAULT: Connect to Arduino. 'n' to Skip>>>")
     init_hal = False if cmd_txt == 'n' else True # init by default
 if init_hal:
@@ -969,11 +969,11 @@ else:
     log.debug('HAL init skipped')
 
 init_ni = cmd_args.ni
-if init_ni is None:
+if init_ni is None and USE_NI == True:
     cmd_txt = input("DEFAULT: Set up NI sources. 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
 if init_ni:
-    if EMULATE_ASIC:
+    if USE_ARDUINO and EMULATE_ASIC:
         log.error('ASIC emulation enabled - NI sources should NOT be initialized!')
     else:
         initialize_NI()
@@ -981,7 +981,7 @@ else:
     log.debug('NI init skipped')
 
 init_awg = cmd_args.awg
-if init_awg is None:
+if init_awg is None and USE_AWG == True:
     cmd_txt = input("DEFAULT: Set up AWG. 'n' to Skip>>>")
     init_awg = False if cmd_txt == 'n' else True
 if init_awg:
