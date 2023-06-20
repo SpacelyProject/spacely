@@ -85,9 +85,10 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28):
     pulse = round(pulse_mag_mV / 1000,6)
     offset = round(2.5 - pulse_mag_mV/2000,6)
     w = round(pulse_width_us*1e-6,10)
-
-    AWG.send_line_awg("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
+    
     AWG.send_line_awg("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
+    AWG.send_line_awg("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
+    
     AWG.send_line_awg("VOLT:OFFS "+str(offset))
     AWG.send_line_awg("VOLT "+str(pulse))
 
@@ -423,7 +424,7 @@ def Vin_sweep_full_chain(Vtest_min_mV: int = 10, Vtest_max_mV: int = 100, increm
     print("Writing full-chain Vtest Sweep to "+filename)
     
     Vtest_sweep = [round(x*0.1,1) for x in range(10*Vtest_min_mV,10*Vtest_max_mV,int(increment_uV/100))]
-    config_AWG_as_Pulse(Vtest_sweep[0])
+    config_AWG_as_Pulse(Vtest_sweep[0], 1.27)
 
     with open(filename, 'wb') as write_file: #Overwrites the file if it exists.
         write_file.write(b'Vtest,Avg Response[codes],Std Dev[codes]\n')

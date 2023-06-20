@@ -93,6 +93,8 @@ String u;
 #define NOP GPIOG->BSRR = GPIO_PIN_10;
 */
 
+#define assert_pulsetrig() GPIOI->BSRR = GPIO_PIN_3
+#define deassert_pulsetrig() GPIOI->BSRR = (uint32_t)GPIO_PIN_3 << GPIO_NUMBER
 #define assert_presamp() GPIOK->BSRR = GPIO_PIN_1
 #define deassert_presamp() GPIOK->BSRR = (uint32_t)GPIO_PIN_1 << GPIO_NUMBER
 #define assert_postsamp() GPIOC->BSRR = GPIO_PIN_6
@@ -170,6 +172,9 @@ void setup() {
 #if defined(PORTENTA)
   //CompOut
   pinMode(PI_2,INPUT);
+
+  //Pulse Trig
+  pinMode(PI_3,OUTPUT);
 
   //ADC Control Signals
   pinMode(PH_15,OUTPUT);
@@ -537,6 +542,7 @@ void cdac_cmd(char* data_array) {
 void do_sample(char* data) {
   noInterrupts();
   assert_rst();       //0ns
+  assert_pulsetrig();
   for(uint8_t i = 0; i < 29; i++) NOP; //870ns
   deassert_rst();     //900ns --> Reset PW = 900 ns
   assert_presamp();   //930ns
@@ -546,7 +552,8 @@ void do_sample(char* data) {
   NOP;NOP;NOP; NOP;NOP;NOP; NOP;NOP;NOP; //1470ns
   deassert_postsamp();//1500 ns --> PW(Presampv --> Postsampv) = 300ns
 
-  //  assert_rst(); //AQ added 6/5/2023 to see if it would make FE sweeps work. 
+  deassert_pulsetrig();
+  assert_rst(); //AQ added 6/20/2023 to see if it would make FE sweeps work. 
   //This should already have interrupts disabled but just in case...
   do_conversion(data);
   interrupts();
@@ -580,6 +587,7 @@ void run_front_end() {
       //deassert_postsamp();
       noInterrupts();
       assert_rst();       //0ns
+      assert_pulsetrig();
       for(uint8_t i = 0; i < 29; i++) NOP; //870ns
       deassert_rst();     //900ns --> Reset PW = 900 ns
       assert_postsamp();   //930ns
@@ -590,6 +598,8 @@ void run_front_end() {
       deassert_postsamp();//1500 ns --> PW(Presampv --> Postsampv) = 300ns
       interrupts();
       
+      deassert_pulsetrig();
+
       delayMicroseconds(5);
       assert_rst();
       delayMicroseconds(5);
