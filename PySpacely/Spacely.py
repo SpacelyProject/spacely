@@ -157,6 +157,17 @@ def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
 
     AWG.set_output(True)
 
+
+def abbreviate_list(big_list):
+    #It's well known that any number smaller than 210 is not that big.
+    if len(big_list) < 106:
+        return str(big_list)
+    else:
+        s1 = ",".join([str(x) for x in big_list[:50]])
+        s2 = ",".join([str(x) for x in big_list[-50:]])
+        return "["+s1+".........."+s2+"] (total # elems = "+str(len(big_list))+")"
+
+
 def format_voltage(value: float, precision: int = 5) -> str:
     if value is None:
         return "N/A"
@@ -695,18 +706,59 @@ def ROUTINE2_Full_Channel_Scan():
     Vin_sweep_full_chain(Vtest_min_mV=100,Vtest_max_mV=1000,increment_uV=10000)
 
 
-def ROUTINE3_FPGA_Debug():
-    """r3: Basic interaction with the FPGA"""
+def ROUTINE3_FPGA_Buffer_Lint():
+    """r3: Send patterns to GlueFPGA and confirm they are read back."""
+
+
+    print("""REQUIREMENTS:
+        > ASIC should NOT be connected.
+        """)
+    input("Press Enter to continue...")
+    
     fpga = NiFpga(log, "PXI1Slot5")
-    fpga.start("C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueBitfile_6_20_a.lvbitx")
+
+    #Must be a GlueDirect bitfile.
+    fpga.start("C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_21_a.lvbitx")
+    #time.sleep(1)
+
+    dbg = NiFpgaDebugger(log, fpga)
+
+    #Default values for several registers.
+    fpga_default_config = { "Write_to_Mem" : False,
+                        "Read_from_Mem": False,
+                        "Run_Pattern"  : False,
+                        "Buffer_In_Size": 1024,
+                        "Buffer_Pass_Size":1024,
+                        "FPGA_Loop_Dis": False,
+                        "SE_Data_Dir":65535,
+                        "Set_Voltage_Family":True,
+                        "Voltage_Family":1}
+
+    #Set all registers to their default values.
+    for cfg in fpga_default_config.keys():
+        dbg.interact("w", cfg, fpga_default_config[cfg])
 
     testpat = PatternRunner(log,fpga, "C:\\Users\\Public\\Documents\\Glue_Waveforms\\test_iospec.txt")
-    
-    testpat.update_pattern([1,3,7]*200)
-    testpat.run_pattern_once()
-    testpat.read_output_file("C:\\Users\\Public\\Documents\\Glue_Waveforms\\test_out.glue")
 
-ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Debug]
+    #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
+    time.sleep(3)
+
+    print("~ Test Pattern 1 ~")
+    tp1_in = [i for i in range(31)]
+    tp1_out = testpat.run_pattern(tp1_in)
+    print("IN:",tp1_in)
+    print("OUT:",tp1_out)
+
+##    print("~ Test Pattern 2 ~")
+##    tp2_in = [i for i in range(50000)] * 2
+##    tp2_out = testpat.run_pattern(tp2_in)
+##    print("IN:",abbreviate_list(tp2_in))
+##    print("OUT:",abbreviate_list(tp2_out))
+    
+    
+    
+
+ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint]
 
 # Lists serial ports available in the system
 def list_serial_ports():

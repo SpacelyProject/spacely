@@ -2,6 +2,13 @@ from fnal_ni_toolbox import *
 import fnal_log_wizard as liblog
 from abc import ABC
 import os
+import time
+
+################## GlueFPGA Implementation Constants ################
+# When you read back waveforms from the FPGA, you will read back this many zeros first.
+FPGA_READBACK_OFFSET = 3
+
+#####################################################################
 
 
 #PatternRunner usage model:
@@ -35,8 +42,9 @@ class PatternRunner(ABC):
         #Lines in the iospec file have the format:
         #{signal name},{I/O},{port number}
         for line in iospec_lines:
-            a = line.split(",")
-            self._iospec[a[0]] = [a[1],int(a[2])]
+            if len(line) > 1 and not line.startswith("//"):
+                a = line.split(",")
+                self._iospec[a[0]] = [a[1],int(a[2])]
 
 
         self._update_io_dir()
@@ -53,11 +61,43 @@ class PatternRunner(ABC):
                 io_dir = io_dir + (1 << io[1])
 
         print("<DBG> Programming I/O Direction as:",io_dir)
+        self._interface.interact("w","SE_Data_Dir",io_dir)
 
+
+    def run_pattern(self,pattern,outfile=None):
+
+        #Support patterns from file, or from a list.
+        if type(pattern) == str:
+            with open(pattern, "r") as read_file:
+                pattern_file_text = read_file.read()
+
+            pattern = [int(x) for x in pattern_file_text.split(",")]
+
+        #Load the pattern into FIFO memory.
+        self._interface.interact("w","io_fifo_from_pc",pattern)
+
+
+        #Run Pattern!
+        self._interface.interact("w","Run_Pattern",True)
+
+        self._interface.interact("w","Run_Pattern",False)
+
+
+        #y is a tuple, where y[0] is the returned glue waveform.
+    
+        y = self._interface.interact("r","io_fifo_to_pc",len(pattern)+FPGA_READBACK_OFFSET)
+   
+        if outfile is None:
+            return y[0][FPGA_READBACK_OFFSET:len(pattern)+FPGA_READBACK_OFFSET]
+        else:
+            with open(outfile,"w") as write_file:
+                write_file.write([str(x) for x in y[0]].join(", "))
+
+    ### MEM Functions work on a version of Glue that uses on-fpga memory. ###
     
     # update_pattern - Given a Glue pattern as an integer list OR a filename,
     #                   place that pattern in FPGA memory.
-    def update_pattern(self, pattern) -> None:
+    def MEM_update_pattern(self, pattern) -> None:
 
         if type(pattern) == str:
             with open(pattern, "r") as read_file:
@@ -71,18 +111,12 @@ class PatternRunner(ABC):
 
 
         
-    def run_pattern_once(self) -> None:
+    def MEM_run_pattern_once(self) -> None:
         self._interface.interact("w","Run_Pattern",True)
         self._interface.interact("w","Run_Pattern",False)
 
 
-    def start_pattern(self) -> None:
-        pass
-
-    def stop_pattern(self) -> None:
-        pass
-
-    def read_output(self) -> list[int]:
+    def MEM_read_output(self) -> list[int]:
         self._interface.interact("w","Read_from_Mem",True)
         self._interface.interact("w","Read_from_Mem",False)
         y = self._interface.interact("r","io_fifo_to_pc",1024)
@@ -90,8 +124,8 @@ class PatternRunner(ABC):
         return y[0]
         pass
 
-    def read_output_file(self, outfile) -> None:
-        out = self.read_output()
+    def MEM_read_output_file(self, outfile) -> None:
+        out = self.MEM_read_output()
 
         with open(outfile,"w") as write_file:
             write_file.write([str(x) for x in out].join(", "))
