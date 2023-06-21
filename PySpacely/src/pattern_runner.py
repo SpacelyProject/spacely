@@ -7,6 +7,7 @@ import time
 ################## GlueFPGA Implementation Constants ################
 # When you read back waveforms from the FPGA, you will read back this many zeros first.
 FPGA_READBACK_OFFSET = 3
+FPGA_CLOCK_HZ = 40e6
 
 #####################################################################
 
@@ -72,6 +73,20 @@ class PatternRunner(ABC):
                 pattern_file_text = read_file.read()
 
             pattern = [int(x) for x in pattern_file_text.split(",")]
+
+        #Ensure that there is enough memory on the host side for the pattern we want to run.
+        if self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size < len(pattern)+FPGA_READBACK_OFFSET:
+            self._fpga.get_fifo("io_fifo_from_pc").ref.configure(len(pattern)+FPGA_READBACK_OFFSET)
+
+        if self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size < len(pattern)+FPGA_READBACK_OFFSET:
+            self._fpga.get_fifo("io_fifo_to_pc").ref.configure(len(pattern)+FPGA_READBACK_OFFSET)
+
+
+        print(self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size)
+        print(self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size)
+
+        #Update Pattern Size in the FPGA
+        self._interface.interact("w","Buffer_Pass_Size",len(pattern)+FPGA_READBACK_OFFSET)
 
         #Load the pattern into FIFO memory.
         self._interface.interact("w","io_fifo_from_pc",pattern)

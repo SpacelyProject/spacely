@@ -749,11 +749,11 @@ def ROUTINE3_FPGA_Buffer_Lint():
     print("IN:",tp1_in)
     print("OUT:",tp1_out)
 
-##    print("~ Test Pattern 2 ~")
-##    tp2_in = [i for i in range(50000)] * 2
-##    tp2_out = testpat.run_pattern(tp2_in)
-##    print("IN:",abbreviate_list(tp2_in))
-##    print("OUT:",abbreviate_list(tp2_out))
+    print("~ Test Pattern 2 ~")
+    tp2_in = [i for i in range(5000)] 
+    tp2_out = testpat.run_pattern(tp2_in)
+    print("IN:",abbreviate_list(tp2_in))
+    print("OUT:",abbreviate_list(tp2_out))
     
     
     
