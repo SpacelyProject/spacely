@@ -3,6 +3,7 @@ import fnal_log_wizard as liblog
 from abc import ABC
 import os
 import time
+from threading import Thread
 
 ################## GlueFPGA Implementation Constants ################
 # When you read back waveforms from the FPGA, you will read back this many zeros first.
@@ -35,6 +36,7 @@ class PatternRunner(ABC):
         self._fpga = fpga
         self._interface = NiFpgaDebugger(logger, fpga)
         self._iospec = {}
+        self._return_data = []
 
         #Read iospec file and parse it into a dictionary.
         with open(iospecfile,"r") as read_file:
@@ -81,32 +83,49 @@ class PatternRunner(ABC):
         if self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size < len(pattern)+FPGA_READBACK_OFFSET:
             self._fpga.get_fifo("io_fifo_to_pc").ref.configure(len(pattern)+FPGA_READBACK_OFFSET)
 
-
-        print(self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size)
-        print(self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size)
-
+        #self._fpga.get_fifo("io_fifo_from_pc").ref.configure(10000)
+        #self._fpga.get_fifo("io_fifo_to_pc").ref.configure(30000)
+            
         #Update Pattern Size in the FPGA
         self._interface.interact("w","Buffer_Pass_Size",len(pattern)+FPGA_READBACK_OFFSET)
+
+        # (Allow host memory settings to sink in.)
+        time.sleep(1)
+
+        #Check Actual allocated buffer size
+        print(self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size)
+        print(self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size)
 
         #Load the pattern into FIFO memory.
         self._interface.interact("w","io_fifo_from_pc",pattern)
 
+        # Create a thread to read back the io fifo in parallel.
+        reader = Thread(target=self.thread_read, args=(len(pattern)+FPGA_READBACK_OFFSET,))
 
-        #Run Pattern!
+        ## Critical Timing: Must be < timeout ##
+        reader.start()
         self._interface.interact("w","Run_Pattern",True)
+        ## End Critical Timing ##
+
+        reader.join()
 
         self._interface.interact("w","Run_Pattern",False)
+        
+        data = self._return_data
+        
+        if outfile is not None:
+            with open(outfile,"w") as write_file:
+                write_file.write(", ".join([str(x) for x in data]))
+
+        return data[FPGA_READBACK_OFFSET:len(pattern)+FPGA_READBACK_OFFSET]
 
 
+    def thread_read(self, read_len):
         #y is a tuple, where y[0] is the returned glue waveform.
     
-        y = self._interface.interact("r","io_fifo_to_pc",len(pattern)+FPGA_READBACK_OFFSET)
-   
-        if outfile is None:
-            return y[0][FPGA_READBACK_OFFSET:len(pattern)+FPGA_READBACK_OFFSET]
-        else:
-            with open(outfile,"w") as write_file:
-                write_file.write([str(x) for x in y[0]].join(", "))
+        y = self._interface.interact("r","io_fifo_to_pc",read_len)
+
+        self._return_data = y[0]
 
     ### MEM Functions work on a version of Glue that uses on-fpga memory. ###
     
@@ -144,6 +163,67 @@ class PatternRunner(ABC):
 
         with open(outfile,"w") as write_file:
             write_file.write([str(x) for x in out].join(", "))
+
+
+
+# ASSUMPTION: The intended pattern is a uniformly increasing set of integers.
+# rp = Returned pattern
+def diagnose_fifo_timeout(rp):
+
+    pattern_started = False
+    in_timeout = False
+    timeout_count = 0
+    last_timeout = 0
+    this_timeout = 0
+
+    for i in range(len(rp)):
+        if i > 2 and rp[i] == 3 and rp[i-1] == 2 and rp[i-2] == 1 and rp[i-3] == 0:
+           pattern_started = True
+
+        if pattern_started:
+
+            if in_timeout:
+                #Timeout ends
+                if rp[i] == this_timeout + 1:
+                    print("(WARN) Timeout at value",this_timeout,"lasting",timeout_count,"cycles. (",(this_timeout-last_timeout),"counts since last timeout. )")
+                    in_timeout = False
+                    timeout_count = 0
+                    last_timeout = this_timeout
+
+                #It was a skip timeout.
+                elif rp[i] == rp[i-1] + 1:
+                    print("(WARN) Skip from",this_timeout,"to",rp[i-1])
+                    in_timeout = False
+                    timeout_count = 0
+                    last_timeout = this_timeout
+                #Timeout continues.
+                else:
+                    timeout_count = timeout_count + 1
+
+
+            else:
+                #Timeout begins
+                if rp[i] != rp[i-1] + 1:
+                    in_timeout = True
+                    timeout_count = 1
+                    this_timeout = rp[i-1]
+
+                #Normal count continues.
+                else:
+                    continue
+
+    if not pattern_started:
+        print("(ERR) No incrementing pattern detected in this Glue wave :(")
+
+    if this_timeout == 0:
+        print("(INFO) No timeouts detected :D")
+                
+                
+
+
+
+
+
 
 
 class GenericPatternRunner(PatternRunner):

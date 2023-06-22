@@ -23,7 +23,7 @@ import csv
 
 sys.path.append(os.path.abspath("./src"))
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
-from pattern_runner import PatternRunner
+from pattern_runner import *
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
@@ -718,7 +718,7 @@ def ROUTINE3_FPGA_Buffer_Lint():
     fpga = NiFpga(log, "PXI1Slot5")
 
     #Must be a GlueDirect bitfile.
-    fpga.start("C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_21_a.lvbitx")
+    fpga.start("C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_22_a.lvbitx")
     #time.sleep(1)
 
     dbg = NiFpgaDebugger(log, fpga)
@@ -731,6 +731,7 @@ def ROUTINE3_FPGA_Buffer_Lint():
                         "Buffer_Pass_Size":1024,
                         "FPGA_Loop_Dis": False,
                         "SE_Data_Dir":65535,
+                        "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
                         "Voltage_Family":1}
 
@@ -750,12 +751,12 @@ def ROUTINE3_FPGA_Buffer_Lint():
     print("OUT:",tp1_out)
 
     print("~ Test Pattern 2 ~")
-    tp2_in = [i for i in range(5000)] 
-    tp2_out = testpat.run_pattern(tp2_in)
+    tp2_in = [i for i in range(50000)] *2
+    tp2_out = testpat.run_pattern(tp2_in,outfile="test_out.txt")
     print("IN:",abbreviate_list(tp2_in))
     print("OUT:",abbreviate_list(tp2_out))
     
-    
+    diagnose_fifo_timeout(tp2_out)
     
 
 ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint]
