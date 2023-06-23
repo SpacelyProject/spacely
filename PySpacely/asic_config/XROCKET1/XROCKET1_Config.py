@@ -7,6 +7,8 @@ USE_AWG = False
 #CDAC Trimming
 DEFAULT_CDAC_TRIMSTRING = "100000"
 
+DEFAULT_IOSPEC = ".\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
+
 
 GLUEFPGA_DEFAULT_CFG = { "Write_to_Mem" : False,
                         "Read_from_Mem": False,

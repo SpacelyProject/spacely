@@ -27,5 +27,5 @@ CLK,I,20
 PwrGateb,I,15,1
 Reset,I,14
 DoneFull,O,7
-ConfigOut,O,6
+configOut,O,6
 DoneZS,O,4

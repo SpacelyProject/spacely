@@ -1164,7 +1164,11 @@ while True:
         case 'awg':
             initialize_AWG()
         case 'gcshell':
-            gc = GlueConverter()
+            if 'DEFAULT_IOSPEC' in globals():
+                print("** Starting gcshell with",DEFAULT_IOSPEC,"**")
+                gc = GlueConverter(DEFAULT_IOSPEC)
+            else:
+                gc = GlueConverter()
             gc.gcshell()
         case 'lr':
             for r in ROUTINES:
