@@ -16,4 +16,4 @@ print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 if TARGET == "SPROCKET1":
     from SPROCKET1_Config import *
 elif TARGET == "XROCKET1":
-    from XROCKET1_Config import *
+    from asic_config.XROCKET1.XROCKET1_Config import *

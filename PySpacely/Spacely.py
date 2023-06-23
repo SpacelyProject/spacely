@@ -733,12 +733,15 @@ def ROUTINE3_FPGA_Buffer_Lint():
                         "SE_Data_Dir":65535,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
-                        "Voltage_Family":1}
+                        "Voltage_Family":4}
 
     #Set all registers to their default values.
     for cfg in fpga_default_config.keys():
         dbg.interact("w", cfg, fpga_default_config[cfg])
 
+    print(dbg.interact("r","Set_Voltage_Done"))
+    print(dbg.interact("r","Voltage_Family"))
+    print(dbg.interact("r","Set_Voltage_Family"))
     testpat = PatternRunner(log,fpga, "C:\\Users\\Public\\Documents\\Glue_Waveforms\\test_iospec.txt")
 
     #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
@@ -759,7 +762,48 @@ def ROUTINE3_FPGA_Buffer_Lint():
     diagnose_fifo_timeout(tp2_out)
     
 
-ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint]
+def ROUTINE4_XROCKET1_Pattern():
+    """r4: Send testbench patterns to XROCKET1 and read them back."""
+
+
+    print("""REQUIREMENTS:
+        > NI FPGA should be connected to XROCKET1.
+        > XROCKET1 should be powered up.
+        """)
+    input("Press Enter to continue...")
+    
+    
+    #Data files
+
+    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_input.glue"
+    tp1_out_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_output.glue"
+    xrocket1_iospec = "C:\\Users\\aquinn\\Desktop\\SPROCKET Test\\spacely\\PySpacely\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
+    glue_bitfile = "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_22_a.lvbitx"
+
+    #Set up classes
+    fpga = NiFpga(log, "PXI1Slot5")
+    fpga.start(glue_bitfile)
+
+    dbg = NiFpgaDebugger(log, fpga)
+    dbg.configure(GLUEFPGA_DEFAULT_CFG)
+
+    tp = PatternRunner(log,fpga, xrocket1_iospec)
+    gc = GlueConverter(xrocket1_iospec)
+
+    #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
+    time.sleep(3)
+
+    print("Running XROCKET1 Test!")
+    
+    tp1_out = tp.run_pattern(tp1_in_file, outfile=tp1_out_file)
+    gc.compare(gc.parse_glue(tp1_in_file), gc.parse_glue(tp1_out_file))
+    print("OUT:",abbreviate_list(tp1_out))
+
+    #gc.plot_glue(tp1_out_file)
+    #gc.plot_glue(tp1_in_file)
+    
+
+ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint, ROUTINE4_XROCKET1_Pattern]
 
 # Lists serial ports available in the system
 def list_serial_ports():
@@ -1119,6 +1163,9 @@ while True:
             report_NI(0.5)
         case 'awg':
             initialize_AWG()
+        case 'gcshell':
+            gc = GlueConverter()
+            gc.gcshell()
         case 'lr':
             for r in ROUTINES:
                 print(r.__doc__)

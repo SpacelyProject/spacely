@@ -60,7 +60,8 @@ class PatternRunner(ABC):
     def _update_io_dir(self) -> None:
         io_dir = 0
         for io in self._iospec.values():
-            if "O" in io[0]:
+            #INPUTS to the ASIC are OUTPUTS from Glue, so set their IO dir to 1.
+            if "I" in io[0]:
                 io_dir = io_dir + (1 << io[1])
 
         print("<DBG> Programming I/O Direction as:",io_dir)
@@ -72,35 +73,39 @@ class PatternRunner(ABC):
         #Support patterns from file, or from a list.
         if type(pattern) == str:
             with open(pattern, "r") as read_file:
-                pattern_file_text = read_file.read()
+                pattern_file_text = read_file.readlines()
 
-            pattern = [int(x) for x in pattern_file_text.split(",")]
+            #pattern_file_pattern = pattern_file_text.split("//")[0] #Everything up to the first comment.
+            #print(pattern_file_pattern)
+            self.in_pattern = [int(x) for x in pattern_file_text[0].split(",")]
+
+            print("(DBG) Pattern Len from File:",len(self.in_pattern))
 
         #Ensure that there is enough memory on the host side for the pattern we want to run.
-        if self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size < len(pattern)+FPGA_READBACK_OFFSET:
-            self._fpga.get_fifo("io_fifo_from_pc").ref.configure(len(pattern)+FPGA_READBACK_OFFSET)
+        if self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size < len(self.in_pattern)+FPGA_READBACK_OFFSET:
+            self._fpga.get_fifo("io_fifo_from_pc").ref.configure(len(self.in_pattern)+FPGA_READBACK_OFFSET)
 
-        if self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size < len(pattern)+FPGA_READBACK_OFFSET:
-            self._fpga.get_fifo("io_fifo_to_pc").ref.configure(len(pattern)+FPGA_READBACK_OFFSET)
+        if self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size < len(self.in_pattern)+FPGA_READBACK_OFFSET:
+            self._fpga.get_fifo("io_fifo_to_pc").ref.configure(len(self.in_pattern)+FPGA_READBACK_OFFSET)
 
         #self._fpga.get_fifo("io_fifo_from_pc").ref.configure(10000)
         #self._fpga.get_fifo("io_fifo_to_pc").ref.configure(30000)
             
         #Update Pattern Size in the FPGA
-        self._interface.interact("w","Buffer_Pass_Size",len(pattern)+FPGA_READBACK_OFFSET)
+        self._interface.interact("w","Buffer_Pass_Size",len(self.in_pattern)+FPGA_READBACK_OFFSET)
 
         # (Allow host memory settings to sink in.)
         time.sleep(1)
 
         #Check Actual allocated buffer size
-        print(self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size)
-        print(self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size)
+        print("(DBG) out buffer size:",self._fpga.get_fifo("io_fifo_to_pc").ref.buffer_size)
+        print("(DBG) in buffer size:",self._fpga.get_fifo("io_fifo_from_pc").ref.buffer_size)
 
         #Load the pattern into FIFO memory.
-        self._interface.interact("w","io_fifo_from_pc",pattern)
+        self._interface.interact("w","io_fifo_from_pc",self.in_pattern)
 
         # Create a thread to read back the io fifo in parallel.
-        reader = Thread(target=self.thread_read, args=(len(pattern)+FPGA_READBACK_OFFSET,))
+        reader = Thread(target=self.thread_read, args=(len(self.in_pattern)+FPGA_READBACK_OFFSET,))
 
         ## Critical Timing: Must be < timeout ##
         reader.start()
@@ -112,12 +117,23 @@ class PatternRunner(ABC):
         self._interface.interact("w","Run_Pattern",False)
         
         data = self._return_data
-        
+
+        self.out_pattern = data[FPGA_READBACK_OFFSET:len(self.in_pattern)+FPGA_READBACK_OFFSET]
+
+        #Write a glue output file.
         if outfile is not None:
             with open(outfile,"w") as write_file:
-                write_file.write(", ".join([str(x) for x in data]))
+                #Write the actual data.
+                write_file.write(", ".join([str(x) for x in self.out_pattern]))
+                #Write metadata
+                write_file.write("\n")
+                write_file.write("//STROBE_PICOSECONDS:"+str(1e12/FPGA_CLOCK_HZ)+"\n")
+                write_file.write("//GLUE_TIMESTEPS:"+str(len(data))+"\n")
 
-        return data[FPGA_READBACK_OFFSET:len(pattern)+FPGA_READBACK_OFFSET]
+        
+
+        return self.out_pattern
+
 
 
     def thread_read(self, read_len):
@@ -218,12 +234,7 @@ def diagnose_fifo_timeout(rp):
     if this_timeout == 0:
         print("(INFO) No timeouts detected :D")
                 
-                
-
-
-
-
-
+            
 
 
 class GenericPatternRunner(PatternRunner):
