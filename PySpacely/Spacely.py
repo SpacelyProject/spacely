@@ -28,6 +28,9 @@ from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
 
+import tkinter as tk
+from tkinter import filedialog
+
 #Global Configuration data.
 from Master_Config import *
 
@@ -801,7 +804,81 @@ def ROUTINE4_XROCKET1_Pattern():
 
     #gc.plot_glue(tp1_out_file)
     #gc.plot_glue(tp1_in_file)
+
+
+
+
+def RunFPGAPatternInteractive():
+
+    print("STEP 1/5: Please enter the name of the FPGA resource to use. (This should be something like \"PXI1Slot5\")")
+    fpga_slot = input("fpga_resource:")
+    print("STEP 2/5: Please choose a Glue bitfile to load onto the FPGA. (This should end in \".lvbitx\")")
+    input("Press enter to open file finder...")
+    glue_bitfile = filedialog.askopenfilename()
+
     
+    print("STEP 3/5: Please choose a .iospec file.")
+    input("Press enter to open file finder...")
+    iospec = filedialog.askopenfilename()
+
+    print("STEP 4/5: Please choose an input file (.vcd or .glue)")
+    input("Press enter to open file finder...")
+    input_file = filedialog.askopenfilename()
+
+    if ".glue" not in input_file:
+        print("I detected that the file you input was a VCD. I'll convert it to a Glue file!")
+        print("What strobe period (in nanoseconds) would you like to use for the Glue file? (Enter '?' for more info)")
+        strobe_input = input("strobe_ns:")
+        if '?' in strobe_input:
+            print("The strobe period is how frequently the VCD waveforms will be sampled to generate Glue waveforms.")
+            print("This is highly dependent on the digital design. For example, if you have a 10 MHz clock (100 ns")
+            print("period), then you probably want a strobe of no larger than 50 ns.")
+            print("Note that strobe does not affect the rate of Glue waveforms -- Glue waveforms are always output at")
+            print("a rate determined by the FPGA clock speed, typically 40 MHz or 200 MHz. If you want your pattern to")
+            print("be played in 'real time', select strobe = 1/(freq_fpga_clock). However, sometimes arbitrary clock")
+            print("speeds can be used in Xcelium simulations, so double-check with the digital designer to be sure!")
+            strobe_input = input("strobe_ns:")
+
+        strobe_ps = 1000*float(strobe_input.strip())
+
+        gc = GlueConverter(iospec)
+        gc.parse_VCD(input_file, strobe_ps, "temp.glue")
+        input_file = "temp.glue"
+
+    print("STEP 5/5: What should the output file be called? (Press enter to use the default name, \"asic_output.glue\")")
+    output_file  = input("output_file:").strip()
+    if len(output_file) < 2:
+        output_file = "asic_output.glue"
+
+    print("~ Thank you! ~")
+    input("Press enter to run the pattern...")
+
+    RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_file, output_file)
+
+def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
+
+    #Set up classes
+    fpga = NiFpga(log, fpga_slot)
+    fpga.start(glue_bitfile)
+
+    dbg = NiFpgaDebugger(log, fpga)
+    dbg.configure(GLUEFPGA_DEFAULT_CFG)
+
+    tp = PatternRunner(log,fpga, iospec)
+    gc = GlueConverter(iospec)
+
+
+    #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
+    time.sleep(3)
+
+    print("Running FPGA Pattern!!!")
+    
+    tp.run_pattern(input_glue, outfile=output_file)
+    
+    
+
+
+
 
 ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint, ROUTINE4_XROCKET1_Pattern]
 
