@@ -122,16 +122,15 @@ class PatternRunner(ABC):
             print("(DBG) Programming", hw, "I/O Direction as:",io_dir[hw])
             self._interface[fpga_name].interact("w",fifo+"_data_dir",io_dir[hw])
 
-    # run_pattern() - Function for running a Glue Wave and getting the results.
-    # PARAMETERS:
-    #           pattern - A GlueWave() object, or a .glue file that can be read to a GlueWave().
-    #           outfile - Optional .glue filename to write the result to.
-    def run_pattern(self,pattern,outfile=None):
 
-        #If it's a filename, we use read_glue() to get the actual GlueWave() object.
-        if type(pattern) == str:
-            pattern = self.gc.read_glue(pattern)
-            print("(DBG) Pattern Len from File:",len(pattern.vector))
+    # setup_pattern() - Performs the following tasks to prepare for running a pattern:
+    #   -- Configures the host buffer size to be sufficient
+    #   -- Sets Buffer_Pass_Size on the FPGA
+    #   -- Loads the pattern into host memory
+    #   -- sets up (but doesn't run) a reader thread that will dump into a slot in self._return_data
+    def setup_pattern(self,pattern):
+
+        print("(DBG) Setting up pattern for hardware resource:",pattern.hardware_str)
 
         #Identify the correct fifos and debugger based on the hardware specification of pattern.
         in_fifo_name = pattern.fifo_name+"_fifo_from_pc"
@@ -162,30 +161,68 @@ class PatternRunner(ABC):
         dbg.interact("w",in_fifo_name,pattern.vector)
 
         # Create a thread to read back the io fifo in parallel.
-        reader = Thread(target=self.thread_read, args=(pattern.len+FPGA_READBACK_OFFSET,pattern))
+        return_data_idx = len(self._return_data)
+        self._return_data.append([])
+        reader = Thread(target=self.thread_read, args=(pattern.len+FPGA_READBACK_OFFSET,pattern,return_data_idx))
+
+        return reader
+
+    # run_pattern() - Function for running a Glue Wave and getting the results.
+    # PARAMETERS:
+    #           pattern - A list of GlueWave() objects or .glue files that can be read to GlueWave() objects
+    #           outfile - Optional .glue filename to write the result to.
+    def run_pattern(self,patterns,outfile_tag=None):
+
+        #Make sure "patterns" is a list :p
+        if type(patterns) is not list:
+            patterns = [patterns]
+
+        #If it's a filename, we use read_glue() to get the actual GlueWave() object.
+        for i in range(len(patterns)):
+            if type(patterns[i]) == str:
+                patterns[i] = self.gc.read_glue(patterns[i])
+                print("(DBG) Pattern Len from File:",len(patterns[i].vector))
+
+        #Set up buffers and reader threads.
+        reader_threads = []
+        for pattern in patterns:
+            reader_threads.append(self.setup_pattern(pattern))
+
+        if len(self._interface.values()) > 1:
+            print("ERROR: NOT YET IMPLEMENTED! If we have multiple distinct pieces of hardware, how to ensure they start simultaneously?")
+            exit()
+        else:
+            dbg = list(self._interface.values())[0]
 
         ## Critical Timing: Must be < timeout ##
-        reader.start()
+        for t in reader_threads:
+            t.start()
         dbg.interact("w","Run_Pattern",True)
         ## End Critical Timing ##
 
-        reader.join()
+        for t in reader_threads:
+            t.join()
 
         dbg.interact("w","Run_Pattern",False)
+
+
+        #Process the data returned by each thread.
+        for i in range(len(self._return_data)):
+            data = self._return_data[i][FPGA_READBACK_OFFSET:pattern.len+FPGA_READBACK_OFFSET]
+
+            out_pattern = GlueWave(data,1e12/FPGA_CLOCK_HZ,pattern.hardware,{"GLUE_TIMESTEPS":str(len(data))})
+
+            #Write a glue output file.
+            if outfile_tag is not None:
+                self.gc.write_glue(out_pattern,outfile_tag+"_"+patterns[i].hardware_str.replace("/","_")+".glue")
+
+        #Clear self._return_data so it can be used next time.
+        self._return_data = []
         
-        data = self._return_data[FPGA_READBACK_OFFSET:pattern.len+FPGA_READBACK_OFFSET]
-
-        out_pattern = GlueWave(data,1e12/FPGA_CLOCK_HZ,pattern.hardware,{"GLUE_TIMESTEPS":str(len(data))})
-
-        #Write a glue output file.
-        if outfile is not None:
-            self.gc.write_glue(out_pattern,outfile)
-
-        return out_pattern
 
     # thread_read() - Function for reading back a fifo_to_pc output asynchronously using a thread;
     #                 requires the length to read, and a copy of the input GlueWave() so it can extract hardware info.
-    def thread_read(self, read_len, in_pattern):
+    def thread_read(self, read_len, in_pattern,return_data_idx):
         #y is a tuple, where y[0] is the returned glue waveform.
 
         dbg = self._interface[in_pattern.fpga_name]
@@ -193,7 +230,7 @@ class PatternRunner(ABC):
     
         y = dbg.interact("r",out_fifo_name,read_len)
 
-        self._return_data = y[0]
+        self._return_data[return_data_idx] = y[0]
 
     ### MEM Functions work on a version of Glue that uses on-fpga memory. ###
     ### ... at this point, these are pretty much deprecated. ###

@@ -779,7 +779,7 @@ def ROUTINE4_XROCKET1_Pattern():
     #Data files
 
     tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_input_se_io.glue"
-    tp1_out_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_output_se_io.glue"
+    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket1_out_PXI1Slot5_NI6583_se_io.glue"
     tp1_golden = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_golden_se_io.glue"
     xrocket1_iospec = "C:\\Users\\aquinn\\Desktop\\SPROCKET Test\\spacely\\PySpacely\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
     #glue_bitfile = "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"
@@ -799,10 +799,10 @@ def ROUTINE4_XROCKET1_Pattern():
 
     print("Running XROCKET1 Test!")
     
-    tp1_out = tp.run_pattern(tp1_in_file, outfile=tp1_out_file)
+    tp.run_pattern(tp1_in_file, outfile_tag="xrocket1_out")
     gc = GlueConverter(xrocket1_iospec)
     gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
-    print("OUT:",abbreviate_list(tp1_out.vector))
+    #print("OUT:",abbreviate_list(tp1_out.vector))
 
     #gc.plot_glue(tp1_out_file)
     #gc.plot_glue(tp1_in_file)
