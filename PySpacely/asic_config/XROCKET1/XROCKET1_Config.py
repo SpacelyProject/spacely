@@ -10,17 +10,6 @@ DEFAULT_CDAC_TRIMSTRING = "100000"
 DEFAULT_IOSPEC = ".\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
 
 
-GLUEFPGA_DEFAULT_CFG = { "Write_to_Mem" : False,
-                        "Read_from_Mem": False,
-                        "Run_Pattern"  : False,
-                        "Buffer_In_Size": 1024,
-                        "Buffer_Pass_Size":1024,
-                        "FPGA_Loop_Dis": False,
-                        "SE_Data_Dir":65535,
-                        "SE_Data_Default":60,
-                        "Set_Voltage_Family":True,
-                        "Voltage_Family":4}
-
 #Voltage Channels
 #SMU A and B designations are from Scott's PCB.
 SMU_A = "PXI1Slot13"

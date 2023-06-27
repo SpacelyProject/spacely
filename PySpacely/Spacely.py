@@ -778,20 +778,21 @@ def ROUTINE4_XROCKET1_Pattern():
     
     #Data files
 
-    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_input.glue"
-    tp1_out_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_output.glue"
+    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_input_se_io.glue"
+    tp1_out_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_output_se_io.glue"
+    tp1_golden = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_golden_se_io.glue"
     xrocket1_iospec = "C:\\Users\\aquinn\\Desktop\\SPROCKET Test\\spacely\\PySpacely\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
-    glue_bitfile = "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_22_a.lvbitx"
+    #glue_bitfile = "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"
 
+   
     #Set up classes
-    fpga = NiFpga(log, "PXI1Slot5")
-    fpga.start(glue_bitfile)
+    tp = PatternRunner(log, xrocket1_iospec)
 
-    dbg = NiFpgaDebugger(log, fpga)
-    dbg.configure(GLUEFPGA_DEFAULT_CFG)
+    #hardware_dict = {input_wave.fpga_name:NiFpga(log,input_wave.hardware[0])}
+    #hardware_dict["PXI1Slot5/NI6583"].start(glue_bitfile)
 
-    tp = PatternRunner(log,fpga, xrocket1_iospec)
-    gc = GlueConverter(xrocket1_iospec)
+    #dbg = NiFpgaDebugger(log, hardware_dict["PXI1Slot5/NI6583"])
+    #dbg.configure(GLUEFPGA_DEFAULT_CFG)
 
     #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
     time.sleep(3)
@@ -799,8 +800,9 @@ def ROUTINE4_XROCKET1_Pattern():
     print("Running XROCKET1 Test!")
     
     tp1_out = tp.run_pattern(tp1_in_file, outfile=tp1_out_file)
-    gc.compare(gc.parse_glue(tp1_in_file), gc.parse_glue(tp1_out_file))
-    print("OUT:",abbreviate_list(tp1_out))
+    gc = GlueConverter(xrocket1_iospec)
+    gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
+    print("OUT:",abbreviate_list(tp1_out.vector))
 
     #gc.plot_glue(tp1_out_file)
     #gc.plot_glue(tp1_in_file)
@@ -857,7 +859,11 @@ def RunFPGAPatternInteractive():
 
 def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
 
+    #Use GlueConverter to try to determine which FPGA should be booted from the iospec.
+
     #Set up classes
+
+    
     fpga = NiFpga(log, fpga_slot)
     fpga.start(glue_bitfile)
 
@@ -865,7 +871,7 @@ def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
     dbg.configure(GLUEFPGA_DEFAULT_CFG)
 
     tp = PatternRunner(log,fpga, iospec)
-    gc = GlueConverter(iospec)
+    
 
 
     #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!

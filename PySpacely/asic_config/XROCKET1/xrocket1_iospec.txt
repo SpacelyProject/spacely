@@ -5,6 +5,7 @@
 // The only two tests in this file are Config Chain & Vtest, so we do not connect to
 // signals like PreSamp, PostSamp, etc.
 
+HARDWARE PXI1Slot5/NI6583/se_io BEGIN
 // No Connects:
 PreSamp,I,19
 PostSamp,I,18
@@ -29,3 +30,10 @@ Reset,I,14
 DoneFull,O,7
 configOut,O,6
 DoneZS,O,4
+END
+HARDWARE PXI1Slot5/NI6583/lvds BEGIN
+//Note that serialClk is connected directly to the DDC Clk Out pin.
+serialOutTLP,O,8
+serialOutTRP,O,5
+END
+
