@@ -13,7 +13,8 @@ Force2b,I,17
 Rst,I,16
 
 // Signals Actually used by the testbench:
-configRst,I,31
+//configRst is active-low reset... by default should be high.
+configRst,I,31,1
 loadShadowReg,I,30
 configIn,I,28
 configClk,I,29

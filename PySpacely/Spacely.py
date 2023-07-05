@@ -67,7 +67,7 @@ def config_AWG_as_DC(val_mV: float) -> None:
 
 def set_Vin_mV(val_mV: float) -> None:
     global port
-    if EMULATE_ASIC:
+    if USE_ARDUINO and EMULATE_ASIC:
         command_ng(log, port,"compinp:"+str(val_mV*0.001))
     else:
         AWG.set_offset(val_mV)
@@ -765,8 +765,8 @@ def ROUTINE3_FPGA_Buffer_Lint():
     diagnose_fifo_timeout(tp2_out)
     
 
-def ROUTINE4_XROCKET1_Pattern():
-    """r4: Send testbench patterns to XROCKET1 and read them back."""
+def ROUTINE4_XROCKET1_Config():
+    """r4: Flash the config chain for XROCKET1 and read the result back."""
 
 
     print("""REQUIREMENTS:
@@ -778,15 +778,14 @@ def ROUTINE4_XROCKET1_Pattern():
     
     #Data files
 
-    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_input_se_io.glue"
+    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_config_input_se_io.glue"
     tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket1_out_PXI1Slot5_NI6583_se_io.glue"
-    tp1_golden = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_golden_se_io.glue"
-    xrocket1_iospec = "C:\\Users\\aquinn\\Desktop\\SPROCKET Test\\spacely\\PySpacely\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
+    tp1_golden = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_config_golden_se_io.glue"
     #glue_bitfile = "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"
 
    
     #Set up classes
-    tp = PatternRunner(log, xrocket1_iospec)
+    tp = PatternRunner(log, DEFAULT_IOSPEC)
 
     #hardware_dict = {input_wave.fpga_name:NiFpga(log,input_wave.hardware[0])}
     #hardware_dict["PXI1Slot5/NI6583"].start(glue_bitfile)
@@ -797,18 +796,42 @@ def ROUTINE4_XROCKET1_Pattern():
     #NOTE: FPGA Needs > 2 seconds of delay in between setup and running the first test pattern!
     time.sleep(3)
 
-    print("Running XROCKET1 Test!")
+    print("Running XROCKET1 Config!")
     
-    tp.run_pattern(tp1_in_file, outfile_tag="xrocket1_out")
-    gc = GlueConverter(xrocket1_iospec)
+    tp.run_pattern(tp1_in_file, outfile_tag="xrocket1_config_output")
+    gc = GlueConverter(DEFAULT_IOSPEC)
     gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
-    #print("OUT:",abbreviate_list(tp1_out.vector))
-
-    #gc.plot_glue(tp1_out_file)
-    #gc.plot_glue(tp1_in_file)
 
 
+def ROUTINE5_XROCKET1_Readout():
 
+
+    print("""REQUIREMENTS:
+        > NI FPGA should be connected to XROCKET1.
+        > XROCKET1 should be powered up.
+        """)
+    input("Press Enter to continue...")
+
+
+    #Data files
+
+    tp1_in_file = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_config_input_se_io.glue"
+    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket1_out_PXI1Slot5_NI6583_se_io.glue"
+    tp1_golden = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_config_golden_se_io.glue"
+    readback_se_io = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_readback_input_with_reset_se_io.glue"
+    readback_lvds  = "C:\\Users\\Public\\Documents\\Glue_Waveforms\\xrocket1_readback_input_lvds.glue"
+
+    tp = PatternRunner(log, DEFAULT_IOSPEC)
+
+    config_AWG_as_DC(0)
+
+    time.sleep(3)
+
+    print("Running XROCKET1 Readback!")
+    tp.run_pattern(tp1_in_file, outfile_tag="xrocket1_config_output")
+    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    time.sleep(1)
+    tp.run_pattern([readback_se_io,readback_lvds], outfile_tag="xrocket1_readback_output")
 
 def RunFPGAPatternInteractive():
 
@@ -886,7 +909,8 @@ def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
 
 
 
-ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan, ROUTINE3_FPGA_Buffer_Lint, ROUTINE4_XROCKET1_Pattern]
+ROUTINES = [ROUTINE0_CDAC_Trim, ROUTINE1_CapTrim_Debug, ROUTINE2_Full_Channel_Scan,
+            ROUTINE3_FPGA_Buffer_Lint, ROUTINE4_XROCKET1_Config,ROUTINE5_XROCKET1_Readout]
 
 # Lists serial ports available in the system
 def list_serial_ports():
@@ -1176,7 +1200,7 @@ if init_awg is None and USE_AWG == True:
     cmd_txt = input("DEFAULT: Set up AWG. 'n' to Skip>>>")
     init_awg = False if cmd_txt == 'n' else True
 if init_awg:
-    if EMULATE_ASIC:
+    if USE_ARDUINO and EMULATE_ASIC:
         log.error('ASIC emulation enabled - AWG should NOT be initialized!')
     else:
         initialize_AWG(interactive=not assume_defaults)
@@ -1253,6 +1277,17 @@ while True:
             else:
                 gc = GlueConverter()
             gc.gcshell()
+        case 'fpgadbg':
+            #Start a pattern runner instance, which will initialize the FPGA
+            p = PatternRunner(log,DEFAULT_IOSPEC)
+            dbg = list(p._interface.values())[0]
+            while True:
+                x = dbg.interact()
+                if type(x) == list:
+                    print(abbreviate_list(x))
+                else:
+                    print(x)
+                
         case 'lr':
             for r in ROUTINES:
                 print(r.__doc__)

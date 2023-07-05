@@ -19,6 +19,7 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                         "FPGA_Loop_Dis": False,
                         "se_io_data_dir":0,
                          "lvds_data_dir":0,
+                         "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
                         "Voltage_Family":4}
@@ -77,6 +78,7 @@ class PatternRunner(ABC):
 
 
         self._update_io_dir()
+        self._update_io_defaults()
 
         if pattern is not None:
             self.update_pattern(pattern)
@@ -98,6 +100,36 @@ class PatternRunner(ABC):
                 hardware_dict[fpga_name].start(default_bitfiles[fpga_name])
 
         return hardware_dict
+
+    # _update_io_defaults() - Sets all IOs to their default state from iospec.
+    def _update_io_defaults(self):
+        
+        #Make an io_default value for each FPGA resource we use
+        hw_list = list(set(self.gc.IO_hardware.values()))
+        io_default = {}
+        for hw in hw_list:
+            io_default[hw] = 0
+
+        #For each ASIC input I/O, set the corresponding io_dir bit.
+        for io in self.gc.Input_IOs:
+            hw = self.gc.IO_hardware[io]
+            pos = self.gc.IO_pos[io]
+            default = self.gc.IO_default[io]
+            #INPUTS to the ASIC are OUTPUTS from Glue, so set their IO dir to 1.
+            if default > 0:
+                io_default[hw] = io_default[hw] + (1 << pos)
+
+        #Write all these updated I/O dirs to the right hardware.
+        for hw in hw_list:
+            fpga_name = "/".join(hw.split("/")[0:2])
+            fifo = hw.split("/")[2]
+            
+            #TODO: UPDATE FOR MULTI-HARDWARE
+            if "se_io" in fifo: #Only supports NI6583/se_io for the moment...
+                print("(DBG) Programming", hw, "I/O Defaults as:",io_default[hw])
+                print("WARNING!!! Need to update this function for multi-hardware")
+                self._interface[fpga_name].interact("w","SE_Data_Default",io_default[hw])
+
 
     # _update_io_dir - Updates the direction of FPGA IOs to conform to the iospec.
     def _update_io_dir(self) -> None:
@@ -208,9 +240,9 @@ class PatternRunner(ABC):
 
         #Process the data returned by each thread.
         for i in range(len(self._return_data)):
-            data = self._return_data[i][FPGA_READBACK_OFFSET:pattern.len+FPGA_READBACK_OFFSET]
+            data = self._return_data[i][FPGA_READBACK_OFFSET:patterns[i].len+FPGA_READBACK_OFFSET]
 
-            out_pattern = GlueWave(data,1e12/FPGA_CLOCK_HZ,pattern.hardware,{"GLUE_TIMESTEPS":str(len(data))})
+            out_pattern = GlueWave(data,1e12/FPGA_CLOCK_HZ,patterns[i].hardware,{"GLUE_TIMESTEPS":str(len(data))})
 
             #Write a glue output file.
             if outfile_tag is not None:
