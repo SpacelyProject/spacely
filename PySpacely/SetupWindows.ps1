@@ -17,9 +17,10 @@ if (-Not (Test-Path env:VIRTUAL_ENV)) {
     }
 
 	.\venv\Scripts\activate
+}	
 	
-	echo "Installing dependencies..."
-	python -m pip install -r requirements.txt
-}
+echo "Installing dependencies..."
+python -m pip install -r requirements.txt
+
 
 echo "Now you should be able to run Spacely"
