@@ -867,13 +867,13 @@ def RunFPGAPatternInteractive():
         strobe_ps = 1000*float(strobe_input.strip())
 
         gc = GlueConverter(iospec)
-        gc.parse_VCD(input_file, strobe_ps, "temp.glue")
-        input_file = "temp.glue"
+        gc.VCD2Glue(input_file, strobe_ps, "temp")
+        input_file = "temp_se_io.glue"
 
-    print("STEP 5/5: What should the output file be called? (Press enter to use the default name, \"asic_output.glue\")")
+    print("STEP 5/5: What should the output file be called? (Press enter to use the default name, \"asic_output\")")
     output_file  = input("output_file:").strip()
     if len(output_file) < 2:
-        output_file = "asic_output.glue"
+        output_file = "asic_output"
 
     print("~ Thank you! ~")
     input("Press enter to run the pattern...")
@@ -887,13 +887,13 @@ def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
     #Set up classes
 
     
-    fpga = NiFpga(log, fpga_slot)
-    fpga.start(glue_bitfile)
+    #fpga = NiFpga(log, fpga_slot)
+    #fpga.start(glue_bitfile)
 
-    dbg = NiFpgaDebugger(log, fpga)
-    dbg.configure(GLUEFPGA_DEFAULT_CFG)
+    #dbg = NiFpgaDebugger(log, fpga)
+    #dbg.configure(GLUEFPGA_DEFAULT_CFG)
 
-    tp = PatternRunner(log,fpga, iospec)
+    tp = PatternRunner(log,DEFAULT_IOSPEC)
     
 
 
@@ -902,7 +902,7 @@ def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
 
     print("Running FPGA Pattern!!!")
     
-    tp.run_pattern(input_glue, outfile=output_file)
+    tp.run_pattern(input_glue, outfile_tag=output_file)
     
     
 
