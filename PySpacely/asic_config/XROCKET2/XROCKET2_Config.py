@@ -1,4 +1,5 @@
-from XROCKET1_Routines import *
+#from .XROCKET2_Routines import *
+
 
 USE_ARDUINO = False
 USE_NI = True
@@ -10,7 +11,7 @@ DEFAULT_AWG_GPIBADDR = 10
 #CDAC Trimming
 DEFAULT_CDAC_TRIMSTRING = "100000"
 
-DEFAULT_IOSPEC = ".\\asic_config\\XROCKET1\\xrocket1_iospec.txt"
+DEFAULT_IOSPEC = ".\\asic_config\\XROCKET2\\xrocket2_iospec.txt"
 
 
 #Voltage Channels
@@ -47,7 +48,7 @@ INSTR = {SMU_A:None,
 #   SMU-A => slot 13 as in cfg above; provides vdda, vref, vdd12, ib2; J6 on flange
 #   SMU-B => slot 14 as in cfg above; provides iterm_ts, ife, icharge, icomp; J7 on flange
 
-V_SEQUENCE = [ "VCC_LT", "Vref", "Vdd12", "VDD_ASIC",  "Ib2", "Iterm", "vdda", "VDD_LVDS"]
+V_SEQUENCE = [ "VCC_LT", "Vref", "Vdd12", "VDD_ASIC", "Ib2",  "vdda", "VDD_LVDS"]
 
 
 V_INSTR = {"vdda" : SMU_A,
@@ -56,14 +57,12 @@ V_INSTR = {"vdda" : SMU_A,
            "VDD_ASIC" : PSU_A,      #On FLORA MB, called "Vd1"
            "Vref" : SMU_A,
            "Vdd12": SMU_A,
-           "Ib2"  : SMU_A,
-           "Iterm":   SMU_B}
-            #NOTE: In this ASIC, unlike SPROCKET1-TestPixel, Iterm is a voltage source
-                    #because Iterm_ts was not bonded out, so we are faking it w/ a Vsource.
+           "Ib2"  : SMU_A}
+           #"Iterm":   SMU_B} #NOTE: There is no Iterm needed for XR2 because all pixels are P1-flavor
            
 
 V_CHAN = {
-          "Iterm":   3,
+          #"Iterm":   3,
           "VCC_LT"  : 0,
           "VDD_ASIC": 1,
           "vdda"    : 2,
@@ -80,7 +79,7 @@ V_LEVEL = {
              "Vref":  1.0,
              "Vdd12": 1.2,
              "Ib2": 1.35,
-             "Iterm":1.415,
+             #"Iterm":1.415,
              "VCC_LT":   3.3,
              "VDD_ASIC": 1.2            
            }
@@ -95,7 +94,7 @@ V_CURR_LIMIT = {
                   "vdda": 0.1,
                   "Vref":  0.00001,
                   "Vdd12": 0.00001,
-                  "Iterm": 0.00001,
+                  #"Iterm": 0.00001,
                   "Ib2": 0.00001,
                   "VDDIO_LT": 0.1,                  
                   "VCC_LT":   0.3, #Changed from 0.1
@@ -109,7 +108,7 @@ V_PORT = {"vdda": None,
           "Vref":  None, 
           "Vdd12": None, 
           "Ib2": None,
-          "Iterm":None,
+          #"Iterm":None,
           "VDDIO_LT": None,   
           "VDD_ASIC": None,  
           "VDD_LVDS" : None

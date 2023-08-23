@@ -1,0 +1,18 @@
+HARDWARE PXI1Slot5/NI6583/se_io BEGIN
+
+//Config Chain
+//configRst,I,31,1
+reset,I,31,1
+loadShadowReg,I,30
+configIn,I,28
+configClk,I,29
+configOut,O,6
+
+//Scan Chain
+scanClk,I,11
+scanEn,I,12
+scanLoad,I,13
+scanIn,I,10
+scanOut,O,5
+END
+

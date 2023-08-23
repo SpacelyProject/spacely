@@ -9,7 +9,7 @@ USE_ARDUINO = False
 USE_NI = False
 USE_AWG = False
 
-TARGET = "XROCKET1"
+TARGET = "XROCKET2"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
@@ -17,3 +17,6 @@ if TARGET == "SPROCKET1":
     from SPROCKET1_Config import *
 elif TARGET == "XROCKET1":
     from asic_config.XROCKET1.XROCKET1_Config import *
+elif TARGET == "XROCKET2":
+    from asic_config.XROCKET2.XROCKET2_Config import *
+    from asic_config.XROCKET2.XROCKET2_Routines import *
