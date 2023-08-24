@@ -84,6 +84,18 @@ V_LEVEL = {
              "VDD_ASIC": 1.2            
            }
 
+#Spacely will warn if the voltage falls outside this range.
+V_WARN_VOLTAGE = {
+             "vdda": [2.4,2.6],
+             "VDD_LVDS" : [2.4,2.6],
+             "Vref":  [0.9,1.1],
+             "Vdd12": [1.1,1.3],
+             "Ib2": [1.25,1.45],
+             #"Iterm":1.415,
+             "VCC_LT":   [3.2,3.4],
+             "VDD_ASIC": [1.1,1.3]           
+           }
+
 # Rough current guidelines
 # TODO: TEST IF THESE VALUES IN DOCS BELOW ARE CORRECT OR WE'RE OFF IN UNITS IN THE DICT BELOW
 #  - 100mA for vdda 
@@ -135,6 +147,12 @@ I_LEVEL  = {
             "Ife":      -35e-6,
             "Icharge":  -120e-6,
             "Icomp":    -20e-6
+           }
+
+I_WARN_VOLTAGE = {
+            "Ife":      [0,2],
+            "Icharge":  [0,2],
+            "Icomp":    [0,2]
            }
             
 I_PORT  = {

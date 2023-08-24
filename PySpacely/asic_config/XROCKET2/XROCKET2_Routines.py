@@ -26,6 +26,7 @@ from Master_Config import *
 import Spacely_Globals as sg
 
 def XROCKET2_Config_Chain():
+    """Test XROCKET2 Config Chain"""
 
     tp1_in_file = "C:\\Users\\aquinn\\Downloads\\Glue code from Chengjing\\Tests\\Tests\\configchain\\configchain_testoutput_se_io.glue"
     tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
@@ -43,4 +44,23 @@ def XROCKET2_Config_Chain():
 
 
 
-ROUTINES = [XROCKET2_Config_Chain]
+def XROCKET2_Scan_Chain():
+    """Test XROCKET2 Scan Chain"""
+    
+    tp1_in_file = "C:\\Users\\aquinn\\Downloads\\scanchain4\\scanchain4\\scanchain_with_reset.glue"
+    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
+    tp1_golden = "C:\\Users\\aquinn\\Downloads\\scanchain4\\scanchain4\\scanchain_golden_se_io.glue"
+    
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    
+    time.sleep(3)
+
+    print("Checking XROCKET2 Config Chain!")
+    
+    tp.run_pattern(tp1_in_file, outfile_tag="xrocket2_config_output")
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
+
+
+
+ROUTINES = [XROCKET2_Config_Chain, XROCKET2_Scan_Chain]

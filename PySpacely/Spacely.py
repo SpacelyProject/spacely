@@ -142,6 +142,32 @@ print("# Spacely ready to take commands (see \"help\" for details)")
 
 #Command loop
 while True:
+
+    # Automatic Voltage Warning
+    abnormal_rails = []
+    abnormal_rail_voltages = []
+
+    for Vsource in V_SEQUENCE:
+        voltage = V_PORT[Vsource].get_voltage()
+        if Vsource in V_WARN_VOLTAGE.keys():
+            if voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
+                abnormal_rails.append(Vsource)
+                abnormal_rail_voltages.append(voltage)
+    for Isource in I_SEQUENCE:
+        voltage = I_PORT[Isource].get_voltage()
+        if Isource in I_WARN_VOLTAGE.keys():
+            if voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
+                abnormal_rails.append(Isource)
+                abnormal_rail_voltages.append(voltage)
+
+    if len(abnormal_rails) > 0:
+        print("*** WARNING *** Abnormal voltage on: ",end='')
+        for i in range(len(abnormal_rails)):
+            print(abnormal_rails[i],"("+str(round(abnormal_rail_voltages[i],2))+"V) ",end='')
+
+        print("")
+
+    
     try:
         cmd_txt = input('> ')
     # DO NOT add "EOFError" here - it will break report_NI(1) and
