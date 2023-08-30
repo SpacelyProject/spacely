@@ -22,7 +22,7 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                          "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
-                        "Voltage_Family":4}
+                        "Voltage_Family":1} # Change back to 4!
 
 #####################################################################
 
@@ -62,6 +62,14 @@ class PatternRunner(ABC):
         for hw in self._fpga_dict.keys():
             self._interface[hw] = NiFpgaDebugger(logger, self._fpga_dict[hw])
             self._interface[hw].configure(GLUEFPGA_DEFAULT_CFG)
+
+            print("(DBG) Pulsing Set_Voltage_Family")
+            #Pulse "Set_Voltage_Family" to ensure voltage family is actually set correctly.
+            self._interface[hw].interact("w","Set_Voltage_Family",False)
+            time.sleep(1)
+            self._interface[hw].interact("w","Set_Voltage_Family",True)
+            time.sleep(1)
+            self._interface[hw].interact("w","Set_Voltage_Family",False)
         
         self._return_data = []
 
