@@ -37,9 +37,9 @@ XROCKET2_SCAN_CHAIN_BITS = 20480
 def XROCKET2_Config_Chain():
     """Verify the XROCKET2 Config Chain by passing data in via configIn and reading it from configOut"""
 
-    tp1_in_file = "C:\\Users\\aquinn\\Downloads\\Glue code from Chengjing\\Tests\\Tests\\configchain\\configchain_testoutput_se_io.glue"
-    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
-    tp1_golden = "C:\\Users\\aquinn\\Downloads\\Glue code from Chengjing\\Tests\\Tests\\configchain\\configchain_golden_se_io.glue"
+    tp1_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET2\\Glue_Waves\\Tests_8_23\\Tests\\configchain\\configchain_testoutput_se_io.glue"
+    tp1_out_file = "xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
+    tp1_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET2\\Glue_Waves\\Tests_8_23\\Tests\\configchain\\configchain_golden_se_io.glue"
     
     tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
     
