@@ -13,6 +13,10 @@ from si_prefix import si_format
 from statistics import mean, NormalDist
 import csv
 
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib import colors
+
 
 #Import utilities from py-libs-common
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
@@ -24,7 +28,12 @@ import fnal_log_wizard as liblog
 from Master_Config import *
 #from .XROCKET2_Config import *
 import Spacely_Globals as sg
+from Spacely_Utils import *
 
+XROCKET2_SCAN_CHAIN_BITS = 20480
+
+
+# TEST #1: Config Chain Loopback
 def XROCKET2_Config_Chain():
     """Verify the XROCKET2 Config Chain by passing data in via configIn and reading it from configOut"""
 
@@ -43,7 +52,7 @@ def XROCKET2_Config_Chain():
     gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
 
 
-
+# TEST #2: Scan Chain Loopback
 def XROCKET2_Scan_Chain():
     """Verify the XROCKET2 Scan Chain by passing data in via scanIn and reading it from scanOut"""
     
@@ -62,34 +71,64 @@ def XROCKET2_Scan_Chain():
     gc.compare(gc.read_glue(tp1_golden), gc.read_glue(tp1_out_file))
 
 
+# TEST #3: Serial Readout
 def XROCKET2_Serial_Readout():
     """Verify the XROCKET2 Serial Readout by passing in data via the scan chain and reading it through serialOut"""
 
     pass
 
-
+# TEST #4: Vtest Readout
 def XROCKET2_Vtest_Readout():
     """Test the complete operation of the array by supplying a Vtest voltage and reading the data out through serialOut"""
 
+    config_AWG_as_DC(0)
+
     for Vtest_mV in range(0,1000,100):
         #1) set Vtest to the correct voltage using Spacely.
-
+        set_Vin_mV(Vtest_mV)
+        
         #2) Run the appropriate Glue waveform to take an ADC acquisition and read out the data.
 
         #3) Parse the data you read back. 
 
         pass
 
+  
 
+# TEST #5: DNL Trim (WIP!!!!)
 def XROCKET2_DNL_Trim():
     """Trim the Captrim values of each pixel to optimize DNL."""
-    pass
+
+    #Set output voltage = 750 mV.
+    config_AWG_as_DC(750)
+
+    #Create a glue file from the CDAC CMD "[1]"
+    create_glue_wave_from_cdac_cmd([1],"test_cdac_cmd_scan_out")
+
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    time.sleep(3)
+
+    print("Running Experimental DNL Trim Algorithm!")
+
+    #Run that glue file
+    tp.run_pattern("test_cdac_cmd_scan_out_se_io.glue", outfile_tag="xrocket2_dnl_output")
+
+    #Parse the scan chain data
+    gc.export_clocked_bitstream(gc.read_glue("xrocket2_dnl_output_PXI1Slot5_NI6583_se_io.glue")
+                                , "scanClk","scanOut","scan_chain_data.txt")
+
+    #Plot the scan chain data
+    scan_chain_color_map("scan_chain_data.txt",0)
 
 
 
+# Another function to verify the scan chain, but this time using ASCII waves.
 def XROCKET2_ascii_scan_chain_demo():
     """Test scan chain loopback using an ASCII wave instead of a VCD."""
 
+    # 1) Generate a Glue waveform that pushes all 1's through the scan chain and reads them back. 
     a = AsciiWave()
 
     a.init_signals([("scanClk",0),("scanEn",0),("scanLoad",0),("scanIn",0)])
@@ -104,11 +143,12 @@ def XROCKET2_ascii_scan_chain_demo():
 
     a.write("ascii_scan_chain_demo.txt")
 
-
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
     gc = GlueConverter(DEFAULT_IOSPEC)
 
     gc.ascii2Glue("ascii_scan_chain_demo.txt",5,"ascii_scan_chain_demo")
+
+    # 2) Run that Glue waveform.
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
     
     time.sleep(3)
 
@@ -116,11 +156,112 @@ def XROCKET2_ascii_scan_chain_demo():
     
     tp.run_pattern("ascii_scan_chain_demo_se_io.glue", outfile_tag="xrocket2_scan_output_ascii_demo")
 
-    gc.plot_glue("xrocket2_scan_output_ascii_demo_PXI1Slot5_NI6583_se_io.glue")
+
+    # 3) Parse scan chain data from the Glue waveform that we got back.
+    gc.export_clocked_bitstream(gc.read_glue("xrocket2_scan_output_ascii_demo_PXI1Slot5_NI6583_se_io.glue")
+                                , "scanClk","scanOut","scan_chain_demo_data.txt")
+
+    scan_chain_color_map("scan_chain_demo_data.txt",0)
+    scan_chain_color_map("scan_chain_demo_data.txt",20480)
+
+    #gc.plot_glue("xrocket2_scan_output_ascii_demo_PXI1Slot5_NI6583_se_io.glue")
     
 
+#######################################################################################################
+# HELPER FUNCTIONS
+#######################################################################################################
+
+# create_glue_wave_from_cdac_cmd()
+#
+# This function will create a Glue wave which does the following:
+#  1) Toggle DACclr, Rangelock, Qequal, etc. to issue the correct CDAC command.
+#  2) Issue 10 pulses on Clk, which will cause w1Reg to walk across its range, clocking all bits into data[]
+#  3) Clock Clk2 ONCE, which I hope will cause "eoc" to be asserted and clock data[] --> dataOutput[]
+#  4) Scan out all data from dataOutput. 
+def create_glue_wave_from_cdac_cmd(cdac_cmd, glue_wave_filename):
+
+    #CDAC command should be entered LSB-first. 
+    cdac_cmd.reverse()
+
+    a = AsciiWave()
+
+    a.init_signals([("scanClk",0),("scanEn",0),("scanLoad",0),("scanIn",0),
+                    ("DACclr",0),("RangeLock",0),("Qequal",0),("soc",1),
+                    ("Clk",0),("Clk2",0)])
+
+    #Start with a negative soc pulse
+    a.pulse_signal("soc",posedge=False)
+
+    #Simultaneously fire DACclr and Qequal to completely clear the DAC
+    a.custom_wave({"DACclr":"010","Qequal":"010"})
+
+    for i in cdac_cmd:
+        if cdac_cmd == 1:
+            a.pulse_signal("RangeLock")
+        else:
+            a.pulse_signal("DACclr")
+
+        a.pulse_signal("Qequal")
+
+    for j in range(10):
+        a.pulse_signal("Clk")
+
+
+    #NOTE: Pulsing scanLoad when scanEn is low should have the same effect
+    #      as eoc... that is moving data[] --> dataOutput[]
+    a.pulse_signal("scanLoad")
+
+    #Begin scan chain readout.
+    a.set_signal("scanEn",1)
+
+    for i in range(2048):
+        for j in range(10):
+            a.pulse_signal("scanClk")
+        a.pulse_signal("scanLoad")
+    
+    a.write("cdac_cmd.txt")
+    
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    #Use GlueConverter to convert cdac_cmd.txt to a Glue file.
+    gc.ascii2Glue("cdac_cmd.txt",5,glue_wave_filename)
+
+
+    
+#Convert binary values from the scan chain into a color map and plot them.      
+def scan_chain_color_map(scan_chain_csv, offset):
+
+    with open(scan_chain_csv, 'r') as read_file:
+        scan_chain_csv_text = read_file.read()
+        scan_chain_bits = [int(x) for x in scan_chain_csv_text.split(",")]
+
+    print("(DBG) Scan chain dump contains",len(scan_chain_bits),"bits, starting from",offset)
+
+
+    scan_chain_vals = []
     
     
 
+    for i in range(offset, offset+XROCKET2_SCAN_CHAIN_BITS, 10):
+        #TODO: CONFIRM THE ENDIANNESS OF SCAN CHAIN VALUES
 
-ROUTINES = [XROCKET2_Config_Chain, XROCKET2_Scan_Chain, XROCKET2_ascii_scan_chain_demo]
+        #Convert binary list to integer using string comprehension (for every chunk of 10 bits)
+        scan_chain_vals.append(int("".join(str(i) for i in scan_chain_bits[i:i+10]),2))
+
+
+    sc_array = np.array(scan_chain_vals)
+
+    #TODO: MAKE SURE THAT SCAN CHAIN PIXELS ARE IN THE CORRECT PHYSICAL ORDER. (reshape(32,64) is just the most naive way to arrange them)
+    sc_array = sc_array.reshape(32,64)
+
+    cmap = colors.ListedColormap(['red','blue'])
+
+    fig, ax = plt.subplots()
+    grid=ax.imshow(sc_array, cmap=matplotlib.colormaps["coolwarm"], vmin=0, vmax=1023)
+    
+    plt.colorbar(grid)
+    plt.show()
+    
+
+
+ROUTINES = [XROCKET2_Config_Chain, XROCKET2_Scan_Chain, XROCKET2_Serial_Readout, XROCKET2_Vtest_Readout, XROCKET2_DNL_Trim, XROCKET2_ascii_scan_chain_demo, ]
