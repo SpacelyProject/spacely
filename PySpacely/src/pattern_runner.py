@@ -22,7 +22,7 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                          "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
-                        "Voltage_Family":1} # Change back to 4!
+                        "Voltage_Family":4} 
 
 #####################################################################
 
@@ -135,7 +135,7 @@ class PatternRunner(ABC):
             #TODO: UPDATE FOR MULTI-HARDWARE
             if "se_io" in fifo: #Only supports NI6583/se_io for the moment...
                 print("(DBG) Programming", hw, "I/O Defaults as:",io_default[hw])
-                print("WARNING!!! Need to update this function for multi-hardware")
+                print("WARNING!!! Need to implement I/O defaults for multi-hardware")
                 self._interface[fpga_name].interact("w","SE_Data_Default",io_default[hw])
 
 

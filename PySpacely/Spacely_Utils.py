@@ -254,6 +254,19 @@ def update_all_Vlimit(new_voltage_limit):
 
 ## HELPER FUNCTIONS ##
 
+# Simple check that all filenames given are valid.
+# Args:
+#   - list_of_filenames = EWISOTT
+#   - requestor = Name of the file where these filenames are used. Used only
+#                 for printing out a helpful warning.
+def filepath_lint(list_of_filenames, requestor=None):
+    for filename in list_of_filenames:
+        if not os.path.isfile(filename):
+            if requestor is None:
+                print("(WARNING)",filename,"does not exist!")
+            else:
+                print("(WARNING)",filename,"used in",requestor,"does not exist!")
+
 def reserve_dated_file(contents_desc: str, extension: str = 'csv', directory: str | None = 'output', fmode: str = 'w') -> str:
     time = datetime.now().strftime("%Y-%m-%d_%a_%H-%M-%S")
     contents_desc = '_'.join(contents_desc.split())

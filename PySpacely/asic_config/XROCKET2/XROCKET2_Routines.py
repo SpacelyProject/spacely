@@ -75,7 +75,22 @@ def XROCKET2_Scan_Chain():
 def XROCKET2_Serial_Readout():
     """Verify the XROCKET2 Serial Readout by passing in data via the scan chain and reading it through serialOut"""
 
-    pass
+    se_io_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_testoutput_se_io.glue"
+    lvds_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_testoutput_lvds.glue"
+    out_file = "xrocket2_serial_output_PXI1Slot5_NI6583_lvds.glue"
+    lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_golden_lvds.glue"
+    filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
+    
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    
+    time.sleep(3)
+
+    print("Checking XROCKET2 Serial Readout!")
+    
+    tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag="xrocket2_serial_output")
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    gc.compare(gc.read_glue(lvds_golden), gc.read_glue(lvds_in_file))
+    
 
 # TEST #4: Vtest Readout
 def XROCKET2_Vtest_Readout():
