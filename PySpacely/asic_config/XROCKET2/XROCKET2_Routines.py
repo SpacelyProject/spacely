@@ -33,6 +33,13 @@ from Spacely_Utils import *
 XROCKET2_SCAN_CHAIN_BITS = 20480
 
 
+
+# Class containing all the data from the XR2 scan chain. 
+class XR2_Config_Setting():
+    def __init__(self):
+        pass
+
+
 # TEST #1: Config Chain Loopback
 def XROCKET2_Config_Chain():
     """Verify the XROCKET2 Config Chain by passing data in via configIn and reading it from configOut"""
@@ -86,24 +93,48 @@ def XROCKET2_Serial_Readout():
     time.sleep(3)
 
     print("Checking XROCKET2 Serial Readout!")
+    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    time.sleep(1)
     
     tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag="xrocket2_serial_output")
     gc = GlueConverter(DEFAULT_IOSPEC)
-    gc.compare(gc.read_glue(lvds_golden), gc.read_glue(lvds_in_file))
+    gc.compare(gc.read_glue(lvds_golden), gc.read_glue(out_file))
     
 
 # TEST #4: Vtest Readout
 def XROCKET2_Vtest_Readout():
     """Test the complete operation of the array by supplying a Vtest voltage and reading the data out through serialOut"""
 
-    config_AWG_as_DC(0)
 
-    for Vtest_mV in range(0,1000,100):
+    se_io_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_testoutput_se_io.glue"
+    lvds_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_testoutput_lvds.glue"
+    lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_golden_lvds.glue"
+    filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
+    
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+
+    config_AWG_as_DC(0) 
+    
+    time.sleep(3)
+
+    #Turn on LVDS clock. 
+    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    time.sleep(1)
+
+    #TODO: Program config register to set Vtest=True
+    
+
+    for Vtest_mV in [250,750]: #range(0,1000,100):
         #1) set Vtest to the correct voltage using Spacely.
         set_Vin_mV(Vtest_mV)
         
         #2) Run the appropriate Glue waveform to take an ADC acquisition and read out the data.
-
+        outfile_tag = "xrocket2_Vtest_"+str(Vtest_mV)
+        tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag=outfile_tag)
+        out_file = outfile_tag+"_PXI1Slot5_NI6583_lvds.glue"
+        gc = GlueConverter(DEFAULT_IOSPEC)
+        gc.compare(gc.read_glue(lvds_golden), gc.read_glue(out_file))
+    
         #3) Parse the data you read back. 
 
         pass
