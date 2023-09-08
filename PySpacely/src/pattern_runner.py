@@ -32,10 +32,12 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                          "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
-                        "Voltage_Family":4} 
+                        "Voltage Level":4} 
 
 GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
-                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx")}
+                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"),
+                     "NI7972_NI6583_40MHz":GlueBitfile("NI7972","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
+                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023.lvbitx")}
 
 
 #####################################################################
@@ -113,8 +115,13 @@ class PatternRunner(ABC):
         for hw in self.gc.IO_hardware.values():
             #Parse the resource/slot name.
             slot_name = hw.split("/")[0]
+            
             #Find the appropriate bitfile for that slot:
-            bitfile_name = fpga_bitfile_map[slot_name]
+            try:
+                bitfile_name = fpga_bitfile_map[slot_name]
+            except KeyError:
+                print("(ERR) Your .iospec file references \""+slot_name+"\" but \nyou did not provide a bitfile for that slot in your fpga_bitfile_map.")
+                exit()
 
             #The identifier we will use for this FPGA in THIS session is
             #it's slot name + the I/O name (ig because the I/O capabilities are
@@ -254,6 +261,15 @@ class PatternRunner(ABC):
             if type(patterns[i]) == str:
                 patterns[i] = self.gc.read_glue(patterns[i])
                 print("(DBG) Pattern Len from File:",len(patterns[i].vector))
+
+            try:
+                fpga = self._fpga_dict[patterns[i].fpga_name]
+            except KeyError:
+                print("(ERR) This pattern was generated for hardware",patterns[i].fpga_name)
+                print("      But the only hardware that was initialized is:",[x for x in self._fpga_dict.keys()])
+                print("      If you are SURE this is the right pattern, edit the Glue file to add a valid HARDWARE.")
+                return -1
+
 
         #Set up buffers and reader threads.
         reader_threads = []

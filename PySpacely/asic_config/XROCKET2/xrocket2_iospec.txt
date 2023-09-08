@@ -1,4 +1,4 @@
-HARDWARE PXI1Slot5/NI6583/se_io BEGIN
+HARDWARE PXI1Slot16/NI6583/se_io BEGIN
 
 //Config Chain
 configRst,I,31,1
@@ -29,7 +29,7 @@ ClkPCA,I,9
 dataLatchClkPCA,I,8
 END
 
-HARDWARE PXI1Slot5/NI6583/lvds BEGIN
+HARDWARE PXI1Slot16/NI6583/lvds BEGIN
 serialOutTRP,O,5
 serialOutTLP,O,8
 END
