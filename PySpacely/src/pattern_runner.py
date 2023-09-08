@@ -32,12 +32,12 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                          "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
-                        "Voltage Level":4} 
+                        "Voltage_Family":4} 
 
 GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
                                                                "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"),
                      "NI7972_NI6583_40MHz":GlueBitfile("NI7972","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
-                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023.lvbitx")}
+                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx")}
 
 
 #####################################################################
@@ -202,7 +202,7 @@ class PatternRunner(ABC):
     #   -- sets up (but doesn't run) a reader thread that will dump into a slot in self._return_data
     def setup_pattern(self,pattern):
 
-        print("(DBG) Setting up pattern for hardware resource:",pattern.hardware_str)
+        self._log.info(f"Setting up pattern for hardware resource: {pattern.hardware_str}")
 
         #Get the fpga object which we will be sending this pattern to. 
         fpga = self._fpga_dict[pattern.fpga_name]
@@ -233,8 +233,8 @@ class PatternRunner(ABC):
         time.sleep(1)
 
         #Check Actual allocated buffer size
-        print("(DBG) out buffer size:",out_fifo.ref.buffer_size)
-        print("(DBG) in buffer size:",in_fifo.ref.buffer_size)
+        self._log.debug("out buffer size: "+str(out_fifo.ref.buffer_size))
+        self._log.debug("in buffer size: "+str(in_fifo.ref.buffer_size))
 
         #Load the pattern into FIFO memory.
         dbg.interact("w",in_fifo_name,pattern.vector)

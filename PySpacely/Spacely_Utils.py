@@ -782,9 +782,25 @@ def deinitialize_Arduino() -> None:
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_NI():
+    global V_SEQUENCE, I_SEQUENCE
     if sg.NI_CONNECTED:
         sg.log.warning("NI already initialized; reinitializing")
         deinitialize_NI()
+
+    
+
+    try:
+        V_SEQUENCE
+    except NameError:
+        sg.log.info("V_SEQUENCE not defined in Config. No Vsources will be initialized.")
+        V_SEQUENCE = None
+
+    try:
+        I_SEQUENCE
+    except NameError:
+        sg.log.info("I_SEQUENCE not defined in Config. No Isources will be initialized.")
+        I_SEQUENCE = None
+
 
     sg.log.debug("NI INSTR init")
     try:
@@ -794,22 +810,28 @@ def initialize_NI():
             sg.log.block_res()
         sg.log.debug("NI INSTR init done")
 
-        sg.log.debug("NI Vsource init")
-        for Vsource in V_SEQUENCE:
-            #time.sleep(0.5)
-            sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={V_CURR_LIMIT[Vsource]:.4f})")
-            V_PORT[Vsource] = Source_Port(INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=V_CURR_LIMIT[Vsource])
-            V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
-            sg.log.block_res()
-        sg.log.debug("NI Vsource init done")
+        if V_SEQUENCE is not None:
+            sg.log.debug("NI Vsource init")
+            for Vsource in V_SEQUENCE:
+                #time.sleep(0.5)
+                sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={V_CURR_LIMIT[Vsource]:.4f})")
+                V_PORT[Vsource] = Source_Port(INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=V_CURR_LIMIT[Vsource])
+                V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
+                sg.log.block_res()
+            sg.log.debug("NI Vsource init done")
+        
+            
 
-        sg.log.debug("NI Isource init")
-        for Isource in I_SEQUENCE:
-            sg.log.blocking(f"Initializing Isource \"{Isource}\" @ {I_INSTR[Isource]}#{I_CHAN[Isource]} to {I_LEVEL[Isource]:.6f}")
-            I_PORT[Isource] = Source_Port(INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=I_VOLT_LIMIT)
-            I_PORT[Isource].set_current(I_LEVEL[Isource])
-            sg.log.block_res()
-        sg.log.debug("NI Isource init done")
+        if I_SEQUENCE is not None:
+            sg.log.debug("NI Isource init")
+            for Isource in I_SEQUENCE:
+                sg.log.blocking(f"Initializing Isource \"{Isource}\" @ {I_INSTR[Isource]}#{I_CHAN[Isource]} to {I_LEVEL[Isource]:.6f}")
+                I_PORT[Isource] = Source_Port(INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=I_VOLT_LIMIT)
+                I_PORT[Isource].set_current(I_LEVEL[Isource])
+                sg.log.block_res()
+            sg.log.debug("NI Isource init done")
+        
+            
     except Exception as e:
         sg.log.block_res(False)
         if isinstance(e, OSError) and hasattr(e, 'winerror') and e.winerror == -1066598273:
@@ -915,18 +937,33 @@ def auto_voltage_monitor():
         abnormal_rails = []
         abnormal_rail_voltages = []
 
-        for Vsource in V_SEQUENCE:
-            voltage = V_PORT[Vsource].get_voltage()
-            if Vsource in V_WARN_VOLTAGE.keys():
-                if voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
-                    abnormal_rails.append(Vsource)
-                    abnormal_rail_voltages.append(voltage)
-        for Isource in I_SEQUENCE:
-            voltage = I_PORT[Isource].get_voltage()
-            if Isource in I_WARN_VOLTAGE.keys():
-                if voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
-                    abnormal_rails.append(Isource)
-                    abnormal_rail_voltages.append(voltage)
+        try:
+            V_SEQUENCE
+        except NameError:
+            V_SEQUENCE = None
+
+        try:
+            I_SEQUENCE
+        except NameError:
+            I_SEQUENCE = None
+
+        if V_SEQUENCE is not None:
+            for Vsource in V_SEQUENCE:
+                voltage = V_PORT[Vsource].get_voltage()
+                if Vsource in V_WARN_VOLTAGE.keys():
+                    if voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
+                        abnormal_rails.append(Vsource)
+                        abnormal_rail_voltages.append(voltage)
+
+
+        if I_SEQUENCE is not None:
+            for Isource in I_SEQUENCE:
+                voltage = I_PORT[Isource].get_voltage()
+                if Isource in I_WARN_VOLTAGE.keys():
+                    if voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
+                        abnormal_rails.append(Isource)
+                        abnormal_rail_voltages.append(voltage)
+
 
         if len(abnormal_rails) > 0:
             print("*** WARNING *** Abnormal voltage on: ",end='')
