@@ -106,9 +106,11 @@ def XROCKET2_Vtest_Readout():
     """Test the complete operation of the array by supplying a Vtest voltage and reading the data out through serialOut"""
 
 
-    se_io_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_testoutput_se_io.glue"
-    lvds_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_testoutput_lvds.glue"
-    lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest\\vtest_golden_lvds.glue"
+    #NOTE changed for debug.
+    se_io_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest 2\\vtest_testoutput_se_io.glue"
+    lvds_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest 2\\vtest_testoutput_lvds.glue"
+    lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest 2\\vtest_golden_lvds.glue"
+    se_io_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest 2\\vtest_golden_se_io.glue"
     filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
     
     tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
@@ -124,16 +126,18 @@ def XROCKET2_Vtest_Readout():
     #TODO: Program config register to set Vtest=True
     
 
-    for Vtest_mV in [250,750]: #range(0,1000,100):
+    for Vtest_mV in [250]: #range(0,1000,100):
         #1) set Vtest to the correct voltage using Spacely.
         set_Vin_mV(Vtest_mV)
         
         #2) Run the appropriate Glue waveform to take an ADC acquisition and read out the data.
         outfile_tag = "xrocket2_Vtest_"+str(Vtest_mV)
         tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag=outfile_tag)
-        out_file = outfile_tag+"_PXI1Slot5_NI6583_lvds.glue"
+        se_io_out_file = outfile_tag+"_PXI1Slot5_NI6583_se_io.glue"
+        lvds_out_file = outfile_tag+"_PXI1Slot5_NI6583_lvds.glue"
         gc = GlueConverter(DEFAULT_IOSPEC)
-        gc.compare(gc.read_glue(lvds_golden), gc.read_glue(out_file))
+        gc.compare(gc.read_glue(se_io_golden), gc.read_glue(se_io_out_file))
+        gc.compare(gc.read_glue(lvds_golden), gc.read_glue(lvds_out_file))
     
         #3) Parse the data you read back. 
 
