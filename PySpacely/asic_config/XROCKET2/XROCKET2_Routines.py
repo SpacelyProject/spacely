@@ -48,7 +48,7 @@ def XROCKET2_Config_Chain():
     tp1_out_file = "xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
     tp1_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET2\\Glue_Waves\\Tests_8_23\\Tests\\configchain\\configchain_golden_se_io.glue"
     
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     
     time.sleep(3)
 
@@ -67,7 +67,7 @@ def XROCKET2_Scan_Chain():
     tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket2_config_output_PXI1Slot5_NI6583_se_io.glue"
     tp1_golden = "C:\\Users\\aquinn\\Downloads\\scanchain4\\scanchain4\\scanchain_golden_se_io.glue"
     
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     
     time.sleep(3)
 
@@ -88,7 +88,7 @@ def XROCKET2_Serial_Readout():
     lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_golden_lvds.glue"
     filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
     
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     
     time.sleep(3)
 
@@ -113,7 +113,7 @@ def XROCKET2_Vtest_Readout():
     se_io_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\Vtest 2\\vtest_golden_se_io.glue"
     filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
     
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
 
     config_AWG_as_DC(0) 
     
@@ -155,7 +155,7 @@ def XROCKET2_DNL_Trim():
     #Create a glue file from the CDAC CMD "[1]"
     create_glue_wave_from_cdac_cmd([1],"test_cdac_cmd_scan_out")
 
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     gc = GlueConverter(DEFAULT_IOSPEC)
 
     time.sleep(3)
@@ -198,7 +198,7 @@ def XROCKET2_ascii_scan_chain_demo():
     gc.ascii2Glue("ascii_scan_chain_demo.txt",5,"ascii_scan_chain_demo")
 
     # 2) Run that Glue waveform.
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     
     time.sleep(3)
 

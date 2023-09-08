@@ -7,10 +7,20 @@ from threading import Thread
 
 ################## GlueFPGA Implementation Constants ################
 # When you read back waveforms from the FPGA, you will read back this many zeros first.
-FPGA_READBACK_OFFSET = 3
-FPGA_CLOCK_HZ = 40e6
+#FPGA_READBACK_OFFSET = 3
+#FPGA_CLOCK_HZ = 40e6
 
-GLUEFPGA_DEFAULT_BITFILES = {"PXI1Slot5/NI6583":"C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"}
+#Class to represent a Glue Bitfile with all its associated information. 
+class GlueBitfile():
+
+    def __init__(self,FPGA_SERIAL_NUM, IO_SERIAL_NUM, FPGA_READBACK_OFFSET, FPGA_CLOCK_HZ, FPGA_CONFIG_DICT, BITFILE):
+        self.FPGA_SERIAL_NUM = FPGA_SERIAL_NUM
+        self.IO_SERIAL_NUM = IO_SERIAL_NUM
+        self.FPGA_READBACK_OFFSET = FPGA_READBACK_OFFSET
+        self.FPGA_CLOCK_HZ = FPGA_CLOCK_HZ
+        self.FPGA_CONFIG_DICT = FPGA_CONFIG_DICT
+        self.BITFILE = BITFILE
+
 
 GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                         "Run_Pattern"  : False,
@@ -24,8 +34,14 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                         "Set_Voltage_Family":True,
                         "Voltage_Family":4} 
 
+GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
+                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx")}
+
+
 #####################################################################
 
+
+         
 
 #PatternRunner usage model:
 #
@@ -49,42 +65,39 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
 class PatternRunner(ABC):
     _fpga: NiFpga = None
 
-    def __init__(self, logger: liblog.Logger, iospecfile, fpga_dict=None, pattern=None):
+    # Initialize PatternRunner() Object
+    # Args:
+    #       logger = logger
+    #       iospecfile = iospecfile
+    #       fpga_bitfile_map = Dictionary specifying which of the possible bitfiles should be used for each slot.
+    #                          Bitfile names should be chosen from GLUEFPGA_BITFILES.keys(), i.e. {"PXI1Slot5":"NI7976_NI6583_40MHz"}
+    def __init__(self, logger: liblog.Logger, iospecfile, fpga_bitfile_map, pattern=None):
         self._log = logger
         self._interface = {}
+        self._fpga_dict = {}
 
         #Init an instance of GlueConverter to handle GlueWave() operations.
         self.gc = GlueConverter(iospecfile)
 
-        if fpga_dict == None:
-            self._fpga_dict = self.initialize_hardware(self._log,GLUEFPGA_DEFAULT_BITFILES)
+        #Create an internal data structure with software handles to each FPGA we care about.
+        #NOTE: This function sets up the self._fpga_dict and self._interface dictionaries.
+        self.initialize_hardware(self._log,fpga_bitfile_map)
 
-        for hw in self._fpga_dict.keys():
-            self._interface[hw] = NiFpgaDebugger(logger, self._fpga_dict[hw])
-            self._interface[hw].configure(GLUEFPGA_DEFAULT_CFG)
+        #For each of these FPGAs, initialize a debugger, and configure them by using the right
+        #config for their bitfile.
+        #for hw in self._fpga_dict.keys():
+        #    self._interface[hw] = NiFpgaDebugger(logger, self._fpga_dict[hw])
+        #    self._interface[hw].configure(GLUEFPGA_DEFAULT_CFG)
 
-            print("(DBG) Pulsing Set_Voltage_Family")
-            #Pulse "Set_Voltage_Family" to ensure voltage family is actually set correctly.
-            self._interface[hw].interact("w","Set_Voltage_Family",False)
-            time.sleep(1)
-            self._interface[hw].interact("w","Set_Voltage_Family",True)
-            time.sleep(1)
-            self._interface[hw].interact("w","Set_Voltage_Family",False)
+        #    print("(DBG) Pulsing Set_Voltage_Family")
+        #    #Pulse "Set_Voltage_Family" to ensure voltage family is actually set correctly.
+        #    self._interface[hw].interact("w","Set_Voltage_Family",False)
+        #    time.sleep(1)
+        #    self._interface[hw].interact("w","Set_Voltage_Family",True)
+        #    time.sleep(1)
+        #    self._interface[hw].interact("w","Set_Voltage_Family",False)
         
         self._return_data = []
-
-##        #Read iospec file and parse it into a dictionary.
-##        with open(iospecfile,"r") as read_file:
-##            iospec_lines = read_file.readlines()
-##            
-##        #Lines in the iospec file have the format:
-##        #{signal name},{I/O},{port number}
-##        for line in iospec_lines:
-##            if len(line) > 1 and not line.startswith("//"):
-##                a = line.split(",")
-##                self._iospec[a[0]] = [a[1],int(a[2])]
-
-
         self._update_io_dir()
         self._update_io_defaults()
 
@@ -94,20 +107,32 @@ class PatternRunner(ABC):
 
     # initialize_hardware() - This function sets up a hardware dictionary and initializes
     #  all FPGAs required for the I/Os in iospec. 
-    def initialize_hardware(self,log,default_bitfiles):
-        hardware_dict = {}
+    def initialize_hardware(self,log,fpga_bitfile_map):
 
-        #For every hardware resource required by an I/O...
+        #For every hardware resource required by an I/O in the iospec...
         for hw in self.gc.IO_hardware.values():
-            fpga_name = "/".join(hw.split("/")[0:2])
+            #Parse the resource/slot name.
             slot_name = hw.split("/")[0]
-            
-            if fpga_name not in hardware_dict.keys():
-                print("(DBG) Initializing FPGA Hardware:",fpga_name,"...")
-                hardware_dict[fpga_name] = NiFpga(log, slot_name)
-                hardware_dict[fpga_name].start(default_bitfiles[fpga_name])
+            #Find the appropriate bitfile for that slot:
+            bitfile_name = fpga_bitfile_map[slot_name]
 
-        return hardware_dict
+            #The identifier we will use for this FPGA in THIS session is
+            #it's slot name + the I/O name (ig because the I/O capabilities are
+            #important and can be easily seen from the front of the chassis)
+            fpga_name = "/".join(hw.split("/")[0:2])
+
+            #If we haven't already set up this FPGA in _fpga_dict and _interface, do it.
+            if fpga_name not in self._fpga_dict.keys():
+                print("(DBG) Initializing FPGA Hardware:",fpga_name,"...")
+                #Create NiFpga Object using Slot Name (and store the bitfile_name for later reference)
+                self._fpga_dict[fpga_name] = NiFpga(log, slot_name, bitfile_name=bitfile_name)
+                #Flash the correct bitfile
+                self._fpga_dict[fpga_name].start(GLUEFPGA_BITFILES[bitfile_name].BITFILE)
+                #Start an interface referencing the object we just created.
+                self._interface[fpga_name] = NiFpgaDebugger(log, self._fpga_dict[fpga_name])
+                #Configure as appropriate for the bitfile.
+                self._interface[fpga_name].configure(GLUEFPGA_BITFILES[bitfile_name].FPGA_CONFIG_DICT)
+                
 
     # _update_io_defaults() - Sets all IOs to their default state from iospec.
     def _update_io_defaults(self):
@@ -172,11 +197,18 @@ class PatternRunner(ABC):
 
         print("(DBG) Setting up pattern for hardware resource:",pattern.hardware_str)
 
+        #Get the fpga object which we will be sending this pattern to. 
+        fpga = self._fpga_dict[pattern.fpga_name]
+
+        #Extract some important parameters for this specific bitfile.
+        FPGA_READBACK_OFFSET = GLUEFPGA_BITFILES[fpga._bitfile_name].FPGA_READBACK_OFFSET
+        FPGA_CLOCK_HZ = GLUEFPGA_BITFILES[fpga._bitfile_name].FPGA_CLOCK_HZ
+
         #Identify the correct fifos and debugger based on the hardware specification of pattern.
         in_fifo_name = pattern.fifo_name+"_fifo_from_pc"
-        in_fifo = self._fpga_dict[pattern.fpga_name].get_fifo(in_fifo_name)
+        in_fifo = fpga.get_fifo(in_fifo_name)
         out_fifo_name = pattern.fifo_name+"_fifo_to_pc"
-        out_fifo = self._fpga_dict[pattern.fpga_name].get_fifo(out_fifo_name)
+        out_fifo = fpga.get_fifo(out_fifo_name)
         dbg = self._interface[pattern.fpga_name]
 
         #Ensure that there is enough memory on the host side for the pattern we want to run.
@@ -233,6 +265,12 @@ class PatternRunner(ABC):
             exit()
         else:
             dbg = list(self._interface.values())[0]
+            #Get the fpga object which we will be sending this pattern to. 
+            fpga = list(self._fpga_dict.values())[0]
+
+            #Extract some important parameters for this specific bitfile.
+            FPGA_READBACK_OFFSET = GLUEFPGA_BITFILES[fpga._bitfile_name].FPGA_READBACK_OFFSET
+            FPGA_CLOCK_HZ = GLUEFPGA_BITFILES[fpga._bitfile_name].FPGA_CLOCK_HZ
 
         ## Critical Timing: Must be < timeout ##
         for t in reader_threads:
@@ -271,44 +309,6 @@ class PatternRunner(ABC):
         y = dbg.interact("r",out_fifo_name,read_len)
 
         self._return_data[return_data_idx] = y[0]
-
-    ### MEM Functions work on a version of Glue that uses on-fpga memory. ###
-    ### ... at this point, these are pretty much deprecated. ###
-    
-##    # update_pattern - Given a Glue pattern as an integer list OR a filename,
-##    #                   place that pattern in FPGA memory.
-##    def MEM_update_pattern(self, pattern) -> None:
-##
-##        if type(pattern) == str:
-##            with open(pattern, "r") as read_file:
-##                pattern_file_text = read_file.read()
-##
-##            pattern = [int(x) for x in pattern_file_text.split(",")]
-##        
-##        self._interface.interact("w","io_fifo_from_pc", pattern)
-##        self._interface.interact("w","Write_to_Mem",True)
-##        self._interface.interact("w","Write_to_Mem",False)
-##
-##
-##        
-##    def MEM_run_pattern_once(self) -> None:
-##        self._interface.interact("w","Run_Pattern",True)
-##        self._interface.interact("w","Run_Pattern",False)
-##
-##
-##    def MEM_read_output(self) -> list[int]:
-##        self._interface.interact("w","Read_from_Mem",True)
-##        self._interface.interact("w","Read_from_Mem",False)
-##        y = self._interface.interact("r","io_fifo_to_pc",1024)
-##        #y is a tuple, where y[0] is the returned glue waveform.
-##        return y[0]
-##        pass
-##
-##    def MEM_read_output_file(self, outfile) -> None:
-##        out = self.MEM_read_output()
-##
-##        with open(outfile,"w") as write_file:
-##            write_file.write([str(x) for x in out].join(", "))
 
 
 
