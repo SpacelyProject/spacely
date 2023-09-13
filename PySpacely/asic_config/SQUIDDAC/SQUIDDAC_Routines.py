@@ -21,7 +21,7 @@ from Spacely_Utils import *
 def test1():
     """Simple Test"""
 
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     gc = GlueConverter(DEFAULT_IOSPEC)
     time.sleep(3)
 
@@ -35,7 +35,7 @@ def test1():
             pattern_filename = generate_test_pattern(test,v)
 
             #Run Glue Pattern
-            tp.run_pattern(pattern_filename,outfile_tag="temp")
+            pr.run_pattern(pattern_filename,outfile_tag="temp")
             
             #Measure SMU
             report = report+"Test DAC = "+str(test)+"; Code = "+str(v)+"; SMU Current is:"+str(V_PORT["Vout"].get_current())+"\n"

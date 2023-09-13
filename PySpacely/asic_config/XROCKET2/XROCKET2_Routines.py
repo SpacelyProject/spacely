@@ -84,7 +84,7 @@ def XROCKET2_Serial_Readout():
 
     se_io_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_testoutput_se_io.glue"
     lvds_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_testoutput_lvds.glue"
-    out_file = "xrocket2_serial_output_PXI1Slot5_NI6583_lvds.glue"
+    out_file = "xrocket2_serial_output_PXI1Slot16_NI6583_lvds.glue"
     lvds_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\XROCKET2\\Glue_Waves\\serial readout 3\\serialreadout_golden_lvds.glue"
     filepath_lint([se_io_in_file,lvds_in_file, lvds_golden],"XROCKET2_Routines")
     
@@ -93,10 +93,13 @@ def XROCKET2_Serial_Readout():
     time.sleep(3)
 
     print("Checking XROCKET2 Serial Readout!")
-    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    tp._interface["PXI1Slot16/NI6583"].interact('w','lvds_clockout_en',True)
     time.sleep(1)
     
-    tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag="xrocket2_serial_output")
+    res = tp.run_pattern([se_io_in_file, lvds_in_file], outfile_tag="xrocket2_serial_output")
+    if res == -1:
+        print("run_pattern failed!")
+        return
     gc = GlueConverter(DEFAULT_IOSPEC)
     gc.compare(gc.read_glue(lvds_golden), gc.read_glue(out_file))
     
@@ -120,7 +123,7 @@ def XROCKET2_Vtest_Readout():
     time.sleep(3)
 
     #Turn on LVDS clock. 
-    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    tp._interface["PXI1Slot16/NI6583"].interact('w','lvds_clockout_en',True)
     time.sleep(1)
 
     #TODO: Program config register to set Vtest=True

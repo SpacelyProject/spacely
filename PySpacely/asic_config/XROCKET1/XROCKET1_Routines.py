@@ -82,13 +82,13 @@ def ROUTINE5_XROCKET1_Readout():
     #Data files
 
     #tp1_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\xrocket1_config_input_se_io.glue"
-    tp1_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\configIn_force_high.glue"
-    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket1_out_PXI1Slot5_NI6583_se_io.glue"
+    tp1_in_file = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\XR1_force_config_low.glue"  #configIn_force_high.glue"
+    tp1_out_file = "C:\\Users\\aquinn\Desktop\\SPROCKET Test\\spacely\\PySpacely\\xrocket1_out_PXI1Slot16_NI6583_se_io.glue"
     tp1_golden = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\xrocket1_config_golden_se_io.glue"
-    readback_se_io = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\xrocket1_readback_input_with_reset_se_io.glue"
+    readback_se_io = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\XR1_readback_se_io_reset_active_low.glue" #xrocket1_readback_input_with_reset_se_io.glue"
     readback_lvds  = "C:\\Users\\Public\\Documents\\XROCKET Test and Analysis\\XROCKET1\\xrocket1_readback_input_lvds.glue"
 
-    tp = PatternRunner(sg.log, DEFAULT_IOSPEC)
+    tp = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
 
     config_AWG_as_DC(0)
 
@@ -96,7 +96,7 @@ def ROUTINE5_XROCKET1_Readout():
 
     print("Running XROCKET1 Readback!")
     tp.run_pattern(tp1_in_file, outfile_tag="xrocket1_config_output")
-    tp._interface["PXI1Slot5/NI6583"].interact('w','lvds_clockout_en',True)
+    tp._interface["PXI1Slot16/NI6583"].interact('w','lvds_clockout_en',True)
     time.sleep(1)
     tp.run_pattern([readback_se_io,readback_lvds], outfile_tag="xrocket1_readback_output")
 

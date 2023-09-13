@@ -84,7 +84,7 @@ V_LEVEL = {
              "Vdd12": 1.2,
              "Ib2": 1.35,
              #"Iterm":1.415,
-             "VCC_LT":   3.3,
+             "VCC_LT": 2.5,
              "VDD_ASIC": 1.2            
            }
 

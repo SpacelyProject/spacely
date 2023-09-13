@@ -3,6 +3,9 @@ USE_ARDUINO = False
 USE_NI = True
 USE_AWG = True
 
+
+DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot16":"NI7972_NI6583_40MHz"}
+
 DEFAULT_PROLOGIX_IPADDR = "192.168.1.15"
 DEFAULT_AWG_GPIBADDR = 10
 
@@ -80,7 +83,7 @@ V_LEVEL = {
              "Vdd12": 1.2,
              "Ib2": 1.35,
              "Iterm":1.415,
-             "VCC_LT":   3.3,
+             "VCC_LT":   2.5,
              "VDD_ASIC": 1.2            
            }
 

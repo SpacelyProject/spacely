@@ -932,11 +932,13 @@ def deinitialize_AWG() -> None:
 
 
 def auto_voltage_monitor():
+    global V_SEQUENCE, I_SEQUENCE
     if sg.NI_CONNECTED:
         # Automatic Voltage Warning
         abnormal_rails = []
         abnormal_rail_voltages = []
 
+        #print("(DBG) auto_voltage_monitor running")
         try:
             V_SEQUENCE
         except NameError:
