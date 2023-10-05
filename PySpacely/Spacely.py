@@ -140,12 +140,23 @@ print("# Spacely ready to take commands (see \"help\" for details)")
 # find_DNL()
 # Vin_sweep()
 
+
+
+try:
+    V_WARN_VOLTAGE
+except NameError:
+    print("ERROR: V_WARN_VOLTAGE not defined in ASIC config file.")
+    print("       No automatic voltage checking will be performed.")
+    V_WARN_VOLTAGE = None
+
+
 #Command loop
 while True:
 
 
     #Report any abnormal voltages
-    auto_voltage_monitor()
+    if V_WARN_VOLTAGE is not None:
+        auto_voltage_monitor()
 
     
     try:

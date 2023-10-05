@@ -893,10 +893,11 @@ def initialize_AWG(interactive: bool = True) -> AgilentAWG:
         sg.log.info(f"Connecting to AWG @ GPIB#{AWG_GPIBADDR} via IP:{PROLOGIX_IPADDR}")
         sg.AWG = AgilentAWG(sg.log, PROLOGIX_IPADDR, AWG_GPIBADDR)
         sg.AWG.connect()
-        sg.AWG.set_limit(V_LEVEL["Vref"])
+        sg.AWG.set_limit(2.5)
 
         # Connection succesful
         if sg.AWG.is_connected():
+            sg.log.info("AWG succesfully initialized! NOTE: Vlimit is set to 2.5V")
             break
 
         sg.AWG = None

@@ -1,0 +1,35 @@
+//SPROCKET2 iospec
+
+HARDWARE PXI1Slot16/NI6583/se_io BEGIN
+
+//Scan Chain signals
+S_CLK,I,11
+S_DOUT,O,17
+S_DIN,I,12
+S_PASS,I,14
+
+//NOTE: bufsel_ext is multiplexed with S_DIN
+bufsel_ext,I,12
+read_ext,I,1
+Rst_ext,I,2
+
+mclk,I,4
+
+//ADC Signals
+capClk,I,13
+Qequal,I,15
+DACclr,I,5
+
+calc,I,3
+
+phi1_ext,I,8
+phi2_ext,I,9
+capLo_ext,I,7
+capHib_ext,I,6
+
+//ADC Outputs
+CompOut,O,19
+halt_sample,O,0
+
+
+END
