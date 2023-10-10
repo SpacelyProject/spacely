@@ -185,7 +185,7 @@ class PatternRunner(ABC):
             hw = self.gc.IO_hardware[io]
             pos = self.gc.IO_pos[io]
             #INPUTS to the ASIC are OUTPUTS from Glue, so set their IO dir to 1.
-            io_dir[hw] = io_dir[hw] + (1 << pos)
+            io_dir[hw] = io_dir[hw] | (1 << pos)
 
         #Write all these updated I/O dirs to the right hardware.
         for hw in hw_list:
