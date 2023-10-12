@@ -17,7 +17,8 @@ import Spacely_Globals as sg
 from Spacely_Utils import *
 
 
-
+def SC_CFG(override,TestEn,Range2):
+    return [0]*17 + [override] + [TestEn] + [Range2]
 
 
 def ROUTINE1_Scan_Chain_Loopback():
@@ -56,11 +57,14 @@ def ROUTINE2_Comparator_Smoke_Test():
     time.sleep(3)
 
     smoke_test_ascii = ".\\asic_config\\SPROCKET2\\comparator_smoke_test_pattern.txt"
-    gc.ascii2Glue(smoke_test_ascii, 1, "smoke_test_pattern")
+    if gc.ascii2Glue(smoke_test_ascii, 1, "smoke_test_pattern") == -1:
+        return
     smoke_test_pattern = "smoke_test_pattern_se_io.glue"
 
-    #Config: TestEn = 1
-    pr.run_pattern( genpattern_SC_write([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],1000),outfile_tag="sc_cfg")
+    #Config: TestEn = 1   #TODO: CHANGE PENULTIMATE BIT BACK TO A 1!!
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    print(SC_PATTERN)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
     #Smoke 1: Expected output -- CompOut = 0
     pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_1")
@@ -72,8 +76,9 @@ def ROUTINE2_Comparator_Smoke_Test():
     smoke_1 = "smoke_1_PXI1Slot16_NI6583_se_io.glue"
     smoke_2 = "smoke_2_PXI1Slot16_NI6583_se_io.glue"
 
-
+    print("Smoke Test 1/2 (expected result: all 0's)")
     print(gc.get_bitstream(gc.read_glue(smoke_1),"CompOut"))
+    print("Smoke Test 2/2 (expected result: all 1's)")
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
 
 ### HELPER FUNCTIONS ###
