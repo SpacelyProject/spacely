@@ -36,7 +36,29 @@ import Spacely_Globals as sg
 # SPACELY GLOBAL VARIABLES
 
 
+def get_bit(x, bit_pos):
+    if x & (1 << bit_pos) > 0:
+        return 1
+    else:
+        return 0
+ 
 
+# Converts an int to a little-endian vector
+# 4 --> [0,0,1]
+def int_to_vec(x, vec_len):
+    vec = []
+    for i in range(vec_len):
+        vec.append(get_bit(x,i))      
+    return vec
+
+# Converts a little-endian vector to an int
+# [0,0,1] --> 4
+def vec_to_int(vec):
+    x = 0
+    for i in range(len(vec)):
+        if vec[i] == 1:
+            x = x+2**i
+    return x
 
 
 

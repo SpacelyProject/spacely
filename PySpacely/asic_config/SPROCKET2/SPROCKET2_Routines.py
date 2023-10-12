@@ -21,7 +21,7 @@ def SC_CFG(override,TestEn,Range2):
     return [0]*17 + [override] + [TestEn] + [Range2]
 
 
-def ROUTINE1_Scan_Chain_Loopback():
+def ROUTINE0_Scan_Chain_Loopback():
     """Scan Chain Loopback"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -48,7 +48,7 @@ def ROUTINE1_Scan_Chain_Loopback():
     #gc.compare(gc.read_glue(out_1), gc.read_glue(out_2))
 
 
-def ROUTINE2_Comparator_Smoke_Test():
+def ROUTINE1_Comparator_Smoke_Test():
     """Comparator Smoke Test uwu"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -61,7 +61,7 @@ def ROUTINE2_Comparator_Smoke_Test():
         return
     smoke_test_pattern = "smoke_test_pattern_se_io.glue"
 
-    #Config: TestEn = 1   #TODO: CHANGE PENULTIMATE BIT BACK TO A 1!!
+    #Config: TestEn = 1  
     SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
     print(SC_PATTERN)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
@@ -80,6 +80,116 @@ def ROUTINE2_Comparator_Smoke_Test():
     print(gc.get_bitstream(gc.read_glue(smoke_1),"CompOut"))
     print("Smoke Test 2/2 (expected result: all 1's)")
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
+
+
+def ROUTINE2_ADC_Capture():
+    """Operate the ADC to digitize a range of values from TestEn"""
+    
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    adc_op_glue = genpattern_ADC_Capture(1)
+    sc_read_glue = genpattern_SC_write([0]*19,1000)
+    
+    
+    #Config: TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
+    with open("ADC_Sweep_Results.csv","w") as write_file:
+        write_file.write("Vin(mV),Output Code\n")
+    
+        for vin in range(0,1000,100):
+            #Set Vin_mV and run the ADC
+            set_Vin_mV(vin)
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op")
+            
+            #Scan out the result
+            pr.run_pattern(sc_read_glue,outfile_tag="sc_result")
+            sc_result = "sc_result_PXI1Slot16_NI6583_se_io.glue"
+            scanout_bits = gc.get_clocked_bitstream(gc.read_glue(sc_result), "S_CLK", "S_DOUT")
+            print(scanout_bits)
+            #These bits represent the ADC result.
+            x = vec_to_int(scanout_bits[0:10])
+            print(x)
+            write_file.write(str(vin)+","+str(x)+"\n")
+            
+    
+    
+# Generates the pattern necessary to run the ADC.
+def genpattern_ADC_Capture(time_scale_factor):
+    
+    waves = {}
+    
+    #Start off w/ some zeros to avoid extra pulse bug.
+    waves["DACclr"] = [0]*10
+    waves["Qequal"] = [0]*10
+    waves["capClk"] = [0]*10
+    waves["calc"]   = [0]*10
+    waves["read_ext"]   = [0]*10
+    
+    
+    for adc_bit in range(10):
+        
+        #Each bit starts off w/ a DACclr pulse.
+        waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+        waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+        waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+        
+        for clk_cycle in range(adc_bit):
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+            #Qequal pulse
+            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor
+            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor
+            
+            
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+            if clk_cycle < adc_bit - 1:
+                #capClk pulse
+                waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+        
+            
+            
+        #Add a 0 for non-overlapping.    
+        waves["DACclr"] = waves["DACclr"] + [0]
+        waves["capClk"] = waves["capClk"] + [0]
+        waves["Qequal"] = waves["Qequal"] + [0]
+        
+        
+    #Final DACclr pulse.
+    waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+    waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+    waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+        
+    waves["calc"] = waves["calc"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
+    waves["read_ext"] = waves["calc"]
+    
+    #2) Writing to an ASCII file.
+    with open("genpattern_adc_op.txt",'w') as write_file:
+        for w in waves.keys():
+            write_file.write(w+":"+"".join([str(x) for x in waves[w]])+"\n")
+            
+    #3) Convert ASCII file to Glue.
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    gc.ascii2Glue("genpattern_adc_op.txt", 1, "genpattern_adc_op")
+
+
+    return "genpattern_adc_op_se_io.glue"
 
 ### HELPER FUNCTIONS ###
 
@@ -125,4 +235,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE1_Scan_Chain_Loopback,ROUTINE2_Comparator_Smoke_Test]
+ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture]

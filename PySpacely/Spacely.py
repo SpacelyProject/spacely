@@ -98,8 +98,11 @@ print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+\n")
 if USE_ARDUINO and EMULATE_ASIC:
     print("**ASIC will be EMULATED by ARDUINO**")
 
-
 assume_defaults = cmd_args.defaults
+
+if (USE_NI or USE_AWG) and not assume_defaults:
+    print("Did you know you can skip interactive initialization with --defaults ?")
+
 #Default Setup
 init_hal = cmd_args.hal
 if init_hal is None and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
@@ -110,7 +113,7 @@ if init_hal:
 else:
     sg.log.debug('HAL init skipped')
 
-init_ni = cmd_args.ni
+init_ni = cmd_args.ni or (assume_defaults and USE_NI)
 if init_ni is None and USE_NI == True:
     cmd_txt = input("DEFAULT: Set up NI sources. 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
@@ -122,7 +125,7 @@ if init_ni:
 else:
     sg.log.debug('NI init skipped')
 
-init_awg = cmd_args.awg
+init_awg = cmd_args.awg or (assume_defaults and USE_AWG)
 if init_awg is None and USE_AWG == True:
     cmd_txt = input("DEFAULT: Set up AWG. 'n' to Skip>>>")
     init_awg = False if cmd_txt == 'n' else True

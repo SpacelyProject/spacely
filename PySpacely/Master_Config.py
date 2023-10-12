@@ -13,6 +13,8 @@ TARGET = "SPROCKET2"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
+
+
 if TARGET == "SPROCKET1":
     from SPROCKET1_Config import *
 elif TARGET == "XROCKET1":
@@ -27,3 +29,5 @@ elif TARGET == "SPROCKET2":
 elif TARGET == "SQUIDDAC":
     from asic_config.SQUIDDAC.SQUIDDAC_Config import *
     from asic_config.SQUIDDAC.SQUIDDAC_Routines import *
+        
+
