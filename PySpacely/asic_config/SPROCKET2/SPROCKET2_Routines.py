@@ -90,11 +90,12 @@ def ROUTINE2_ADC_Capture():
     config_AWG_as_DC(0)
     time.sleep(3)
     
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
     adc_op_glue = genpattern_ADC_Capture(1)
     sc_read_glue = genpattern_SC_write([0]*19,1000)
     
     
-    #Config: TestEn = 1  
+    #Set Scan Chain Configuration:  TestEn = 1  
     SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
     
@@ -103,18 +104,25 @@ def ROUTINE2_ADC_Capture():
         write_file.write("Vin(mV),Output Code\n")
     
         for vin in range(0,1000,100):
-            #Set Vin_mV and run the ADC
+            #Set the input voltage:
             set_Vin_mV(vin)
-            pr.run_pattern(adc_op_glue,outfile_tag="adc_op")
+            
+            #Run the ADC to capture a reading.
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
+            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
+            print("CompOut value at the end of each bit period: ",adc_bits)
+            x = vec_to_int(adc_bits)
+            print("ADC value inferred directly from CompOut: ",x)
             
             #Scan out the result
             pr.run_pattern(sc_read_glue,outfile_tag="sc_result")
             sc_result = "sc_result_PXI1Slot16_NI6583_se_io.glue"
             scanout_bits = gc.get_clocked_bitstream(gc.read_glue(sc_result), "S_CLK", "S_DOUT")
-            print(scanout_bits)
+            print("These are the bits read back from the scan chain: ", scanout_bits)
             #These bits represent the ADC result.
             x = vec_to_int(scanout_bits[0:10])
-            print(x)
+            print("ADC Reading from the Scan Chain: ",x)
             write_file.write(str(vin)+","+str(x)+"\n")
             
     
