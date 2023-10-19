@@ -22,10 +22,12 @@ DACclr,I,5
 
 calc,I,3
 
-phi1_ext,I,8
-phi2_ext,I,9
-capLo_ext,I,7
-capHib_ext,I,6
+//Conservatively treat these pins as outputs from the 
+//ASIC so if they get connected to the ASIC, Spacely won't clobber them. 
+phi1_ext,O,8
+phi2_ext,O,9
+capLo_ext,O,7
+capHib_ext,O,6
 
 //ADC Outputs
 CompOut,O,19

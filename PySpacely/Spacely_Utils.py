@@ -29,6 +29,7 @@ from pattern_runner import *
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
+from fnal_libvisa import *
 
 from Master_Config import *
 import Spacely_Globals as sg
@@ -953,6 +954,39 @@ def deinitialize_AWG() -> None:
     sg.log.block_res()
     sg.AWG_CONNECTED = False
 
+
+def initialize_scope(interactive: bool = True) -> AgilentAWG:
+
+    chosen_resource = None
+    
+    if interactive:
+        rm = pyvisa.ResourceManager()
+        resources = rm.list_resources()
+
+        print("Available resources:")
+        for i in range(len(resources)):
+            print(f"{i}. {resources[i]}")
+
+        resource_idx = int(input("Which one represents the scope?"))
+
+        chosen_resource = resources[resource_idx]
+
+    if chosen_resource is None:
+        chosen_resource = DEFAULT_OSCILLOSCOPE_RESOURCE
+
+    sg.log.info(f"Attempting to configure {chosen_resource} as an oscilloscope...")
+    sg.scope = TektronixOscilloscope(sg.log,chosen_resource)
+        
+
+def logger_demo():
+    sg.log.info("sg.log.info")
+    sg.log.debug("sg.log.debug")
+    sg.log.notice("sg.log.notice")
+    sg.log.warning("sg.log.warning")
+    sg.log.error("sg.log.error")
+    sg.log.critical("sg.log.critical")
+    sg.log.alert("sg.log.alert")
+    sg.log.emerg("sg.log.emerg")
 
 def auto_voltage_monitor():
     global V_SEQUENCE, I_SEQUENCE

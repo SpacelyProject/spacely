@@ -33,6 +33,7 @@ from pattern_runner import *
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
+from fnal_libvisa import *
 
 
 
@@ -54,9 +55,11 @@ argp = argparse.ArgumentParser(prog='Spacely')
 argp.add_argument('--hal', action=argparse.BooleanOptionalAction, help='Perform Arudino HAL init')
 argp.add_argument('--ni', action=argparse.BooleanOptionalAction, help='Perform NI voltage sources init')
 argp.add_argument('--awg', action=argparse.BooleanOptionalAction, help='Perform AWG (wave generator) init')
+argp.add_argument('--scope', action=argparse.BooleanOptionalAction, help='Perform Oscilloscope init')
 argp.add_argument('-d', '--defaults', action='store_true', help='Assume defaults for Arduino ports etc. (otherwise it will ask)')
 argp.add_argument('--file-log', const=None, default=False, nargs='?', action='store', help='When specified saves a copy of a log to a given file')
 argp.add_argument('--ansi', action=argparse.BooleanOptionalAction, help='Whether to enable ANSI (color) output')
+argp.add_argument('-r', type=int, default=None, help='Routine to automatically run.')
 cmd_args = argp.parse_args()
 
 
@@ -103,9 +106,11 @@ assume_defaults = cmd_args.defaults
 if (USE_NI or USE_AWG) and not assume_defaults:
     print("Did you know you can skip interactive initialization with --defaults ?")
 
-#Default Setup
-init_hal = cmd_args.hal
-if init_hal is None and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
+# # # Default Setup # # #
+
+#Arduino HAL
+init_hal = cmd_args.hal is not None
+if not init_hal and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
     cmd_txt = input("DEFAULT: Connect to Arduino. 'n' to Skip>>>")
     init_hal = False if cmd_txt == 'n' else True # init by default
 if init_hal:
@@ -113,8 +118,9 @@ if init_hal:
 else:
     sg.log.debug('HAL init skipped')
 
-init_ni = cmd_args.ni or (assume_defaults and USE_NI)
-if init_ni is None and USE_NI == True:
+#NI Chassis
+init_ni = (cmd_args.ni is not None) or (assume_defaults and USE_NI)
+if not init_ni and USE_NI == True:
     cmd_txt = input("DEFAULT: Set up NI sources. 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
 if init_ni:
@@ -125,8 +131,9 @@ if init_ni:
 else:
     sg.log.debug('NI init skipped')
 
-init_awg = cmd_args.awg or (assume_defaults and USE_AWG)
-if init_awg is None and USE_AWG == True:
+#AWG
+init_awg = (cmd_args.awg is not None) or (assume_defaults and USE_AWG)
+if not init_awg and USE_AWG == True:
     cmd_txt = input("DEFAULT: Set up AWG. 'n' to Skip>>>")
     init_awg = False if cmd_txt == 'n' else True
 if init_awg:
@@ -138,11 +145,23 @@ if init_awg:
 else:
     sg.log.debug('AWG init skipped')
 
-print("# Spacely ready to take commands (see \"help\" for details)")
-#Valid Commands:
-# find_DNL()
-# Vin_sweep()
+#Oscilloscope
+init_scope = (cmd_args.scope is not None) or (assume_defaults and USE_SCOPE)
+if not init_scope and USE_SCOPE == True:
+    cmd_txt = input("DEFAULT: Set up Oscilloscope. 'n' to Skip>>>")
+    init_awg = False if cmd_txt == 'n' else True
+if init_awg:
+    initialize_scope(interactive=not assume_defaults)
 
+else:
+    sg.log.debug('AWG init skipped')
+
+
+# # # # # #
+
+
+
+print("# Spacely ready to take commands (see \"help\" for details)")
 
 
 try:
@@ -151,6 +170,11 @@ except NameError:
     print("ERROR: V_WARN_VOLTAGE not defined in ASIC config file.")
     print("       No automatic voltage checking will be performed.")
     V_WARN_VOLTAGE = None
+
+
+#Auto-run command, if defined.
+if cmd_args.r is not None:
+    ROUTINES[cmd_args.r]()
 
 
 #Command loop

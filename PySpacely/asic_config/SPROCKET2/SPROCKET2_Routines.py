@@ -10,6 +10,7 @@ from pattern_runner import *
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
+from fnal_libvisa import *
 
 #Import Spacely functions
 from Master_Config import *
@@ -82,7 +83,7 @@ def ROUTINE1_Comparator_Smoke_Test():
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
 
 
-def ROUTINE2_ADC_Capture():
+def ROUTINE2_ADC_Capture_ScanChain():
     """Operate the ADC to digitize a range of values from TestEn"""
     
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -125,7 +126,101 @@ def ROUTINE2_ADC_Capture():
             print("ADC Reading from the Scan Chain: ",x)
             write_file.write(str(vin)+","+str(x)+"\n")
             
+def ROUTINE2_ADC_Capture_Scope():
+    """Operate the ADC to digitize a range of values from TestEn (OSCILLOSCOPE ASSISTED)"""
+
+
+    input("""REQUIREMENTS:
+ > Oscilloscope Ch1 connected to CAPLO
+ > Oscilloscope Ch2 connected to DACCLR
+Press enter to continue...""")
     
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(1)
+    sc_read_glue = genpattern_SC_write([0]*19,1000)
+    
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
+    with open("ADC_Sweep_Results.csv","w") as write_file:
+        write_file.write("Vin(mV),Output Code\n")
+    
+        for vin in range(0,1000,100):
+            #Set the input voltage:
+            set_Vin_mV(vin)
+
+            #Set up a 600 mV trigger on channel 1:
+            sg.scope.write("HORIZONTAL:POSITION 0")  #Sets the trigger all the way to the left.
+            sg.scope.write("HORIZONTAL:MODE:SCALE 1E-6") #Sets the horizontal resolution to 1us/div.
+            sg.scope.setup_trigger(2,0.6) #600mV trigger on DACclr.
+            
+            #Run the ADC to capture a reading.
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
+            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            
+            caplo_wave = sg.scope.get_wave(1)
+            dacclr_wave = sg.scope.get_wave(2)
+
+            result = interpret_CDAC_pattern(caplo_wave, dacclr_wave)
+
+            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
+            print("CompOut value at the end of each bit period: ",adc_bits[1:])
+            x = vec_to_int(adc_bits[1:])
+            print("ADC value inferred directly from CompOut: ",x)
+
+            #sg.scope.onscreen()
+            write_file.write(str(vin)+","+str(result)+","+str(x)+"\n")
+            
+### HELPER FUNCTIONS ###
+
+def interpret_CDAC_pattern(caplo_wave, dacclr_wave):
+
+    #Assume horizontal scale of 10ns per point, and that bits are 100 ns long (75 ns + 25 ns gap)
+    BIT_PERIOD = 20
+
+    #Initial offset
+    idx = 3
+
+    THRESH = 0.6
+    
+    binary_approximations = []
+    decimal_approximations = []
+
+    for approximation in range(1,10):
+
+        #Find the rising edge of DACclr.
+        while idx < len(caplo_wave) and not (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] > THRESH):
+            idx = idx + 1
+
+        print(f"(DBG) DACclr rising edge found at: {idx}")
+
+        #Add 2 to get off the rising edge.
+        idx = idx + 3
+        
+        binary_approximations.append([])
+                                             
+        for bit in range(approximation):
+            #Note the inverted polarity here b/c capLo being high means the CDAC value is decreasing.
+            if caplo_wave[idx] > THRESH:
+                binary_approximations[-1].append(0)
+            else:
+                binary_approximations[-1].append(1)
+            idx = idx + BIT_PERIOD
+
+        decimal_approximations.append(vec_to_int(binary_approximations[-1])*(2**(10-approximation)))
+        print("(DBG)",binary_approximations[-1], "==",decimal_approximations[-1])
+        idx = idx - BIT_PERIOD
+
+
+    return decimal_approximations[-1]
+            
     
 # Generates the pattern necessary to run the ADC.
 def genpattern_ADC_Capture(time_scale_factor):
@@ -199,7 +294,7 @@ def genpattern_ADC_Capture(time_scale_factor):
 
     return "genpattern_adc_op_se_io.glue"
 
-### HELPER FUNCTIONS ###
+
 
 # Given a string of bits to write to the scan chain, generates a glue waveform that will write those bits.
 def genpattern_SC_write(sc_bits, time_scale_factor=1):
@@ -243,4 +338,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture]
+ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture_ScanChain, ROUTINE2_ADC_Capture_Scope]

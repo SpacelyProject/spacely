@@ -9,6 +9,7 @@
 #emulation commands to the Arduino instead.
 port = None
 AWG = None
+scope = None
 
 ARDUINO_CONNECTED = False
 NI_CONNECTED = False

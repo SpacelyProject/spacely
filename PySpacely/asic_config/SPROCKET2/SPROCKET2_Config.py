@@ -2,7 +2,10 @@
 USE_ARDUINO = False
 USE_NI = True
 USE_AWG = True
+USE_SCOPE = True
 
+
+DEFAULT_OSCILLOSCOPE_RESOURCE = "USB0::0x0699::0x0503::B050103::INSTR"
 
 DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot16":"NI7972_NI6583_40MHz"}
 DEFAULT_IOSPEC = ".\\asic_config\\SPROCKET2\\sprocket2_iospec.txt"
@@ -88,7 +91,7 @@ V_LEVEL = {# SMU_A
              "VDDIO_LT": 1.2,                  
              "VCC_LT":   3.3,
              # PSU_B
-             "VDD_ASIC": 1.2,
+             "VDD_ASIC": 1.35, #Boosted from 1.2V to account for PCB drop.
              "VCC_ASIC": 3.3             
            }
 
