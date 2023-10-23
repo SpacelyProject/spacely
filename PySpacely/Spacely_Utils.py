@@ -18,6 +18,7 @@ from statistics import mean, NormalDist
 import csv
 import tkinter as tk
 from tkinter import filedialog
+import pyvisa
 
 
 sys.path.append(os.path.abspath("./src"))

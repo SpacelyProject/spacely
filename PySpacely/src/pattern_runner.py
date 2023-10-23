@@ -230,7 +230,7 @@ class PatternRunner(ABC):
         dbg.interact("w","Buffer_Pass_Size",pattern.len+FPGA_READBACK_OFFSET)
 
         # (Allow host memory settings to sink in.)
-        time.sleep(1)
+        time.sleep(0.2)
 
         #Check Actual allocated buffer size
         self._log.debug("out buffer size: "+str(out_fifo.ref.buffer_size))
