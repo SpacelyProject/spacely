@@ -24,7 +24,7 @@ calc,I,3
 
 //Conservatively treat these pins as outputs from the 
 //ASIC so if they get connected to the ASIC, Spacely won't clobber them. 
-phi1_ext,O,8
+phi1_ext,I,8
 phi2_ext,O,9
 capLo_ext,O,7
 capHib_ext,O,6

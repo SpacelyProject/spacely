@@ -206,6 +206,8 @@ def ROUTINE3_Comparator_Offset_Tuning():
     #Set Scan Chain Configuration:  TestEn = 1  
     SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+
     
     #(2) Sweep ADC from 0mV to 1000mV and record the  results.
     with open("Comparator_Sweep.csv","w") as write_file:
@@ -236,23 +238,78 @@ def ROUTINE3_Comparator_Offset_Tuning():
 def ROUTINE4_Front_End_Demo():
     """Demo Front End w/ Analog Pileup"""
 
+   
 
     #NOTES:
     # - Trigger must be supplied from NI, pre-level-shifters. 
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     gc = GlueConverter(DEFAULT_IOSPEC)
-    config_AWG_as_Pulse(500)
+    
+    pm = int(input("pulse magnitude (mV)?"))
+    
+    
+    config_AWG_as_Pulse(pm, pulse_width_us=0.25, pulse_period_us=0.3)
     time.sleep(3)
 
 
     fe_glue = genpattern_Front_End_demo(1)
 
     pr.run_pattern(fe_glue,outfile_tag="fe_result")
+    
+    
+def ROUTINE5_Front_End_Sweep():
+    """SWEEP Front End w/ Analog Pileup"""
+
+   
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    
+    config_AWG_as_Pulse(10, pulse_width_us=0.25, pulse_period_us=0.3)
+    time.sleep(3)
+    fe_glue = genpattern_Front_End_demo(1)
+    
+    with open("FE_Sweep.csv","w") as write_file:
+        write_file.write("Pulse Mag(mV),CompOut\n")
+        for pulse_mag in range(10,300,10):
+        
+        
+            set_pulse_mag(pulse_mag)
+
+            sg.scope.setup_trigger(3,0.6)
+            
+            pr.run_pattern(fe_glue,outfile_tag="fe_result")
+            
+            CompInp_wave = sg.scope.get_wave(2)
+            Rst_wave = sg.scope.get_wave(3)
+        
+            result = CompInp_wave[falling_edge_idx(Rst_wave,2)-5]
+        
+            print(result)
+            
+            
+            write_file.write(str(pulse_mag)+","+str(result)+"\n")
+    
+    
+ 
 
 
 ### HELPER FUNCTIONS ###
 
+
+def falling_edge_idx(wave, number=1, thresh=0.6):
+
+    falling_edge_count = 0
+
+    for i in range(1,len(wave)):
+        if wave[i] < thresh and wave[i-1] > thresh:
+            falling_edge_count = falling_edge_count + 1
+            
+            if falling_edge_count == number:
+                return i
 
 
 def genpattern_Front_End_demo(time_scale_factor):
@@ -260,14 +317,37 @@ def genpattern_Front_End_demo(time_scale_factor):
     waves = {}
 
     waves["mclk"] =       [0]*10
-    waves["read_ext"] =   [0]*10
-    waves["Rst_ext"] =    [0]*10
-    waves["bufsel_ext"] = [0]*10
+    waves["read_ext"] =   [0]*10 
+    waves["Rst_ext"] =    [0]*10 
+    waves["bufsel_ext"] = [0]*10 
+    waves["capClk"] = [0]*10    #Note: capClk and Qequal are only needed for setting up the autorange threshold.
+    waves["Qequal"] = [0]*10
+    
 
+    #Reset phase
+    waves["mclk"] =       waves["mclk"]+[0]*40
+    waves["read_ext"] =   waves["read_ext"] + [1]*5 + [0]*35
+    waves["Rst_ext"] =    waves["Rst_ext"] + [1]*40
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*20 + [1]*20
+    waves["capClk"] = waves["capClk"] + [0,1,1,1,0,0,0,0,0,1,1,1,0] 
+    waves["Qequal"] = waves["Qequal"] + [0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0]
+    
+    #Sampling Phase
     for i in range(10):
         #w/ time_scale_factor = 1, the period of mclk is 20 ticks or 2 MHz
         waves["mclk"] = waves["mclk"] + [1]*10*time_scale_factor + [0]*10*time_scale_factor
 
+        waves["read_ext"] = waves["read_ext"] + [0]*20*time_scale_factor
+        waves["Rst_ext"] = waves["Rst_ext"] + [0]*20*time_scale_factor
+        waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*20*time_scale_factor
+        
+
+    waves["mclk"] = waves["mclk"] + [0]*42
+    waves["read_ext"] = waves["read_ext"] + [0,0] + [1]*40
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*42
+    waves["Rst_ext"] = waves["Rst_ext"] + [1]*42
+
+    waves["phi1_ext"] = waves["mclk"][7:]  #phi1_ext will be used to trigger the AWG. It is a copy of mclk, shifted earlier by 175 ns (7 ticks)
 
     return genpattern_from_waves_dict(waves)
 
@@ -516,4 +596,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture_ScanChain, ROUTINE2_ADC_Capture_Scope,ROUTINE3_Comparator_Offset_Tuning,ROUTINE4_Front_End_Demo]
+ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture_ScanChain, ROUTINE2_ADC_Capture_Scope,ROUTINE3_Comparator_Offset_Tuning,ROUTINE4_Front_End_Demo,ROUTINE5_Front_End_Sweep]

@@ -90,17 +90,20 @@ def set_pulse_mag(val_mV: float) -> None:
     sg.AWG.send_line_awg("VOLT "+str(pulse))
 
 
-def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28):
+def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
     sg.AWG.set_output(False)
     sg.AWG.send_line_awg("FUNC PULS")
 
     #Pulse will be from (2.5 - pulse) to 2.5
     pulse = round(pulse_mag_mV / 1000,6)
     offset = round(2.5 - pulse_mag_mV/2000,6)
+    
     w = round(pulse_width_us*1e-6,10)
     
+    pd = round(pulse_period_us*1e-6,10)
+    
     sg.AWG.send_line_awg("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
-    sg.AWG.send_line_awg("PULSE:PERIOD 0.000009") #Period = 9 us ( < 10 us)
+    sg.AWG.send_line_awg("PULSE:PERIOD "+str(pd)) #Period = 9 us ( < 10 us)
     
     sg.AWG.send_line_awg("VOLT:OFFS "+str(offset))
     sg.AWG.send_line_awg("VOLT "+str(pulse))

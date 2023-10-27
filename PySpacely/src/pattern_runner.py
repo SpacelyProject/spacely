@@ -120,7 +120,7 @@ class PatternRunner(ABC):
             try:
                 bitfile_name = fpga_bitfile_map[slot_name]
             except KeyError:
-                print("(ERR) Your .iospec file references \""+slot_name+"\" but \nyou did not provide a bitfile for that slot in your fpga_bitfile_map.")
+                self._log.error(f"Your .iospec file references \"{slot_name}\" but \nyou did not provide a bitfile for that slot in your fpga_bitfile_map.")
                 exit()
 
             #The identifier we will use for this FPGA in THIS session is
@@ -130,7 +130,7 @@ class PatternRunner(ABC):
 
             #If we haven't already set up this FPGA in _fpga_dict and _interface, do it.
             if fpga_name not in self._fpga_dict.keys():
-                print("(DBG) Initializing FPGA Hardware:",fpga_name,"...")
+                self._log.debug(f"Initializing FPGA Hardware:{fpga_name}...")
                 #Create NiFpga Object using Slot Name (and store the bitfile_name for later reference)
                 self._fpga_dict[fpga_name] = NiFpga(log, slot_name, bitfile_name=bitfile_name)
                 #Flash the correct bitfile
@@ -166,7 +166,7 @@ class PatternRunner(ABC):
             
             #TODO: UPDATE FOR MULTI-HARDWARE
             if "se_io" in fifo: #Only supports NI6583/se_io for the moment...
-                print("(DBG) Programming", hw, "I/O Defaults as:",io_default[hw])
+                self._log.debug(f"Programming {hw} I/O Defaults as: {io_default[hw]}")
                 print("WARNING!!! Need to implement I/O defaults for multi-hardware")
                 self._interface[fpga_name].interact("w","SE_Data_Default",io_default[hw])
 
@@ -191,7 +191,7 @@ class PatternRunner(ABC):
         for hw in hw_list:
             fpga_name = "/".join(hw.split("/")[0:2])
             fifo = hw.split("/")[2]
-            print("(DBG) Programming", hw, "I/O Direction as:",io_dir[hw])
+            self._log.debug(f"Programming {hw} I/O Direction as: {io_dir[hw]}")
             self._interface[fpga_name].interact("w",fifo+"_data_dir",io_dir[hw])
 
 
@@ -260,7 +260,7 @@ class PatternRunner(ABC):
         for i in range(len(patterns)):
             if type(patterns[i]) == str:
                 patterns[i] = self.gc.read_glue(patterns[i])
-                print("(DBG) Pattern Len from File:",len(patterns[i].vector))
+                self._log.debug(f"Pattern Len from File:{len(patterns[i].vector)}")
 
             try:
                 fpga = self._fpga_dict[patterns[i].fpga_name]
