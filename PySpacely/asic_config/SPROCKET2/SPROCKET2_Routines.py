@@ -332,7 +332,7 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
 
     VIN_STEP_mV = 10
 
-    CAPTRIM_RANGE = [i for i in range(0,63,1)]
+    CAPTRIM_RANGE = [i for i in range(0,63,10)]
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -344,7 +344,7 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
     adc_op_glue = genpattern_ADC_Capture(10)
 
 
-    write_file = open(f"Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+    write_file = open(f"Transfer_Function_vs_CapTrim_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
 
     result_values_by_captrim = []
 
@@ -371,8 +371,6 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
             dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
             caplo_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"capLo_ext")
 
-            print(dacclr_wave)
-
             result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
 
             result_values_by_captrim[-1].append(result)
@@ -382,7 +380,7 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
 
 
     #First row: write out all the captrim values used as column headers.
-    write_file.write(f"Vin,")
+    write_file.write(f"Vin")
     for captrim in CAPTRIM_RANGE:
             write_file.write(f",{captrim}")
 
@@ -408,6 +406,54 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
 
     write_file.close()
 
+
+def ROUTINE_average_transfer_function():
+    """Capture the Average ADC Transfer function vs CapTrim, using Caplo->Spacely method"""
+
+    VIN_STEP_mV = 100
+
+    NUM_AVERAGES = 10
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(10)
+
+    write_file = open(f"Average_Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+
+    write_file.write("Vin,Avg Result,Std Dev\n")
+
+
+    #Set CapTrim value and ensure 
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+
+    for vin in range(0,1000,VIN_STEP_mV):
+                
+        #Set the input voltage:
+        set_Vin_mV(vin)
+
+        results_this_vin = []
+
+        for i in range(NUM_AVERAGES):
+            #Run the ADC to capture a reading.
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
+            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+
+            #Get DACclr and capLo
+            dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
+            caplo_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"capLo_ext")
+
+            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+            results_this_vin.append(result)
+
+        write_file.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)}\n")
 
 ### HELPER FUNCTIONS ###
 
@@ -708,4 +754,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Transfer_Function_vs_CapTrim, ROUTINE_fpga_offset_debug]
+ROUTINES = [ROUTINE_Transfer_Function_vs_CapTrim, ROUTINE_fpga_offset_debug, ROUTINE_average_transfer_function]

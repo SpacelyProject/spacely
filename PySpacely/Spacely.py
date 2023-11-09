@@ -174,8 +174,10 @@ except NameError:
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:
+    start_timestamp = datetime.now()
     ROUTINES[cmd_args.r]()
-
+    runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
+    sg.log.info(f"This Routine took: {runtime}")
 
 #Command loop
 while True:
@@ -279,7 +281,10 @@ while True:
 
                 case '~':
                     #Routines should be called as "~r0"
+                    start_timestamp = datetime.now()
                     ROUTINES[int(cmd_txt[2])]()
+                    runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
+                    sg.log.info(f"This Routine took: {runtime}")
 
                 case '#':
                     sg.log.notice(cmd_txt[1:].strip())
