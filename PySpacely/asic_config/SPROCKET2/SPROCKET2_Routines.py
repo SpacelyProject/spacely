@@ -18,11 +18,16 @@ import Spacely_Globals as sg
 from Spacely_Utils import *
 
 
-def SC_CFG(override,TestEn,Range2):
-    return [0]*17 + [override] + [TestEn] + [Range2]
+def SC_CFG(override,TestEn,Range2,CapTrim=0):
+    captrim_vec = int_to_vec(CapTrim,6)
+
+    #SC is big-endian, but int_to_vec() is little-endian
+    captrim_vec.reverse()
+    
+    return [0]*10 + captrim_vec + [override] + [TestEn] + [Range2]
 
 
-def ROUTINE0_Scan_Chain_Loopback():
+def ROUTINE_Scan_Chain_Loopback():
     """Scan Chain Loopback"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -49,7 +54,7 @@ def ROUTINE0_Scan_Chain_Loopback():
     #gc.compare(gc.read_glue(out_1), gc.read_glue(out_2))
 
 
-def ROUTINE1_Comparator_Smoke_Test():
+def ROUTINE_Comparator_Smoke_Test():
     """Comparator Smoke Test uwu"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -83,7 +88,7 @@ def ROUTINE1_Comparator_Smoke_Test():
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
 
 
-def ROUTINE2_ADC_Capture_ScanChain():
+def ROUTINE_ADC_Capture_ScanChain():
     """Operate the ADC to digitize a range of values from TestEn (DEPRECATED, DO NOT USE...)"""
     
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -126,7 +131,7 @@ def ROUTINE2_ADC_Capture_ScanChain():
             print("ADC Reading from the Scan Chain: ",x)
             write_file.write(str(vin)+","+str(x)+"\n")
             
-def ROUTINE2_ADC_Capture_Scope():
+def ROUTINE_ADC_Capture_Scope():
     """Operate the ADC to digitize a range of values from TestEn (OSCILLOSCOPE ASSISTED)"""
 
 
@@ -190,7 +195,7 @@ Press enter to continue...""")
 
 
 
-def ROUTINE3_Comparator_Offset_Tuning():
+def ROUTINE_Comparator_Offset_Tuning():
     """Determine comparator offset for DACclr state."""
 
 
@@ -235,7 +240,7 @@ def ROUTINE3_Comparator_Offset_Tuning():
             write_file.write(str(vin)+","+str(result)+"\n")
 
 
-def ROUTINE4_Front_End_Demo():
+def ROUTINE_Front_End_Demo():
     """Demo Front End w/ Analog Pileup"""
 
    
@@ -258,7 +263,7 @@ def ROUTINE4_Front_End_Demo():
     pr.run_pattern(fe_glue,outfile_tag="fe_result")
     
     
-def ROUTINE5_Front_End_Sweep():
+def ROUTINE_Front_End_Sweep():
     """SWEEP Front End w/ Analog Pileup"""
 
    
@@ -293,8 +298,115 @@ def ROUTINE5_Front_End_Sweep():
             
             write_file.write(str(pulse_mag)+","+str(result)+"\n")
     
+
+def ROUTINE_fpga_offset_debug():
+    """Debug FPGA readback offset when reading a pattern multiple times."""
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+
+    token_pattern = [1,0,1,0,1,1,0,0,1,1,1,1]
+
+    debug_glue = genpattern_from_waves_dict({"DACclr":[0]*20+token_pattern+[0]*20}) 
+
+    for i in range(10):
+
+        #Run the ADC to capture a reading.
+        pr.run_pattern(debug_glue,outfile_tag="debug")
+        debug_result = "debug_PXI1Slot16_NI6583_se_io.glue"
+
+        dacclr_wave = gc.get_bitstream(gc.read_glue(debug_result),"DACclr")
+
+
+        for j in range(40):
+            #print(dacclr_wave[j:j+len(token_pattern)], token_pattern)
+            if dacclr_wave[j:j+len(token_pattern)] == token_pattern:
+                
+                print(f"TOKEN OFFSET: {j}")
     
- 
+def ROUTINE_Transfer_Function_vs_CapTrim():
+    """Capture the ADC Transfer function vs CapTrim, using Caplo->Spacely method"""
+
+    VIN_STEP_mV = 10
+
+    CAPTRIM_RANGE = [i for i in range(0,63,1)]
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(10)
+
+
+    write_file = open(f"Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+
+    result_values_by_captrim = []
+
+    for captrim in CAPTRIM_RANGE:
+
+        #Start a new list of result values for this captrim.
+        result_values_by_captrim.append([])
+
+        #Set CapTrim value and ensure 
+        SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=captrim)
+        #print(f"DBG: Scan Chain Pattern is {SC_PATTERN}")
+        pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+        for vin in range(0,1000,VIN_STEP_mV):
+                
+            #Set the input voltage:
+            set_Vin_mV(vin)
+                
+            #Run the ADC to capture a reading.
+            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
+            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+
+            #Get DACclr and capLo
+            dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
+            caplo_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"capLo_ext")
+
+            print(dacclr_wave)
+
+            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+            result_values_by_captrim[-1].append(result)
+
+
+    print(result_values_by_captrim)
+
+
+    #First row: write out all the captrim values used as column headers.
+    write_file.write(f"Vin,")
+    for captrim in CAPTRIM_RANGE:
+            write_file.write(f",{captrim}")
+
+    write_file.write("\n")
+
+    #For each row after that, start by writing vin...
+    vin_idx = 0
+    for vin in range(0,1000,VIN_STEP_mV):
+        write_file.write(f"{vin}")
+
+        captrim_idx = 0
+
+        #Then write down the results ...
+        for captrim in CAPTRIM_RANGE:
+            write_file.write(f",{result_values_by_captrim[captrim_idx][vin_idx]}")
+
+            captrim_idx = captrim_idx + 1
+
+        write_file.write("\n")
+
+        vin_idx = vin_idx+1
+
+
+    write_file.close()
 
 
 ### HELPER FUNCTIONS ###
@@ -407,7 +519,7 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
     return vec_to_int(binary_approximation)*2
 
 
-def interpret_CDAC_pattern(caplo_wave, dacclr_wave):
+def interpret_CDAC_pattern_old(caplo_wave, dacclr_wave):
 
     #print(dacclr_waveform)
 
@@ -596,4 +708,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE0_Scan_Chain_Loopback,ROUTINE1_Comparator_Smoke_Test,ROUTINE2_ADC_Capture_ScanChain, ROUTINE2_ADC_Capture_Scope,ROUTINE3_Comparator_Offset_Tuning,ROUTINE4_Front_End_Demo,ROUTINE5_Front_End_Sweep]
+ROUTINES = [ROUTINE_Transfer_Function_vs_CapTrim, ROUTINE_fpga_offset_debug]

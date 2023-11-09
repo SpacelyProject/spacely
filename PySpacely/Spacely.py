@@ -149,12 +149,12 @@ else:
 init_scope = (cmd_args.scope is not None) or (assume_defaults and USE_SCOPE)
 if not init_scope and USE_SCOPE == True:
     cmd_txt = input("DEFAULT: Set up Oscilloscope. 'n' to Skip>>>")
-    init_awg = False if cmd_txt == 'n' else True
-if init_awg:
+    init_scope = False if cmd_txt == 'n' else True
+if init_scope:
     initialize_scope(interactive=not assume_defaults)
 
 else:
-    sg.log.debug('AWG init skipped')
+    sg.log.debug('Scope init skipped')
 
 
 # # # # # #

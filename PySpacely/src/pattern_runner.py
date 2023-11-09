@@ -227,7 +227,9 @@ class PatternRunner(ABC):
 
             
         #Update Pattern Size in the FPGA
-        dbg.interact("w","Buffer_Pass_Size",pattern.len+FPGA_READBACK_OFFSET)
+        #11/9/2023 NOTE: This "-1" is necessary to solve the Glue wave frame misalignment issue. 
+        #Basically without it, frames that are read back will be offset by 1 bit / iteration from what you put in.
+        dbg.interact("w","Buffer_Pass_Size",pattern.len+FPGA_READBACK_OFFSET-1)
 
         # (Allow host memory settings to sink in.)
         time.sleep(0.2)
