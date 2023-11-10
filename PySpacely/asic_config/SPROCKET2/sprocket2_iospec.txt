@@ -4,7 +4,7 @@ HARDWARE PXI1Slot16/NI6583/se_io BEGIN
 
 //Scan Chain signals
 S_CLK,I,11
-S_DOUT,O,17
+//S_DOUT,O,17 (removed by kludge)
 S_DIN,I,12
 S_PASS,I,14
 

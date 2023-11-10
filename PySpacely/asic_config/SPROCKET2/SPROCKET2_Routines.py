@@ -17,7 +17,8 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
-
+#Function to generate a SPROCKET2 test pixel scan chain vector (19 bits long)
+#based on setting each individual field by name. 
 def SC_CFG(override,TestEn,Range2,CapTrim=0):
     captrim_vec = int_to_vec(CapTrim,6)
 
@@ -87,7 +88,7 @@ def ROUTINE_Comparator_Smoke_Test():
     print("Smoke Test 2/2 (expected result: all 1's)")
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
 
-
+#Old, do not use. 
 def ROUTINE_ADC_Capture_ScanChain():
     """Operate the ADC to digitize a range of values from TestEn (DEPRECATED, DO NOT USE...)"""
     
@@ -130,7 +131,8 @@ def ROUTINE_ADC_Capture_ScanChain():
             x = vec_to_int(scanout_bits[0:10])
             print("ADC Reading from the Scan Chain: ",x)
             write_file.write(str(vin)+","+str(x)+"\n")
-            
+
+#Old, do not use.            
 def ROUTINE_ADC_Capture_Scope():
     """Operate the ADC to digitize a range of values from TestEn (OSCILLOSCOPE ASSISTED)"""
 
@@ -455,6 +457,83 @@ def ROUTINE_average_transfer_function():
 
         write_file.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)}\n")
 
+
+
+def ROUTINE_Full_Conversion_Demo():
+    """Demo of a full conversion, all the way from preamplifier through the ADC."""
+    
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+
+    print("NOTE: ENSURE THAT AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.")
+    
+    pm = int(input("pulse magnitude (mV)?"))
+    
+    
+    config_AWG_as_Pulse(pm, pulse_width_us=0.25, pulse_period_us=0.3)
+    time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    fc_glue = genpattern_Full_Conversion(1)
+
+    pr.run_pattern(fc_glue,outfile_tag="fc_result")
+
+    fc_result = "fc_result_PXI1Slot16_NI6583_se_io.glue"
+
+    #Get DACclr and capLo
+    dacclr_wave = gc.get_bitstream(gc.read_glue(fc_result),"DACclr")
+    caplo_wave = gc.get_bitstream(gc.read_glue(fc_result),"capLo_ext")
+
+    result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+    print(f"RESULT: {result}")
+
+
+
+def ROUTINE_Full_Conversion_Sweep():
+    """Demo of a full conversion, all the way from preamplifier through the ADC."""
+    
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+
+    print("NOTE: ENSURE THAT AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.")
+    
+    pm = int(input("pulse magnitude (mV)?"))
+    
+    
+    config_AWG_as_Pulse(pm, pulse_width_us=0.25, pulse_period_us=0.3)
+    time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    fc_glue = genpattern_Full_Conversion(1)
+
+    pr.run_pattern(fc_glue,outfile_tag="fc_result")
+
+    fc_result = "fc_result_PXI1Slot16_NI6583_se_io.glue"
+
+    #Get DACclr and capLo
+    dacclr_wave = gc.get_bitstream(gc.read_glue(fc_result),"DACclr")
+    caplo_wave = gc.get_bitstream(gc.read_glue(fc_result),"capLo_ext")
+
+    result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+    print(f"RESULT: {result}")
+
+
 ### HELPER FUNCTIONS ###
 
 
@@ -469,6 +548,122 @@ def falling_edge_idx(wave, number=1, thresh=0.6):
             if falling_edge_count == number:
                 return i
 
+
+def genpattern_Full_Conversion(time_scale_factor):
+
+
+    #Initialize wave dictionary
+    waves = {}
+
+    #Everything starts out at 0 for 10 cycles. 
+    waves["mclk"] =       [0]*10
+    #waves["read_ext"] =   [0]*10  --> at the end we will just assign read_ext = calc
+    waves["Rst_ext"] =    [0]*10 
+    waves["bufsel_ext"] = [0]*10 
+    waves["capClk"] = [0]*10    
+    waves["Qequal"] = [0]*10
+    waves["DACclr"] = [0]*10
+    waves["calc"]   = [0]*10
+    
+
+    ### RESET PHASE ###
+
+    #mclk=0 and Rst=1. read/calc=0, but we pulse it at the beginning to make sure SAR logic is reset.
+    waves["mclk"] =       waves["mclk"]+[0]*40
+    #waves["read_ext"] =   waves["read_ext"] + [1]*5 + [0]*35
+    waves["calc"] =   waves["calc"] + [1]*5 + [0]*35
+    waves["Rst_ext"] =    waves["Rst_ext"] + [1]*40
+
+    #Establish autorange comparison voltage of 0.75V, see user manual.
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*20 + [1]*20
+    waves["capClk"] = waves["capClk"] + [0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*27
+    waves["Qequal"] = waves["Qequal"] + [0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*23
+
+    #DACclr = 0
+    waves["DACclr"] =       waves["DACclr"]+[0]*40
+
+    
+    ### SAMPLING PHASE ###
+
+    for i in range(10):
+        #w/ time_scale_factor = 1, the period of mclk is 20 ticks or 2 MHz
+        waves["mclk"] = waves["mclk"] + [1]*10*time_scale_factor + [0]*10*time_scale_factor
+
+        #In the sampling phase, read=Rst=0, bufse1=1 (Vref_fe), and all the ADC signals are zero.
+        #waves["read_ext"] = waves["read_ext"] + [0]*20*time_scale_factor
+        waves["calc"] = waves["calc"] + [0]*20*time_scale_factor
+        waves["capClk"] = waves["capClk"] + [0]*20*time_scale_factor
+        waves["Qequal"] = waves["Qequal"] + [0]*20*time_scale_factor
+        waves["DACclr"] = waves["DACclr"] + [0]*20*time_scale_factor
+        waves["Rst_ext"] = waves["Rst_ext"] + [0]*20*time_scale_factor
+        waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*20*time_scale_factor
+
+    ### CONVERSION PHASE ###
+
+    #bufsel->0 and Rst->1. Two cycles later, read->1
+    #waves["read_ext"] = waves["read_ext"] + [0,0,1]
+    waves["calc"] = waves["calc"] +         [0,0,1]
+    waves["capClk"] = waves["capClk"] +     [0,0,0]
+    waves["Qequal"] = waves["Qequal"] +     [0,0,0]
+    waves["DACclr"] = waves["DACclr"] +     [0,0,0]
+    waves["Rst_ext"] = waves["Rst_ext"] +   [1,1,1]
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0,0,0]
+    waves["mclk"] = waves["mclk"] + [0,0,0]
+
+    
+    for adc_bit in range(1,11):
+        
+        for clk_cycle in range(adc_bit):
+
+            if clk_cycle == 0:
+                #Each bit starts off w/ a DACclr pulse.
+                waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+
+            else:
+                #capClk pulse
+                waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+
+
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+            #Qequal pulse
+            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor
+            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor
+            
+            
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+        
+        
+    #Final DACclr pulse.
+    waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+    waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+    waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+
+    #Fill in calc+Rst with all 1's, and mclk+bufsel with all 0's
+    waves["calc"] = waves["calc"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
+    waves["Rst_ext"] = waves["Rst_ext"] + [1]*(len(waves["DACclr"])-len(waves["Rst_ext"]))
+    waves["mclk"] = waves["mclk"] + [0]*(len(waves["DACclr"])-len(waves["mclk"]))
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*(len(waves["DACclr"])-len(waves["bufsel_ext"]))
+
+
+    waves["read_ext"] = waves["calc"]
+
+    waves["phi1_ext"] = waves["mclk"][7:]  #phi1_ext will be used to trigger the AWG. It is a copy of mclk, shifted earlier by 175 ns (7 ticks)
+
+    return genpattern_from_waves_dict(waves)
+    
 
 def genpattern_Front_End_demo(time_scale_factor):
 
@@ -754,4 +949,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Transfer_Function_vs_CapTrim, ROUTINE_fpga_offset_debug, ROUTINE_average_transfer_function]
+ROUTINES = [ROUTINE_Full_Conversion_Demo, ROUTINE_Transfer_Function_vs_CapTrim, ROUTINE_fpga_offset_debug, ROUTINE_average_transfer_function, ROUTINE_Front_End_Demo]

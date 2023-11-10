@@ -8,6 +8,7 @@ PROGRESS = True
 USE_ARDUINO = False
 USE_NI = False
 USE_AWG = False
+USE_SCOPE = False
 
 TARGET = "SPROCKET2"
 

@@ -94,6 +94,7 @@ V_LEVEL = {# SMU_A
              "VDD_ASIC": 1.35, #Boosted from 1.2V to account for PCB drop.
              "VCC_ASIC": 3.3             
            }
+           
 
 # Rough current guidelines
 # TODO: TEST IF THESE VALUES IN DOCS BELOW ARE CORRECT OR WE'RE OFF IN UNITS IN THE DICT BELOW
