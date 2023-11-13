@@ -489,16 +489,19 @@ def Vin_histogram(Vtest_mV: int, points: int) -> dict[int, int]:
 
     config_AWG_as_DC(Vtest_mV)
 
-    #r = command(sg.port, "convNx:"+str(points), printresponse=False, timeout_s=10)
-    r = command_ng(sg.log, sg.port, f"convNx:{points}")
+    if TARGET == "SPROCKET1":
+        #r = command(sg.port, "convNx:"+str(points), printresponse=False, timeout_s=10)
+        r = command_ng(sg.log, sg.port, f"convNx:{points}")
 
-    #log.debug(f"convNx returned: {r}") # this will return A LOT of lines!
-    sg.log.debug(f"Number of values returned: {len(r.split())}")
+        #log.debug(f"convNx returned: {r}") # this will return A LOT of lines!
+        sg.log.debug(f"Number of values returned: {len(r.split())}")
 
-    #Format the response
-    liststring = r.replace("convNx:"+str(points),"").replace("?","").strip()
+        #Format the response
+        liststring = r.replace("convNx:"+str(points),"").replace("?","").strip()
 
-    return liststring_histogram(liststring)
+        return liststring_histogram(liststring)
+
+        
 
 
 def center_code(Vtest_init_mV: float, samples_per_val: int = 1000):
