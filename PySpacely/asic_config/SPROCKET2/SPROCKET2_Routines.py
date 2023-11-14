@@ -42,12 +42,12 @@ def ROUTINE_Scan_Chain_Loopback():
     glue_wave = genpattern_SC_write(sc_data,1000)
 
     # 3) Run the Glue waveform
-    pr.run_pattern(glue_wave,outfile_tag="sc_1")
-    pr.run_pattern(glue_wave,outfile_tag="sc_2")
+    out_1 = pr.run_pattern(glue_wave,outfile_tag="sc_1")[0]
+    out_2 = pr.run_pattern(glue_wave,outfile_tag="sc_2")[0]
 
     # 4) Check that the data we read back is correct.
-    out_1 = "sc_1_PXI1Slot16_NI6583_se_io.glue"
-    out_2 = "sc_2_PXI1Slot16_NI6583_se_io.glue"
+    # "sc_1_PXI1Slot16_NI6583_se_io.glue"
+    # "sc_2_PXI1Slot16_NI6583_se_io.glue"
     gc = GlueConverter(DEFAULT_IOSPEC)
 
     scanout_bits = gc.get_clocked_bitstream(gc.read_glue(out_2), "S_CLK", "S_DOUT")
@@ -74,14 +74,11 @@ def ROUTINE_Comparator_Smoke_Test():
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
     #Smoke 1: Expected output -- CompOut = 0
-    pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_1")
+    smoke_1 = pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_1")[0]
 
     #Smoke 2: Expected output -- CompOut = 1
     set_Vin_mV(1000)
-    pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_2")
-    
-    smoke_1 = "smoke_1_PXI1Slot16_NI6583_se_io.glue"
-    smoke_2 = "smoke_2_PXI1Slot16_NI6583_se_io.glue"
+    smoke_2 = pr.run_pattern(smoke_test_pattern,outfile_tag="smoke_2")[0]
 
     print("Smoke Test 1/2 (expected result: all 0's)")
     print(gc.get_bitstream(gc.read_glue(smoke_1),"CompOut"))
@@ -115,8 +112,8 @@ def ROUTINE_ADC_Capture_ScanChain():
             set_Vin_mV(vin)
             
             #Run the ADC to capture a reading.
-            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
-            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            #adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
             adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
             print("CompOut value at the end of each bit period: ",adc_bits)
             x = vec_to_int(adc_bits)
@@ -214,8 +211,8 @@ def ROUTINE_Leakage_Test():
     adc_op_glue = genpattern_from_waves_dict({"calc":[0]*1000,"DACclr":[1]*100+[0]*900, "Qequal":[0]*101+[1]*899,"capClk":[1]*1000,"Rst_ext":[1]*1000})
 
     #Run the ADC
-    pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
-    adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+    adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+    #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
 
 def ROUTINE_Comparator_Offset_Tuning():
     """Determine comparator offset for DACclr state."""
@@ -249,8 +246,8 @@ def ROUTINE_Comparator_Offset_Tuning():
             sg.scope.setup_trigger(2,0.6) #600mV trigger on DACclr.
             
             #Run the ADC
-            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
-            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
 
             compout = gc.get_bitstream(gc.read_glue(adc_op_result),"CompOut")
 
@@ -337,8 +334,8 @@ def ROUTINE_fpga_offset_debug():
     for i in range(10):
 
         #Run the ADC to capture a reading.
-        pr.run_pattern(debug_glue,outfile_tag="debug")
-        debug_result = "debug_PXI1Slot16_NI6583_se_io.glue"
+        debug_result = pr.run_pattern(debug_glue,outfile_tag="debug")[0]
+        #"debug_PXI1Slot16_NI6583_se_io.glue"
 
         dacclr_wave = gc.get_bitstream(gc.read_glue(debug_result),"DACclr")
 
@@ -453,11 +450,11 @@ def ROUTINE_Transfer_Function_vs_Vref():
 def ROUTINE_Transfer_Function_vs_Timescale():
     """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
 
-    VIN_STEP_mV = 10
+    VIN_STEP_mV = 1
 
     VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
 
-    TIMESCALE_RANGE = [1,3,10,30,100]
+    TIMESCALE_RANGE = [1,2,3,5,10,15,30,100]
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -535,8 +532,8 @@ def ROUTINE_average_transfer_function():
 
         for i in range(NUM_AVERAGES):
             #Run the ADC to capture a reading.
-            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
-            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            #"adc_op_result_PXI1Slot4_NI6583_se_io.glue"
 
             #Get DACclr and capLo
             dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
@@ -576,9 +573,9 @@ def ROUTINE_Full_Conversion_Demo():
 
     fc_glue = genpattern_Full_Conversion(time_scale_factor)
 
-    pr.run_pattern(fc_glue,outfile_tag="fc_result")
+    fc_result = pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
 
-    fc_result = "fc_result_PXI1Slot16_NI6583_se_io.glue"
+    #"fc_result_PXI1Slot16_NI6583_se_io.glue"
 
     #Get DACclr and capLo
     dacclr_wave = gc.get_bitstream(gc.read_glue(fc_result),"DACclr")
@@ -621,9 +618,9 @@ def ROUTINE_Full_Conversion_Sweep():
     for pulse_mag in range(10,500,VIN_STEP_mV):
         set_pulse_mag(pulse_mag)
 
-        pr.run_pattern(fc_glue,outfile_tag="fc_result")
+        fc_result = pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
 
-        fc_result = "fc_result_PXI1Slot16_NI6583_se_io.glue"
+        #"fc_result_PXI1Slot16_NI6583_se_io.glue"
 
         #Get DACclr and capLo
         dacclr_wave = gc.get_bitstream(gc.read_glue(fc_result),"DACclr")
@@ -798,8 +795,8 @@ def falling_edge_idx(wave, number=1, thresh=0.6):
 #Run an ADC acquisition pattern w/ a given PatternRunner and use a GlueConverter to read/interpret the result.
 def run_pattern_get_caplo_result(pr, gc, pattern_glue):
     #Run the ADC to capture a reading.
-    pr.run_pattern(pattern_glue,outfile_tag="adc_op_result")
-    adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
+    adc_op_result = pr.run_pattern(pattern_glue,outfile_tag="adc_op_result")[0]
+    #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
 
     #Get DACclr and capLo
     dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
@@ -982,12 +979,12 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
         #If there is a dacclr edge, start a new bit approximation. 
         if (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] >= THRESH):
             caplo_edges.append(0)
-            #print(f"(DBG) dacclr edge at {idx}")
+            print(f"(DBG) dacclr edge at {idx*25} ns")
 
         #Within each bit approximation, count the number of capLo edges.
         if (caplo_wave[idx-1] < THRESH and caplo_wave[idx] >= THRESH):
             caplo_edges[-1] = caplo_edges[-1] + 1
-            #print(f"(DBG) caplo edge at {idx}")
+            print(f"(DBG) caplo edge at {idx*25} ns")
 
     print(f"(DBG) caplo_edges: {caplo_edges}")
 

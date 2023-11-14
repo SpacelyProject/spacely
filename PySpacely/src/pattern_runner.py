@@ -302,6 +302,8 @@ class PatternRunner(ABC):
         dbg.interact("w","Run_Pattern",False)
 
 
+        output_filenames = []
+
         #Process the data returned by each thread.
         for i in range(len(self._return_data)):
             data = self._return_data[i][FPGA_READBACK_OFFSET:patterns[i].len+FPGA_READBACK_OFFSET]
@@ -310,11 +312,14 @@ class PatternRunner(ABC):
 
             #Write a glue output file.
             if outfile_tag is not None:
-                self.gc.write_glue(out_pattern,outfile_tag+"_"+patterns[i].hardware_str.replace("/","_")+".glue")
+                outfile_name = outfile_tag+"_"+patterns[i].hardware_str.replace("/","_")+".glue"
+                self.gc.write_glue(out_pattern,outfile_name)
+                output_filenames.append(outfile_name)
 
         #Clear self._return_data so it can be used next time.
         self._return_data = []
         
+        return output_filenames
 
     # thread_read() - Function for reading back a fifo_to_pc output asynchronously using a thread;
     #                 requires the length to read, and a copy of the input GlueWave() so it can extract hardware info.
