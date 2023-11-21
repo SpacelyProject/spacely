@@ -52,7 +52,6 @@ def ROUTINE_Scan_Chain_Loopback():
 
     scanout_bits = gc.get_clocked_bitstream(gc.read_glue(out_2), "S_CLK", "S_DOUT")
     print("Received:",str(scanout_bits))
-    #gc.compare(gc.read_glue(out_1), gc.read_glue(out_2))
 
 
 def ROUTINE_Comparator_Smoke_Test():
@@ -84,112 +83,6 @@ def ROUTINE_Comparator_Smoke_Test():
     print(gc.get_bitstream(gc.read_glue(smoke_1),"CompOut"))
     print("Smoke Test 2/2 (expected result: all 1's)")
     print(gc.get_bitstream(gc.read_glue(smoke_2),"CompOut"))
-
-#Old, do not use. 
-def ROUTINE_ADC_Capture_ScanChain():
-    """Operate the ADC to digitize a range of values from TestEn (DEPRECATED, DO NOT USE...)"""
-    
-    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
-    gc = GlueConverter(DEFAULT_IOSPEC)
-    config_AWG_as_DC(0)
-    time.sleep(3)
-    
-    #Pre-generate patterns to run the ADC and to read from the scan chain.
-    adc_op_glue = genpattern_ADC_Capture(1)
-    sc_read_glue = genpattern_SC_write([0]*19,1000)
-    
-    
-    #Set Scan Chain Configuration:  TestEn = 1  
-    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
-    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
-    
-    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
-    with open("ADC_Sweep_Results.csv","w") as write_file:
-        write_file.write("Vin(mV),Output Code\n")
-    
-        for vin in range(0,1000,100):
-            #Set the input voltage:
-            set_Vin_mV(vin)
-            
-            #Run the ADC to capture a reading.
-            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
-            #adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
-            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
-            print("CompOut value at the end of each bit period: ",adc_bits)
-            x = vec_to_int(adc_bits)
-            print("ADC value inferred directly from CompOut: ",x)
-            
-            #Scan out the result
-            pr.run_pattern(sc_read_glue,outfile_tag="sc_result")
-            sc_result = "sc_result_PXI1Slot16_NI6583_se_io.glue"
-            scanout_bits = gc.get_clocked_bitstream(gc.read_glue(sc_result), "S_CLK", "S_DOUT")
-            print("These are the bits read back from the scan chain: ", scanout_bits)
-            #These bits represent the ADC result.
-            x = vec_to_int(scanout_bits[0:10])
-            print("ADC Reading from the Scan Chain: ",x)
-            write_file.write(str(vin)+","+str(x)+"\n")
-
-#Old, do not use.            
-def ROUTINE_ADC_Capture_Scope():
-    """Operate the ADC to digitize a range of values from TestEn (OSCILLOSCOPE ASSISTED)"""
-
-
-    ASK_FOR_INPUT_CONNECTIONS = False
-
-    if ASK_FOR_INPUT_CONNECTIONS:
-        input("""REQUIREMENTS:
- > Oscilloscope Ch1 connected to CAPLO
- > Oscilloscope Ch2 connected to DACCLR
-Press enter to continue...""")
-    
-    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
-    gc = GlueConverter(DEFAULT_IOSPEC)
-    config_AWG_as_DC(0)
-    time.sleep(3)
-    
-    #Pre-generate patterns to run the ADC and to read from the scan chain.
-    adc_op_glue = genpattern_ADC_Capture(10)
-    sc_read_glue = genpattern_SC_write([0]*19,1000)
-    
-    #Set Scan Chain Configuration:  TestEn = 1  
-    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
-    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
-    
-    #(2) Sweep ADC from 0mV to 1000mV and record the  results.
-    with open("ADC_Sweep_Results.csv","w") as write_file:
-        write_file.write("Vin(mV),Output Code\n")
-    
-        for vin in range(0,1000,10):
-            
-            #Set the input voltage:
-            set_Vin_mV(vin)
-
-            #Set up a 600 mV trigger on channel 1:
-            sg.scope.write("HORIZONTAL:POSITION 5")  #Sets the trigger close to the left-hand side.
-            sg.scope.write("HORIZONTAL:MODE MANUAL") #Manual mode: specify record length + sample rate.
-            sg.scope.write("HORIZONTAL:MODE:RECORDLENGTH 10000") #RL = 10,000 ( = total pattern length of 20ns * 10k = 200 us)
-            sg.scope.write("HORIZONTAL:MODE:SAMPLERATE 50E6") # = 20 ns/sample
-            #sg.scope.write("HORIZONTAL:MODE:SCALE 20E-6") #Sets the horizontal resolution to 2us/div.
-            #                                             #As a result we should have 20ns/sample
-            sg.scope.setup_trigger(2,0.6) #600mV trigger on DACclr.
-            
-            #Run the ADC to capture a reading.
-            pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")
-            adc_op_result = "adc_op_result_PXI1Slot16_NI6583_se_io.glue"
-            
-            caplo_wave = sg.scope.get_wave(1)
-            dacclr_wave = sg.scope.get_wave(2)
-
-            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
-
-            adc_bits = gc.get_clocked_bitstream(gc.read_glue(adc_op_result), "DACclr", "CompOut")
-            adc_bits.reverse()
-            print("CompOut value at the end of each bit period: ",adc_bits[1:])
-            x = vec_to_int(adc_bits[1:])
-            print("ADC value inferred directly from CompOut: ",x)
-
-            #sg.scope.onscreen()
-            write_file.write(str(vin)+","+str(result)+","+str(x)+"\n")
 
 
 
@@ -353,7 +246,7 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
 
     VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
 
-    CAPTRIM_RANGE = [i for i in range(0,63,10)]
+    CAPTRIM_RANGE = [i for i in range(0,63,1)]
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -393,7 +286,6 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
                                  f"Transfer_Function_vs_CapTrim_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
                                  row_param_name="Vin")
     
-
 
 def ROUTINE_Transfer_Function_vs_Vref():
     """Capture the ADC Transfer function for different Vref_adc voltages, using Caplo->Spacely method"""
@@ -446,7 +338,6 @@ def ROUTINE_Transfer_Function_vs_Vref():
                                  row_param_name="Vin")
 
 
-
 def ROUTINE_Transfer_Function_vs_Timescale():
     """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
 
@@ -494,15 +385,77 @@ def ROUTINE_Transfer_Function_vs_Timescale():
                                  result_values,
                                  f"Transfer_Function_vs_Timescale_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
                                  row_param_name="Vin")
+                                 
+                                 
+                                 
+def ROUTINE_Transfer_Function_over_Time():
+    """Sample the ADC Transfer Function over a period of time, using Caplo->Spacely method"""
 
+    VIN_STEP_mV = 1
+
+    VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
+
+    SAMPLE_INTERVAL_MINUTES = 10
+
+    initial_date_string = time.strftime("%Y_%m_%d")
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+
+    #Set CapTrim value = 0
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(10)
+    
+    time.sleep(3)
+    
+    result_values = []
+    time_samples  = []
+    
+    time_elapsed = 0
+
+    while True:
+
+        
+
+        #Start a new list of result values for this sample.
+        result_values.append([])
+        time_samples.append(time_elapsed)
+
+        for vin in VIN_RANGE:
+                
+            #Set the input voltage:
+            set_Vin_mV(vin)
+                
+            result = run_pattern_get_caplo_result(pr, gc, adc_op_glue)
+
+            result_values[-1].append(result)
+
+
+    
+
+        write_parameter_sweep_to_csv(time_samples,
+                                    VIN_RANGE,
+                                    result_values,
+                                    f"Transfer_Function_sampled_every_{SAMPLE_INTERVAL_MINUTES}_mins_Vin_step_by_{VIN_STEP_mV}_on_"+initial_date_string+".csv",
+                                    row_param_name="Vin")
+         
+         
+        print(f"SLEEPING for {SAMPLE_INTERVAL_MINUTES*60} seconds...")
+        time.sleep(SAMPLE_INTERVAL_MINUTES*60)
+        time_elapsed = time_elapsed + SAMPLE_INTERVAL_MINUTES
 
 
 def ROUTINE_average_transfer_function():
     """Capture the Average ADC Transfer function using Caplo->Spacely method"""
 
-    VIN_STEP_mV = 100
+    VIN_STEP_mV = 1
 
-    NUM_AVERAGES = 1
+    NUM_AVERAGES = 100
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -546,7 +499,6 @@ def ROUTINE_average_transfer_function():
         write_file.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)}\n")
 
 
-
 def ROUTINE_Full_Conversion_Demo():
     """Demo of a full conversion, all the way from preamplifier through the ADC."""
 
@@ -584,7 +536,6 @@ def ROUTINE_Full_Conversion_Demo():
     result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
 
     print(f"RESULT: {result}")
-
 
 
 def ROUTINE_Full_Conversion_Sweep():
@@ -635,15 +586,14 @@ def ROUTINE_Full_Conversion_Sweep():
     write_file.close()
 
 
-
 def ROUTINE_Noise_Histogram():
     """Generate a noise histogram for the ADC"""
 
     VTEST_mV = 100
 
-    HISTOGRAM_SAMPLES = 100
+    HISTOGRAM_SAMPLES = 50000
 
-    CENTER_CODE_SAMPLES = 20
+    CENTER_CODE_SAMPLES = 200
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -739,7 +689,6 @@ def SP2_center_code(pr, gc, pattern_glue, Vtest_init_mV: float, samples_per_val:
             Vtest = Vtest + 0.1
 
 
-
 # Helper function to write a CSV file.
 # col_param_range = List containing all values of the column parameter.
 # row_param_range = List containing all values of the row parameter.
@@ -805,6 +754,145 @@ def run_pattern_get_caplo_result(pr, gc, pattern_glue):
     result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
     
     return result
+
+
+#Get the implied value from a string of DACclr and capLo pulses only by counting posedges.
+#This method makes no assumption about the bit period, and thus can be accurate w/ lower scope resolution.
+def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
+
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    
+    THRESH = 0.6
+
+    caplo_edges = []
+
+    for idx in range(1,len(caplo_wave)):
+
+        #If there is a dacclr edge, start a new bit approximation. 
+        if (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] >= THRESH):
+            caplo_edges.append(0)
+            #print(f"(DBG) dacclr edge at {idx*25} ns")
+
+        #Within each bit approximation, count the number of capLo edges.
+        if (caplo_wave[idx-1] < THRESH and caplo_wave[idx] >= THRESH):
+            caplo_edges[-1] = caplo_edges[-1] + 1
+            #print(f"(DBG) caplo edge at {idx*25} ns")
+
+    print(f"(DBG) caplo_edges: {caplo_edges}")
+
+    if len(caplo_edges) != 11 or caplo_edges[0] != 0:
+        print(f"ERROR: Malformed caplo_edges {caplo_edges}")
+        gc.plot_waves([caplo_wave,dacclr_wave],["caplo","dacclr"],1)
+        return -99
+
+    binary_approximation = []
+    
+    for bit in range(1, 10):
+
+        if caplo_edges[bit] - caplo_edges[bit-1] == 0:
+            binary_approximation.append(1)
+
+        elif caplo_edges[bit] - caplo_edges[bit-1] == 1:
+            binary_approximation.append(0)
+        
+        else:
+            print(f"ERROR: Malformed caplo_edges {caplo_edges}")
+            gc.plot_waves([caplo_wave,dacclr_wave],["caplo","dacclr"],1)
+            return -99
+
+    print(f"(DBG) bin_approx: {binary_approximation}")
+
+    #Notes:
+    # - Reverse the binary approximation because it is naturally big-endian (MSB is decided first) whereas
+    #   vec_to_int expects little-endian.
+    # - Multiply by 2 b/c it is a 9-bit approximation.
+    binary_approximation.reverse()
+    
+    return vec_to_int(binary_approximation)*2
+
+
+            
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # 
+#            PATTERN GENERATORS                   #
+# # # # # # # # # # # # # # # # # # # # # # # # # # 
+    
+# Generates the pattern necessary to run the ADC.
+def genpattern_ADC_Capture(time_scale_factor):
+    
+    waves = {}
+    
+    #Start off w/ some zeros to avoid extra pulse bug.
+    waves["DACclr"] = [0]*10
+    waves["Qequal"] = [0]*10
+    waves["capClk"] = [0]*10
+    waves["calc"]   = [0]*10
+    waves["read_ext"]   = [0]*10
+    
+    
+    for adc_bit in range(1,11):
+        
+        for clk_cycle in range(adc_bit):
+
+            if clk_cycle == 0:
+                #Each bit starts off w/ a DACclr pulse.
+                waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+
+            else:
+                #capClk pulse
+                waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+
+
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+            #Qequal pulse
+            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
+            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor
+            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor
+            
+            
+            #Add a 0 for non-overlapping.    
+            waves["DACclr"] = waves["DACclr"] + [0]
+            waves["capClk"] = waves["capClk"] + [0]
+            waves["Qequal"] = waves["Qequal"] + [0]
+            
+            
+            
+        #Add a 0 for non-overlapping.    
+        #waves["DACclr"] = waves["DACclr"] + [0]
+        #waves["capClk"] = waves["capClk"] + [0]
+        #waves["Qequal"] = waves["Qequal"] + [0]
+        
+        
+    #Final DACclr pulse.
+    waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
+    waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
+    waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+        
+    waves["calc"] = waves["calc"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
+    waves["read_ext"] = waves["calc"]
+    
+    #2) Writing to an ASCII file.
+    with open("genpattern_adc_op.txt",'w') as write_file:
+        for w in waves.keys():
+            write_file.write(w+":"+"".join([str(x) for x in waves[w]])+"\n")
+            
+    #3) Convert ASCII file to Glue.
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    gc.ascii2Glue("genpattern_adc_op.txt", 1, "genpattern_adc_op")
+
+
+    return "genpattern_adc_op_se_io.glue"
+
 
 def genpattern_Full_Conversion(time_scale_factor):
 
@@ -923,7 +1011,6 @@ def genpattern_Full_Conversion(time_scale_factor):
 
     return genpattern_from_waves_dict(waves)
     
-
 def genpattern_Front_End_demo(time_scale_factor):
 
     waves = {}
@@ -962,192 +1049,6 @@ def genpattern_Front_End_demo(time_scale_factor):
     waves["phi1_ext"] = waves["mclk"][7:]  #phi1_ext will be used to trigger the AWG. It is a copy of mclk, shifted earlier by 175 ns (7 ticks)
 
     return genpattern_from_waves_dict(waves)
-
-#Get the implied value from a string of DACclr and capLo pulses only by counting posedges.
-#This method makes no assumption about the bit period, and thus can be accurate w/ lower scope resolution.
-def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
-
-    gc = GlueConverter(DEFAULT_IOSPEC)
-
-    
-    THRESH = 0.6
-
-    caplo_edges = []
-
-    for idx in range(1,len(caplo_wave)):
-
-        #If there is a dacclr edge, start a new bit approximation. 
-        if (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] >= THRESH):
-            caplo_edges.append(0)
-            print(f"(DBG) dacclr edge at {idx*25} ns")
-
-        #Within each bit approximation, count the number of capLo edges.
-        if (caplo_wave[idx-1] < THRESH and caplo_wave[idx] >= THRESH):
-            caplo_edges[-1] = caplo_edges[-1] + 1
-            print(f"(DBG) caplo edge at {idx*25} ns")
-
-    print(f"(DBG) caplo_edges: {caplo_edges}")
-
-    if len(caplo_edges) != 11 or caplo_edges[0] != 0:
-        print(f"ERROR: Malformed caplo_edges {caplo_edges}")
-        gc.plot_waves([caplo_wave,dacclr_wave],["caplo","dacclr"],1)
-        return -99
-
-    binary_approximation = []
-    
-    for bit in range(1, 10):
-
-        if caplo_edges[bit] - caplo_edges[bit-1] == 0:
-            binary_approximation.append(1)
-
-        elif caplo_edges[bit] - caplo_edges[bit-1] == 1:
-            binary_approximation.append(0)
-        
-        else:
-            print(f"ERROR: Malformed caplo_edges {caplo_edges}")
-            gc.plot_waves([caplo_wave,dacclr_wave],["caplo","dacclr"],1)
-            return -99
-
-    print(f"(DBG) bin_approx: {binary_approximation}")
-
-    #Notes:
-    # - Reverse the binary approximation because it is naturally big-endian (MSB is decided first) whereas
-    #   vec_to_int expects little-endian.
-    # - Multiply by 2 b/c it is a 9-bit approximation.
-    binary_approximation.reverse()
-    
-    return vec_to_int(binary_approximation)*2
-
-
-def interpret_CDAC_pattern_old(caplo_wave, dacclr_wave):
-
-    #print(dacclr_waveform)
-
-    #Assume horizontal scale of 20ns per point, and that bits are 100 ns long (75 ns + 25 ns gap)
-    # (2*100 ns)/(20ns) = 10
-    BIT_PERIOD = 10 #20
-
-    #Initial offset
-    idx = 3
-
-    THRESH = 0.6
-    
-    binary_approximations = []
-    decimal_approximations = []
-
-    for approximation in range(1,10):
-
-        #Find the rising edge of DACclr.
-        while idx < len(caplo_wave) and not (dacclr_wave[idx-1] < THRESH and dacclr_wave[idx] > THRESH):
-            idx = idx + 1
-
-
-        if idx >= len(caplo_wave):
-            print("ERROR (interpret_CDAC_pattern): Reached the end of the waveform w/o seeing all 10 bits. Is the Oscope resolution set properly?")
-            return -99
-        
-        print(f"(DBG) DACclr rising edge found at: {idx}")
-
-        #Add 2 to get off the rising edge.
-        idx = idx + 3
-        
-        binary_approximations.append([])
-                                             
-        for bit in range(approximation):
-            #Note the inverted polarity here b/c capLo being high means the CDAC value is decreasing.
-            if caplo_wave[idx] > THRESH:
-                binary_approximations[-1].append(0)
-            else:
-                binary_approximations[-1].append(1)
-            idx = idx + BIT_PERIOD
-
-        decimal_approximations.append(vec_to_int(binary_approximations[-1])*(2**(10-approximation)))
-        print("(DBG)",binary_approximations[-1], "==",decimal_approximations[-1])
-        idx = idx - BIT_PERIOD
-
-
-    return decimal_approximations[-1]
-            
-
-
-
-
-    
-    
-# Generates the pattern necessary to run the ADC.
-def genpattern_ADC_Capture(time_scale_factor):
-    
-    waves = {}
-    
-    #Start off w/ some zeros to avoid extra pulse bug.
-    waves["DACclr"] = [0]*10
-    waves["Qequal"] = [0]*10
-    waves["capClk"] = [0]*10
-    waves["calc"]   = [0]*10
-    waves["read_ext"]   = [0]*10
-    
-    
-    for adc_bit in range(1,11):
-        
-        for clk_cycle in range(adc_bit):
-
-            if clk_cycle == 0:
-                #Each bit starts off w/ a DACclr pulse.
-                waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
-                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
-                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
-
-            else:
-                #capClk pulse
-                waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
-                waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
-                waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
-
-
-            #Add a 0 for non-overlapping.    
-            waves["DACclr"] = waves["DACclr"] + [0]
-            waves["capClk"] = waves["capClk"] + [0]
-            waves["Qequal"] = waves["Qequal"] + [0]
-            
-            #Qequal pulse
-            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
-            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor
-            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor
-            
-            
-            #Add a 0 for non-overlapping.    
-            waves["DACclr"] = waves["DACclr"] + [0]
-            waves["capClk"] = waves["capClk"] + [0]
-            waves["Qequal"] = waves["Qequal"] + [0]
-            
-            
-            
-        #Add a 0 for non-overlapping.    
-        #waves["DACclr"] = waves["DACclr"] + [0]
-        #waves["capClk"] = waves["capClk"] + [0]
-        #waves["Qequal"] = waves["Qequal"] + [0]
-        
-        
-    #Final DACclr pulse.
-    waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
-    waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
-    waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
-        
-    waves["calc"] = waves["calc"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
-    waves["read_ext"] = waves["calc"]
-    
-    #2) Writing to an ASCII file.
-    with open("genpattern_adc_op.txt",'w') as write_file:
-        for w in waves.keys():
-            write_file.write(w+":"+"".join([str(x) for x in waves[w]])+"\n")
-            
-    #3) Convert ASCII file to Glue.
-    gc = GlueConverter(DEFAULT_IOSPEC)
-
-    gc.ascii2Glue("genpattern_adc_op.txt", 1, "genpattern_adc_op")
-
-
-    return "genpattern_adc_op_se_io.glue"
 
 
 def genpattern_from_waves_dict(waves_dict):
@@ -1208,4 +1109,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Comparator_Smoke_Test, ROUTINE_Full_Conversion_Demo, ROUTINE_Transfer_Function_vs_Vref, ROUTINE_average_transfer_function, ROUTINE_Front_End_Demo, ROUTINE_Full_Conversion_Sweep, ROUTINE_Transfer_Function_vs_Timescale,ROUTINE_Leakage_Test, ROUTINE_Noise_Histogram]
+ROUTINES = [ROUTINE_Transfer_Function_over_Time, ROUTINE_Transfer_Function_vs_Vref, ROUTINE_average_transfer_function, ROUTINE_Transfer_Function_vs_Timescale, ROUTINE_Noise_Histogram, ROUTINE_Transfer_Function_vs_CapTrim]

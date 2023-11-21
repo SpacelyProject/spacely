@@ -111,8 +111,8 @@ V_CURR_LIMIT = {# SMU_A
                   "VDDIO_LT": 0.1,                  
                   "VCC_LT":   0.3, #Changed from 0.1
                 # PSU_B
-                  "VCC_ASIC": 0.01,
-                  "VDD_ASIC": 0.10 # this is correct: fixes latchup by giving the ASIC 100mA
+                  "VCC_ASIC": 0.02, #Edit 11/15: Double currents to 20mA and 200mA for cryo.
+                  "VDD_ASIC": 0.20 # this is correct: fixes latchup by giving the ASIC 100mA
                   }
 
 #Global dict to hold the port objects created for each of these.
