@@ -107,6 +107,34 @@ def ROUTINE_Leakage_Test():
     adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
     #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
 
+
+
+def ROUTINE_Qequal_Charging_Test():
+    """Apply a short pulse on Qequal to see how much charge is shared."""
+
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+    time.sleep(3)
+
+    #Set Scan Chain Configuration:  TestEn = 1  
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    qequal_cyc = int(input("How many cycles should Qequal be asserted?"))
+    
+    #Note that when calc is low, any capClk pulse leads to a capHib pulse.
+    #We include Rst = 1 so that capHib is not gated.
+    adc_op_glue = genpattern_from_waves_dict({"calc":   [0]*2000,
+                                              "capClk": [1]*1000+[0]*1000,
+                                              "Rst_ext":[1]*200,
+                                              "DACclr": [1]*1000+[0]*1000,
+                                              "Qequal": [0]*1001+[1]*(qequal_cyc)+[0]*(999-qequal_cyc)})
+
+    #Run the ADC
+    adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+    
+
 def ROUTINE_Comparator_Offset_Tuning():
     """Determine comparator offset for DACclr state."""
 
@@ -345,7 +373,7 @@ def ROUTINE_Transfer_Function_vs_Timescale():
 
     VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
 
-    TIMESCALE_RANGE = [1,2,3,5,10,15,30,100]
+    TIMESCALE_RANGE = [1,2,3,5,10] #,1,1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,3,3]#[1,2,3,5,10,15,30,100]
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -363,7 +391,7 @@ def ROUTINE_Transfer_Function_vs_Timescale():
     for timescale in TIMESCALE_RANGE:
 
         #Pre-generate patterns to run the ADC and to read from the scan chain.
-        adc_op_glue = genpattern_ADC_Capture(timescale)
+        adc_op_glue = genpattern_ADC_Capture(timescale, apply_pulse_1_fix=False, tsf_qequal = 10)
 
         #Start a new list of result values for this captrim.
         result_values.append([])
@@ -591,9 +619,9 @@ def ROUTINE_Noise_Histogram():
 
     VTEST_mV = 100
 
-    HISTOGRAM_SAMPLES = 50000
+    HISTOGRAM_SAMPLES = 1000000
 
-    CENTER_CODE_SAMPLES = 200
+    CENTER_CODE_SAMPLES = 2000
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -819,7 +847,7 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
     
 # Generates the pattern necessary to run the ADC.
-def genpattern_ADC_Capture(time_scale_factor):
+def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequal=1):
     
     waves = {}
     
@@ -840,6 +868,12 @@ def genpattern_ADC_Capture(time_scale_factor):
                 waves["DACclr"] = waves["DACclr"] + [1,1,1]*time_scale_factor
                 waves["capClk"] = waves["capClk"] + [1,1,1]*time_scale_factor
                 waves["Qequal"] = waves["Qequal"] + [0,0,0]*time_scale_factor
+                
+                if apply_pulse_1_fix:
+                    #Extend this pulse only to be 10x longer.
+                    waves["DACclr"] = waves["DACclr"] + [1,1,1]*10*time_scale_factor
+                    waves["capClk"] = waves["capClk"] + [1,1,1]*10*time_scale_factor
+                    waves["Qequal"] = waves["Qequal"] + [0,0,0]*10*time_scale_factor
 
             else:
                 #capClk pulse
@@ -854,9 +888,9 @@ def genpattern_ADC_Capture(time_scale_factor):
             waves["Qequal"] = waves["Qequal"] + [0]
             
             #Qequal pulse
-            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor
-            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor
-            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor
+            waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor*tsf_qequal
+            waves["capClk"] = waves["capClk"] + [0,0,0]*time_scale_factor*tsf_qequal
+            waves["Qequal"] = waves["Qequal"] + [1,1,1]*time_scale_factor*tsf_qequal
             
             
             #Add a 0 for non-overlapping.    
