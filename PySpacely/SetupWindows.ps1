@@ -2,6 +2,7 @@
 # This script is a shortcut to configure the Spacely environment #
 ##################################################################
 
+
 # Go to the directory where this script is located
 $scriptpath = $MyInvocation.MyCommand.Path
 $dir = Split-Path $scriptpath
@@ -19,6 +20,10 @@ if (-Not (Test-Path env:VIRTUAL_ENV)) {
 	.\venv\Scripts\activate
 }	
 	
+
+# First, make sure pip is upgraded to the latest version.
+python -m pip install --upgrade pip
+
 echo "Installing dependencies..."
 python -m pip install -r requirements.txt
 
