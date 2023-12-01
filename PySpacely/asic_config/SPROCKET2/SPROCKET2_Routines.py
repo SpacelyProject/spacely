@@ -121,18 +121,48 @@ def ROUTINE_Qequal_Charging_Test():
     SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
-    qequal_cyc = int(input("How many cycles should Qequal be asserted?"))
-    
-    #Note that when calc is low, any capClk pulse leads to a capHib pulse.
-    #We include Rst = 1 so that capHib is not gated.
-    adc_op_glue = genpattern_from_waves_dict({"calc":   [0]*2000,
-                                              "capClk": [1]*1000+[0]*1000,
-                                              "Rst_ext":[1]*200,
-                                              "DACclr": [1]*1000+[0]*1000,
-                                              "Qequal": [0]*1001+[1]*(qequal_cyc)+[0]*(999-qequal_cyc)})
+    qequal_cyc = 500#int(input("How many cycles should Qequal be asserted?"))
 
-    #Run the ADC
-    adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+
+    write_file = open(f"Qequal_Charging_Results_on_"+time.strftime("%Y_%m_%d")+".csv",'w')
+    write_file.write("qequal_cyc,Vcompinm\n")
+
+    for qequal_cyc in range(1,30,1):
+
+        this_qequal_cyc_max_result = 0
+        
+        for vin in range(10,600,10):
+            set_Vin_mV(vin)
+
+        
+            #Note that when calc is low, any capClk pulse leads to a capHib pulse.
+            #We include Rst = 1 so that capHib is not gated.
+            adc_op_glue = genpattern_from_waves_dict({"calc":   [0]*2000,
+                                                  "capClk": [1]*1000+[0]*1000,
+                                                  "Rst_ext":[1]*2000,
+                                                  "DACclr": [1]*1000+[0]*1000,
+                                                  "Qequal": [0]*1001+[1]*(qequal_cyc)+[0]*(999-qequal_cyc)})
+
+            
+
+            #Run the ADC
+            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+
+            compout = gc.get_bitstream(gc.read_glue(adc_op_result),"CompOut")
+
+            compout_avg = sum(compout)/len(compout)
+
+            print(f"<DBG> vin {vin} compout_avg {compout_avg} ")
+            
+            if compout_avg < 0.9 and vin > this_qequal_cyc_max_result:
+                this_qequal_cyc_max_result = vin
+
+        write_file.write(f"{qequal_cyc},{this_qequal_cyc_max_result}\n")
+
+
+    write_file.close()
+
+
     
 
 def ROUTINE_Comparator_Offset_Tuning():
@@ -369,9 +399,10 @@ def ROUTINE_Transfer_Function_vs_Vref():
 def ROUTINE_Transfer_Function_vs_Timescale():
     """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
 
-    VIN_STEP_mV = 1
+    VIN_STEP_mV = 10
 
     VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
+
 
     TIMESCALE_RANGE = [1,2,3,5,10] #,1,1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,3,3]#[1,2,3,5,10,15,30,100]
 
@@ -391,7 +422,7 @@ def ROUTINE_Transfer_Function_vs_Timescale():
     for timescale in TIMESCALE_RANGE:
 
         #Pre-generate patterns to run the ADC and to read from the scan chain.
-        adc_op_glue = genpattern_ADC_Capture(timescale, apply_pulse_1_fix=False, tsf_qequal = 10)
+        adc_op_glue = genpattern_ADC_Capture(timescale, apply_pulse_1_fix=False, tsf_qequal = 1, tsf_pause=10)
 
         #Start a new list of result values for this captrim.
         result_values.append([])
@@ -412,6 +443,107 @@ def ROUTINE_Transfer_Function_vs_Timescale():
                                  VIN_RANGE,
                                  result_values,
                                  f"Transfer_Function_vs_Timescale_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
+                                 row_param_name="Vin")
+
+
+
+def ROUTINE_Transfer_Function_vs_ArbParam():
+    """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
+
+
+
+    VIN_STEP_mV = 10
+
+    VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
+
+
+    PARAM_NAME = "Icomp_with_finalpause_5"
+
+    PARAM_RANGE = [-20e-6,-30e-6,-40e-6,-50e-6,-60e-6,-70e-6,-80e-6,-100e-6,-120e-6,-150e-6]
+
+    GET_MAX_INL = True
+
+    INL_START_VIN = 0
+    
+
+    INL_END_VIN = 950
+    
+
+    #Set up pr, gc, and AWG
+    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    gc = GlueConverter(DEFAULT_IOSPEC)
+    config_AWG_as_DC(0)
+
+    #Set CapTrim value = 0
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=60)
+    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
+    time.sleep(3)
+    
+    result_values = []
+    INL_values = []
+
+    for param in PARAM_RANGE:
+
+        #Pre-generate patterns to run the ADC and to read from the scan chain.
+        adc_op_glue = genpattern_ADC_Capture(1, apply_pulse_1_fix=False, tsf_qequal = 1, tsf_pause=1, tsf_finalpause=5)
+
+        I_PORT["Icomp"].set_current(param)
+
+        adc_op_wave = gc.read_glue(adc_op_glue)
+
+        #Start a new list of result values for this ArbParam setting.
+        result_values.append([])
+        INL_values.append([])
+
+        #INL start and end code always start out as zero for each param.
+        INL_START_CODE = 0
+        INL_END_CODE =  0
+
+        for vin in VIN_RANGE:
+                
+            #Set the input voltage:
+            set_Vin_mV(vin)
+                
+            result = run_pattern_get_caplo_result(pr, gc, adc_op_wave)
+
+            result_values[-1].append(result)
+
+        if GET_MAX_INL == True:
+            #Capture INL and maximum INL
+            for i in range(len(VIN_RANGE)):
+                if INL_START_CODE == 0 and VIN_RANGE[i] >= INL_START_VIN:
+                    INL_START_CODE = result_values[-1][i]
+                    INL_START_IDX = i
+
+                if INL_END_CODE == 0 and VIN_RANGE[i] >= INL_END_VIN:
+                    INL_END_CODE = result_values[-1][i]
+                    INL_END_IDX = i
+
+            for i in range(len(VIN_RANGE)):
+                # y = mx + b
+                nominal_value = ((INL_END_CODE-INL_START_CODE)/(INL_END_VIN-INL_START_VIN))*(VIN_RANGE[i]-INL_START_VIN) + INL_START_CODE
+                INL_values[-1].append(result_values[-1][i]-nominal_value)
+
+
+    print(result_values)
+
+    if GET_MAX_INL == True:
+        print("ParamVal,MaxINL")
+        for i in range(len(INL_values)):
+            maxinl = max([abs(n) for n in INL_values[i][INL_START_IDX:INL_END_IDX]])
+            print(f"{PARAM_RANGE[i]},{maxinl}")
+
+    write_parameter_sweep_to_csv(PARAM_RANGE,
+                                 VIN_RANGE,
+                                 result_values,
+                                 f"Transfer_Function_vs_Arb_Param_{PARAM_NAME}_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
+                                 row_param_name="Vin")
+    if GET_MAX_INL == True:
+        write_parameter_sweep_to_csv(PARAM_RANGE,
+                                 VIN_RANGE,
+                                 INL_values,
+                                 f"Transfer_Function_INL_vs_Arb_Param_{PARAM_NAME}_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
                                  row_param_name="Vin")
                                  
                                  
@@ -776,8 +908,9 @@ def run_pattern_get_caplo_result(pr, gc, pattern_glue):
     #"adc_op_result_PXI1Slot16_NI6583_se_io.glue"
 
     #Get DACclr and capLo
-    dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
-    caplo_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"capLo_ext")
+    result_wave = gc.read_glue(adc_op_result)
+    dacclr_wave = gc.get_bitstream(result_wave,"DACclr")
+    caplo_wave = gc.get_bitstream(result_wave,"capLo_ext")
 
     result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
     
@@ -847,7 +980,7 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
     
 # Generates the pattern necessary to run the ADC.
-def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequal=1):
+def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequal=1, tsf_pause=1, tsf_finalpause=0):
     
     waves = {}
     
@@ -883,9 +1016,9 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
 
 
             #Add a 0 for non-overlapping.    
-            waves["DACclr"] = waves["DACclr"] + [0]
-            waves["capClk"] = waves["capClk"] + [0]
-            waves["Qequal"] = waves["Qequal"] + [0]
+            waves["DACclr"] = waves["DACclr"] + [0]*tsf_pause
+            waves["capClk"] = waves["capClk"] + [0]*tsf_pause
+            waves["Qequal"] = waves["Qequal"] + [0]*tsf_pause
             
             #Qequal pulse
             waves["DACclr"] = waves["DACclr"] + [0,0,0]*time_scale_factor*tsf_qequal
@@ -894,16 +1027,16 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
             
             
             #Add a 0 for non-overlapping.    
-            waves["DACclr"] = waves["DACclr"] + [0]
-            waves["capClk"] = waves["capClk"] + [0]
-            waves["Qequal"] = waves["Qequal"] + [0]
+            waves["DACclr"] = waves["DACclr"] + [0]*tsf_pause
+            waves["capClk"] = waves["capClk"] + [0]*tsf_pause
+            waves["Qequal"] = waves["Qequal"] + [0]*tsf_pause
             
             
             
-        #Add a 0 for non-overlapping.    
-        #waves["DACclr"] = waves["DACclr"] + [0]
-        #waves["capClk"] = waves["capClk"] + [0]
-        #waves["Qequal"] = waves["Qequal"] + [0]
+            
+        waves["DACclr"] = waves["DACclr"] + [0]*tsf_finalpause
+        waves["capClk"] = waves["capClk"] + [0]*tsf_finalpause
+        waves["Qequal"] = waves["Qequal"] + [0]*tsf_finalpause
         
         
     #Final DACclr pulse.
@@ -1143,4 +1276,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Transfer_Function_over_Time, ROUTINE_Transfer_Function_vs_Vref, ROUTINE_average_transfer_function, ROUTINE_Transfer_Function_vs_Timescale, ROUTINE_Noise_Histogram, ROUTINE_Transfer_Function_vs_CapTrim]
+ROUTINES = [ROUTINE_Transfer_Function_vs_ArbParam,ROUTINE_Qequal_Charging_Test, ROUTINE_Transfer_Function_vs_Vref, ROUTINE_average_transfer_function, ROUTINE_Transfer_Function_vs_Timescale, ROUTINE_Noise_Histogram, ROUTINE_Transfer_Function_vs_CapTrim]

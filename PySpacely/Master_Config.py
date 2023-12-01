@@ -10,7 +10,11 @@ USE_NI = False
 USE_AWG = False
 USE_SCOPE = False
 
-TARGET = "SPROCKET2"
+ROUTINES = []
+INSTR = {}
+INSTR_INIT_SEQUENCE = []
+
+TARGET = "ExampleASIC"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
@@ -30,5 +34,8 @@ elif TARGET == "SPROCKET2":
 elif TARGET == "SQUIDDAC":
     from asic_config.SQUIDDAC.SQUIDDAC_Config import *
     from asic_config.SQUIDDAC.SQUIDDAC_Routines import *
+elif TARGET == "ExampleASIC":
+    from asic_config.ExampleASIC.ExampleASIC_Config import *
+    from asic_config.ExampleASIC.ExampleASIC_Routines import *
         
 

@@ -845,7 +845,13 @@ def initialize_NI():
             for Vsource in V_SEQUENCE:
                 #time.sleep(0.5)
                 sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={V_CURR_LIMIT[Vsource]:.4f})")
-                V_PORT[Vsource] = Source_Port(INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=V_CURR_LIMIT[Vsource])
+                
+                if type(V_CURR_LIMIT) == dict:
+                    curr_limit = V_CURR_LIMIT[Vsource]
+                else:
+                    curr_limit = V_CURR_LIMIT
+                
+                V_PORT[Vsource] = Source_Port(INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
                 sg.log.block_res()
             sg.log.debug("NI Vsource init done")
@@ -856,7 +862,13 @@ def initialize_NI():
             sg.log.debug("NI Isource init")
             for Isource in I_SEQUENCE:
                 sg.log.blocking(f"Initializing Isource \"{Isource}\" @ {I_INSTR[Isource]}#{I_CHAN[Isource]} to {I_LEVEL[Isource]:.6f}")
-                I_PORT[Isource] = Source_Port(INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=I_VOLT_LIMIT)
+                
+                if type(I_VOLT_LIMIT) == dict:
+                    volt_limit = I_VOLT_LIMIT[Isource]
+                else:
+                    volt_limit = I_VOLT_LIMIT
+                    
+                I_PORT[Isource] = Source_Port(INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=volt_limit)
                 I_PORT[Isource].set_current(I_LEVEL[Isource])
                 sg.log.block_res()
             sg.log.debug("NI Isource init done")

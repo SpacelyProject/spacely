@@ -264,6 +264,8 @@ while True:
         case 'lr':
             for r in range(len(ROUTINES)):
                 print(r,ROUTINES[r].__doc__)
+            if len(ROUTINES) == 0:
+                print("No routines to show! Try writing ROUTINES=[myFunction] in your Routines file.")
         case 'cls':
             clean_terminal()
             print("")
