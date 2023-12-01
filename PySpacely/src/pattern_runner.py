@@ -34,10 +34,14 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                         "Set_Voltage_Family":True,
                         "Voltage_Family":4} 
 
+SPACELY_BITFILE_FOLDER = os.path.dirname(os.path.realpath(__file__))+"\\..\\..\\Glue RTL2FPGA Source\\FPGA Bitfiles"
+
+
+
 GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
-                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_6_27_b.lvbitx"),
+                                                               SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_6_27_b.lvbitx"),
                      "NI7972_NI6583_40MHz":GlueBitfile("NI7972","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
-                                                               "C:\\Users\\Public\\Documents\\LABVIEWTEST\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx")}
+                                                               SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx")}
 
 
 #####################################################################

@@ -124,7 +124,7 @@ def ROUTINE_Qequal_Charging_Test():
     qequal_cyc = 500#int(input("How many cycles should Qequal be asserted?"))
 
 
-    write_file = open(f"Qequal_Charging_Results_on_"+time.strftime("%Y_%m_%d")+".csv",'w')
+    write_file = open(f"output\\Qequal_Charging_Results_on_"+time.strftime("%Y_%m_%d")+".csv",'w')
     write_file.write("qequal_cyc,Vcompinm\n")
 
     for qequal_cyc in range(1,30,1):
@@ -185,7 +185,7 @@ def ROUTINE_Comparator_Offset_Tuning():
 
     
     #(2) Sweep ADC from 0mV to 1000mV and record the  results.
-    with open("Comparator_Sweep.csv","w") as write_file:
+    with open("output\\Comparator_Sweep.csv","w") as write_file:
         write_file.write("Vin(mV),CompOut\n")
     
         for vin in range(0,200,10):
@@ -247,7 +247,7 @@ def ROUTINE_Front_End_Sweep():
     time.sleep(3)
     fe_glue = genpattern_Front_End_demo(1)
     
-    with open("FE_Sweep.csv","w") as write_file:
+    with open("output\\FE_Sweep.csv","w") as write_file:
         write_file.write("Pulse Mag(mV),CompOut\n")
         for pulse_mag in range(10,300,10):
         
@@ -626,7 +626,7 @@ def ROUTINE_average_transfer_function():
     #Pre-generate patterns to run the ADC and to read from the scan chain.
     adc_op_glue = genpattern_ADC_Capture(10)
 
-    write_file = open(f"Average_Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+    write_file = open(f"output\\Average_Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
 
     write_file.write("Vin,Avg Result,Std Dev\n")
 
@@ -723,7 +723,7 @@ def ROUTINE_Full_Conversion_Sweep():
     fc_glue = genpattern_Full_Conversion(1)
 
 
-    write_file = open("Full_Conversion_Sweep.csv","w")
+    write_file = open("output\\Full_Conversion_Sweep.csv","w")
     write_file.write("Vin,Result\n")
     
     for pulse_mag in range(10,500,VIN_STEP_mV):
@@ -774,7 +774,7 @@ def ROUTINE_Noise_Histogram():
 
     print(histo)
     
-    with open("SPROCKET2_Noise_Histogram_100mV.csv","w") as write_file:
+    with open("output\\SPROCKET2_Noise_Histogram_100mV.csv","w") as write_file:
         write_file.write("Code,Count\n")
 
         for code in histo.keys():
@@ -858,7 +858,7 @@ def write_parameter_sweep_to_csv(col_param_range, row_param_range, results, file
     assert(len(results) == len(col_param_range))
     assert(len(results[0]) == len(row_param_range))
 
-    write_file = open(filename, "w")
+    write_file = open("output\\"+filename, "w")
 
     #First row: write out all the column headers.
     write_file.write(f"{row_param_name}")
@@ -1048,7 +1048,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     waves["read_ext"] = waves["calc"]
     
     #2) Writing to an ASCII file.
-    with open("genpattern_adc_op.txt",'w') as write_file:
+    with open("output\\genpattern_adc_op.txt",'w') as write_file:
         for w in waves.keys():
             write_file.write(w+":"+"".join([str(x) for x in waves[w]])+"\n")
             

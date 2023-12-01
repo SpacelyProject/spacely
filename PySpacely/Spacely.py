@@ -98,6 +98,10 @@ print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+")
 print("+       Welcome to Spacely!       +")
 print("+ Let's do some science together. +")
 print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+\n")
+
+
+
+
 if USE_ARDUINO and EMULATE_ASIC:
     print("**ASIC will be EMULATED by ARDUINO**")
 

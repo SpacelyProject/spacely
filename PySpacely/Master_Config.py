@@ -10,9 +10,9 @@ USE_NI = False
 USE_AWG = False
 USE_SCOPE = False
 
-ROUTINES = []
-INSTR = {}
-INSTR_INIT_SEQUENCE = []
+#ROUTINES = []
+#INSTR = {}
+#INSTR_INIT_SEQUENCE = []
 
 TARGET = "ExampleASIC"
 
@@ -39,3 +39,18 @@ elif TARGET == "ExampleASIC":
     from asic_config.ExampleASIC.ExampleASIC_Routines import *
         
 
+
+try:
+    ROUTINES
+except NameError:
+    ROUTINES = []
+
+try:
+    INSTR
+except NameError:
+    INSTR = {}
+
+try:
+    INSTR_INIT_SEQUENCE
+except NameError:
+    INSTR_INIT_SEQUENCE = []
