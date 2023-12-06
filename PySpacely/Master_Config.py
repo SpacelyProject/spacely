@@ -3,6 +3,7 @@
 #Global software settings
 VERBOSE = True
 PROGRESS = True
+LITE = True
 
 #The following variables may be redefined by target config files:
 USE_ARDUINO = False

@@ -4,36 +4,45 @@
 ## INSTRUMENT CONTROL FUNCTIONS ##
 
 
+from Master_Config import *
+import Spacely_Globals as sg
+
 import sys
 import platform
 import os
-import numpy as np
-import serial.tools.list_ports
+
 import atexit
 import argparse
 from datetime import datetime
-from prettytable.colortable import PrettyTable
-from si_prefix import si_format
 from statistics import mean, NormalDist
 import csv
 import tkinter as tk
 from tkinter import filedialog
-import pyvisa
 
+
+#Non-builtin modules that are only necessary if running in non-lite mode.
+if not LITE:
+    import numpy as np
+    import serial.tools.list_ports
+    from prettytable.colortable import PrettyTable
+    from si_prefix import si_format
+    import pyvisa
+
+    #Spacely utilities that are only necessary in non-lite mode.
+    from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 
 sys.path.append(os.path.abspath("./src"))
 
 
 #Import utilities from py-libs-common
-from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
+
 from pattern_runner import *
 from fnal_libawg import AgilentAWG
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
 from fnal_libvisa import *
 
-from Master_Config import *
-import Spacely_Globals as sg
+
 
 # SPACELY GLOBAL VARIABLES
 

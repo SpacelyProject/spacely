@@ -2,6 +2,9 @@
 # This script is a shortcut to configure the Spacely environment #
 ##################################################################
 
+param (
+    [switch]$lite = $false
+)
 
 # Go to the directory where this script is located
 $scriptpath = $MyInvocation.MyCommand.Path
@@ -24,8 +27,15 @@ if (-Not (Test-Path env:VIRTUAL_ENV)) {
 # First, make sure pip is upgraded to the latest version.
 python -m pip install --upgrade pip
 
-echo "Installing dependencies..."
-python -m pip install -r requirements.txt
+if ($lite) {
+    echo "Installing dependencies (LITE)..."
+    python -m pip install -r requirements_lite.txt
+}else {
+    echo "Installing dependencies..."
+    python -m pip install -r requirements.txt
+}
+
+
 
 
 echo "Now you should be able to run Spacely"
