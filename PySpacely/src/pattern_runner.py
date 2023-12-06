@@ -41,7 +41,9 @@ SPACELY_BITFILE_FOLDER = os.path.dirname(os.path.realpath(__file__))+"\\..\\..\\
 GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
                                                                SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_6_27_b.lvbitx"),
                      "NI7972_NI6583_40MHz":GlueBitfile("NI7972","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
-                                                               SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx")}
+                                                               SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx"),
+                     "NI7972_NI6581_40MHz":GlueBitfile("NI7972","NI6581",3,40e6,GLUEFPGA_DEFAULT_CFG,
+                                                               SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7962_NI6581_40M_PROTO_12_6_2023.lvbitx")}
 
 
 #####################################################################
