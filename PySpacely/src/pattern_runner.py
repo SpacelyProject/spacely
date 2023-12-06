@@ -292,7 +292,7 @@ class PatternRunner(ABC):
     # PARAMETERS:
     #           pattern - A list of GlueWave() objects or .glue files that can be read to GlueWave() objects
     #           outfile - Optional .glue filename to write the result to.
-    def run_pattern(self,patterns,outfile_tag=None):
+    def run_pattern(self,patterns,time_scale_factor=1,outfile_tag=None):
 
         #Make sure "patterns" is a list :p
         if type(patterns) is not list:
@@ -312,6 +312,11 @@ class PatternRunner(ABC):
                 print("      If you are SURE this is the right pattern, edit the Glue file to add a valid HARDWARE.")
                 return -1
 
+        #Built-in method to slow down the pattern by a factor of time_scale_factor
+        if time_scale_factor != 1:
+            for i in range(len(patterns)):
+                patterns[i].vector = [x for x in patterns[i].vector for _ in range(0,time_scale_factor)]
+                patterns[i].len = len(patterns[i].vector)
 
         #Set up buffers and reader threads.
         reader_threads = []
@@ -374,18 +379,19 @@ class PatternRunner(ABC):
         self._return_data[return_data_idx] = y[0]
 
 
-    def genpattern_from_waves_dict(self, waves_dict):
+    def genpattern_from_waves_dict(self, waves_dict, time_scale_factor=1):
 
         #2) Writing to an ASCII file.
         with open("genpattern.txt",'w') as write_file:
             for w in waves_dict.keys():
-                write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
+                if time_scale_factor != 1:
+                    write_file.write(w+":"+"".join([str(x) for x in waves_dict[w] for _ in range(0,time_scale_factor)])+"\n")
+                else:
+                    write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
                 
-        #3) Convert ASCII file to Glue.
-        
-
-        
+        #3) Convert ASCII file to Glue
         return self.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+        
 
 
 # ASSUMPTION: The intended pattern is a uniformly increasing set of integers.

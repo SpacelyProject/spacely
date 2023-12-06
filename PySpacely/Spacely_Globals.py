@@ -11,6 +11,11 @@ port = None
 AWG = None
 scope = None
 
+#Global pattern runner and glue converter instances.
+pr = None
+gc = None
+
+
 ARDUINO_CONNECTED = False
 NI_CONNECTED = False
 AWG_CONNECTED = False

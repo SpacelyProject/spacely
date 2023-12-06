@@ -813,11 +813,26 @@ def deinitialize_Arduino() -> None:
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_NI():
     global V_SEQUENCE, I_SEQUENCE
+
+    try:
+        DEFAULT_IOSPEC
+        DEFAULT_FPGA_BITFILE_MAP
+        setup_pr = True
+    except NameError:
+        sg.log.info("Could not automatically initialize Glue Converter + Pattern Runner. Make sure DEFAULT_IOSPEC and DEFAULT_FPGA_BITFILE_MAP are defined in MyASIC_Config.py")
+        setup_pr = False
+        
+    if setup_pr:
+        sg.log.debug("Initializing PatternRunner...")
+        sg.pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+        sg.log.debug("Initializing GlueConverter...")
+        sg.gc = GlueConverter(DEFAULT_IOSPEC)
+        time.sleep(2)
+
+    
     if sg.NI_CONNECTED:
         sg.log.warning("NI already initialized; reinitializing")
         deinitialize_NI()
-
-    
 
     try:
         V_SEQUENCE

@@ -17,17 +17,11 @@ def ROUTINE_FPGATest():
     #Define the routine's purpose in a docstring like above, this will appear
     #when you call the routine in Spacely.
     
-    #Set up PatternRunner and GlueConverter
-    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
-    gc = GlueConverter(DEFAULT_IOSPEC)
-    
-    time.sleep(3)
-    
     #Create a basic pattern
-    test_pattern = pr.genpattern_from_waves_dict({"mclk":[0,1]*20, "data_in":[0,0,0,0,0,0,1,1,1,1,1,1,1]})
+    test_pattern = sg.pr.genpattern_from_waves_dict({"mclk":[0,1]*20, "data_in":[0,0,0,0,0,0,1,1,1,1,1,1,1]}, time_scale_factor=3)
     
     #Run that pattern
-    pr.run_pattern( test_pattern,outfile_tag="testpattern")
+    sg.pr.run_pattern( test_pattern,time_scale_factor = 1, outfile_tag ="testpattern")
 
     
 
