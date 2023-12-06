@@ -256,7 +256,7 @@ while True:
             gc.gcshell()
         case 'fpgadbg':
             #Start a pattern runner instance, which will initialize the FPGA
-            p = PatternRunner(sg.log,DEFAULT_IOSPEC)
+            p = PatternRunner(sg.log,DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
             dbg = list(p._interface.values())[0]
             while True:
                 x = dbg.interact()

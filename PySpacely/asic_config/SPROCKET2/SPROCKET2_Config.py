@@ -94,7 +94,21 @@ V_LEVEL = {# SMU_A
              "VDD_ASIC": 1.35, #Boosted from 1.2V to account for PCB drop.
              "VCC_ASIC": 3.3             
            }
+
            
+V_WARN_VOLTAGE = {
+             "vdda": [2.4,2.6],
+             "Vref_adc" : [0.95,1.05],
+             "Vref":  [0.9,1.1],
+             "Vdd12": [1.1,1.3],
+             "Ib2": [1.25,1.45],
+             #"Iterm":1.415,
+             "VCC_LT":   [3.2,3.4],
+             "VDD_ASIC": [1.3,1.4],
+             "VCC_ASIC":   [3.2,3.4],
+             "VDDIO_LT": [1.1,1.3]
+           }
+
 
 # Rough current guidelines
 # TODO: TEST IF THESE VALUES IN DOCS BELOW ARE CORRECT OR WE'RE OFF IN UNITS IN THE DICT BELOW
@@ -158,3 +172,7 @@ I_PORT  = {
 
 I_VOLT_LIMIT = 2.5
 
+I_WARN_VOLTAGE = {"Iterm": [1,2],
+                  "Ib1":   [1,2],
+                  "Ibuf":  [1,2],
+                  "Icomp": [1,2]}
