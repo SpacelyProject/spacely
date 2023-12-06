@@ -28,8 +28,14 @@ GLUEFPGA_DEFAULT_CFG = { "Run_Test_Fifo_Loopback" : False,
                         "Buffer_Pass_Size":1024,
                         "FPGA_Loop_Dis": False,
                         "se_io_data_dir":0,
-                         "lvds_data_dir":0,
-                         "lvds_clockout_en":False,
+                        "lvds_data_dir":0,
+                        "ddca_P0_WE":False,
+                        "ddca_P1_WE":False,
+                        "ddca_P2_WE":False,
+                        "ddcb_P0_WE":False,
+                        "ddcb_P1_WE":False,
+                        "ddcb_P2_WE":False,
+                        "lvds_clockout_en":False,
                         "SE_Data_Default":60,
                         "Set_Voltage_Family":True,
                         "Voltage_Family":4} 
@@ -42,7 +48,7 @@ GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,
                                                                SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_6_27_b.lvbitx"),
                      "NI7972_NI6583_40MHz":GlueBitfile("NI7972","NI6583",3,40e6,GLUEFPGA_DEFAULT_CFG,
                                                                SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7972_NI6583_40M_9_8_2023_b.lvbitx"),
-                     "NI7972_NI6581_40MHz":GlueBitfile("NI7972","NI6581",3,40e6,GLUEFPGA_DEFAULT_CFG,
+                     "NI7962_NI6581_40MHz":GlueBitfile("NI7972","NI6581",3,40e6,GLUEFPGA_DEFAULT_CFG,
                                                                SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7962_NI6581_40M_PROTO_12_6_2023.lvbitx")}
 
 
@@ -197,8 +203,22 @@ class PatternRunner(ABC):
         for hw in hw_list:
             fpga_name = "/".join(hw.split("/")[0:2])
             fifo = hw.split("/")[2]
-            self._log.debug(f"Programming {hw} I/O Direction as: {io_dir[hw]}")
-            self._interface[fpga_name].interact("w",fifo+"_data_dir",io_dir[hw])
+            
+            #Determine whether this FPGA sets data direction by bit, or by port.
+            if fifo+"_data_dir" in GLUEFPGA_DEFAULT_CFG.keys():
+                #Set direction by bit.
+                self._log.debug(f"Programming {hw} I/O Direction as: {io_dir[hw]}")
+                self._interface[fpga_name].interact("w",fifo+"_data_dir",io_dir[hw])
+            else:
+                #Set direction by port.
+                this_port_contains_asic_inputs = False
+                #If there are any ASIC inputs which use this hw...
+                for io in self.gc.Input_IOs:
+                    if self.gc.IO_hardware[io] == hw:
+                        this_port_contains_asic_inputs = True
+                
+                self._log.debug(f"Programming {hw} I/O Direction as: {this_port_contains_asic_inputs}")
+                self._interface[fpga_name].interact("w",fifo+"_WE",this_port_contains_asic_inputs)
 
 
     # setup_pattern() - Performs the following tasks to prepare for running a pattern:
@@ -224,13 +244,26 @@ class PatternRunner(ABC):
         out_fifo = fpga.get_fifo(out_fifo_name)
         dbg = self._interface[pattern.fpga_name]
 
+
+        print(f"DEBUG: {in_fifo_name}")
+        print(f"DEBUG: {in_fifo}")
+        
         #Ensure that there is enough memory on the host side for the pattern we want to run.
-        if in_fifo.ref.buffer_size < pattern.len+FPGA_READBACK_OFFSET:
+        
+        try:
+            in_fifo.ref.buffer_size
+            READ_BUFFER_SIZE_SUPPORTED = True
+        except Exception as e:
+            print(f"ERROR: Unable to get buffer sizes due to {e}")
+            READ_BUFFER_SIZE_SUPPORTED = False
+        
+        
+        if not READ_BUFFER_SIZE_SUPPORTED or (in_fifo.ref.buffer_size < pattern.len+FPGA_READBACK_OFFSET):
             in_fifo.ref.configure(pattern.len+FPGA_READBACK_OFFSET)
 
-        if out_fifo.ref.buffer_size < pattern.len+FPGA_READBACK_OFFSET:
+        if not READ_BUFFER_SIZE_SUPPORTED or (out_fifo.ref.buffer_size < pattern.len+FPGA_READBACK_OFFSET):
             out_fifo.ref.configure(pattern.len+FPGA_READBACK_OFFSET)
-
+        
             
         #Update Pattern Size in the FPGA
         #11/9/2023 NOTE: This "-1" is necessary to solve the Glue wave frame misalignment issue. 
@@ -241,8 +274,9 @@ class PatternRunner(ABC):
         time.sleep(0.2)
 
         #Check Actual allocated buffer size
-        self._log.debug("out buffer size: "+str(out_fifo.ref.buffer_size))
-        self._log.debug("in buffer size: "+str(in_fifo.ref.buffer_size))
+        if READ_BUFFER_SIZE_SUPPORTED:
+            self._log.debug("out buffer size: "+str(out_fifo.ref.buffer_size))
+            self._log.debug("in buffer size: "+str(in_fifo.ref.buffer_size))
 
         #Load the pattern into FIFO memory.
         dbg.interact("w",in_fifo_name,pattern.vector)
@@ -340,6 +374,19 @@ class PatternRunner(ABC):
         self._return_data[return_data_idx] = y[0]
 
 
+    def genpattern_from_waves_dict(self, waves_dict):
+
+        #2) Writing to an ASCII file.
+        with open("genpattern.txt",'w') as write_file:
+            for w in waves_dict.keys():
+                write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
+                
+        #3) Convert ASCII file to Glue.
+        
+
+        
+        return self.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+
 
 # ASSUMPTION: The intended pattern is a uniformly increasing set of integers.
 # rp = Returned pattern
@@ -394,6 +441,11 @@ def diagnose_fifo_timeout(rp):
         print("(INFO) No timeouts detected :D")
                 
             
+
+
+## UTILITY FUNCTIONS 
+
+
 
 
 ##class GenericPatternRunner(PatternRunner):
