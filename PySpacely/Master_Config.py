@@ -14,7 +14,7 @@ USE_SCOPE = False
 #INSTR = {}
 #INSTR_INIT_SEQUENCE = []
 
-TARGET = "ExampleASIC"
+TARGET = "CITC2"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
@@ -37,6 +37,9 @@ elif TARGET == "SQUIDDAC":
 elif TARGET == "ExampleASIC":
     from asic_config.ExampleASIC.ExampleASIC_Config import *
     from asic_config.ExampleASIC.ExampleASIC_Routines import *
+elif TARGET == "CITC2":
+    from asic_config.CITC2.CITC2_Config import *
+    from asic_config.CITC2.CITC2_Routines import *
         
 
 
