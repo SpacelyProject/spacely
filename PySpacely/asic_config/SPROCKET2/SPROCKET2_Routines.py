@@ -296,15 +296,89 @@ def ROUTINE_fpga_offset_debug():
             if dacclr_wave[j:j+len(token_pattern)] == token_pattern:
                 
                 print(f"TOKEN OFFSET: {j}")
+
+
+
+def ROUTINE_Ramp_Histogram_vs_CapTrim():
+    """Characterize ADC DNL using a ramp Histogram. Caplo->Spacely method"""
+
+    VIN_STEP_uV = 10
+
+    MIN_VIN_mV = 0
+    
+    MAX_VIN_mV = 1000
+
+    VIN_RANGE = [i/1000 for i in range(1000*MIN_VIN_mV,1000*MAX_VIN_mV,VIN_STEP_uV)]
+    
+    VIN_RANGE.reverse() #Run reverse sweep.
+
+    CAPTRIM_RANGE = [25,63] #[i for i in range(20,40,1)]
+
+    CODE_RANGE = [i for i in range(0,1024)]
+    
+    sg.log.info(f"Commencing Ramp Histogram Characterization! Total # of points will be {(MAX_VIN_mV-MIN_VIN_mV)/VIN_STEP_uV*1000} x {len(CAPTRIM_RANGE)}...")
+
+    #Set up AWG
+    config_AWG_as_DC(0)
+    time.sleep(1)
+    
+    #Pre-generate patterns to run the ADC and to read from the scan chain.
+    adc_op_glue = genpattern_ADC_Capture(10)
+
+    result_values_by_captrim = []
+
+    for captrim in CAPTRIM_RANGE:
+
+        results = []
+        
+        #Set CapTrim value and ensure 
+        SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=captrim)
+        sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+        
+        time.sleep(1)
+
+        for vin in VIN_RANGE:
+                
+            #Set the input voltage:
+            set_Vin_mV(vin)
+                
+            results.append(run_pattern_get_caplo_result(sg.pr, sg.gc, adc_op_glue))
+
+            
+        histo = liststring_histogram(" ".join([str(x) for x in results]))
+    
+        print(histo)
+    
+        with open(f"output\\SPROCKET2_Ramp_Histogram_CapTrim_{captrim}_Vin_{MIN_VIN_mV}_to_{MAX_VIN_mV}_mV_by_{VIN_STEP_uV}_on_"+time.strftime("%Y_%m_%d")+".csv","w") as write_file:
+            write_file.write("Code,Count\n")
+
+            for code in histo.keys():
+                write_file.write(f"{code},{histo[code]}\n")
+
+        result_values_by_captrim.append([])
+        
+        for i in CODE_RANGE:
+            if i in histo.keys():
+                result_values_by_captrim[-1].append(histo[i])
+            else:
+                result_values_by_captrim[-1].append(0)
+
+    write_parameter_sweep_to_csv(CAPTRIM_RANGE,
+                                 CODE_RANGE,
+                                 result_values_by_captrim,
+                                 f"Ramp_Histogram_vs_CapTrim_Vin_step_by_{VIN_STEP_uV}_uV_on_"+time.strftime("%Y_%m_%d")+".csv",
+                                 row_param_name="Vin")
     
 def ROUTINE_Transfer_Function_vs_CapTrim():
     """Capture the ADC Transfer function vs CapTrim, using Caplo->Spacely method"""
 
-    VIN_STEP_mV = 1
+    VIN_STEP_mV = 10
 
     VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
+    
+    VIN_RANGE.reverse() #Try it backwards now y'all
 
-    CAPTRIM_RANGE = [i for i in range(0,63,1)]
+    CAPTRIM_RANGE = [i for i in range(0,10,1)]
 
     #Set up pr, gc, and AWG
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -325,8 +399,9 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
         #Set CapTrim value and ensure 
         SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=captrim)
         pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+        time.sleep(0.5)
 
-        for vin in range(0,1000,VIN_STEP_mV):
+        for vin in VIN_RANGE:
                 
             #Set the input voltage:
             set_Vin_mV(vin)
@@ -448,20 +523,20 @@ def ROUTINE_Transfer_Function_vs_Timescale():
 
 
 def ROUTINE_Transfer_Function_vs_ArbParam():
-    """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
+    """Capture the ADC Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
 
 
 
-    VIN_STEP_mV = 10
+    VIN_STEP_mV = 1
 
-    VIN_RANGE = [i for i in range(0,1000,VIN_STEP_mV)]
+    VIN_RANGE = [i for i in range(0,15,VIN_STEP_mV)]
 
 
-    PARAM_NAME = "Icomp_with_finalpause_5"
+    PARAM_NAME = "post_SC_delay"
 
-    PARAM_RANGE = [-20e-6,-30e-6,-40e-6,-50e-6,-60e-6,-70e-6,-80e-6,-100e-6,-120e-6,-150e-6]
+    PARAM_RANGE = [0.1,1,2,3]
 
-    GET_MAX_INL = True
+    GET_MAX_INL = False
 
     INL_START_VIN = 0
     
@@ -475,7 +550,7 @@ def ROUTINE_Transfer_Function_vs_ArbParam():
     config_AWG_as_DC(0)
 
     #Set CapTrim value = 0
-    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=60)
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=15)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
     
     time.sleep(3)
@@ -485,10 +560,8 @@ def ROUTINE_Transfer_Function_vs_ArbParam():
 
     for param in PARAM_RANGE:
 
-        #Pre-generate patterns to run the ADC and to read from the scan chain.
-        adc_op_glue = genpattern_ADC_Capture(1, apply_pulse_1_fix=False, tsf_qequal = 1, tsf_pause=1, tsf_finalpause=5)
-
-        I_PORT["Icomp"].set_current(param)
+        #Pre-generate patterns to run the ADC and to read from the scadn chain.
+        adc_op_glue = genpattern_ADC_Capture(10)
 
         adc_op_wave = gc.read_glue(adc_op_glue)
 
@@ -501,6 +574,14 @@ def ROUTINE_Transfer_Function_vs_ArbParam():
         INL_END_CODE =  0
 
         for vin in VIN_RANGE:
+        
+            #!!!! MODIFIED !!!! WRITE SCAN CHAIN BEFORE EVERY VIN. WORST CASE!
+            #Set CapTrim value = 0
+            SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=15)
+            pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+            
+            if param > 0:
+                time.sleep(param)
                 
             #Set the input voltage:
             set_Vin_mV(vin)
@@ -613,30 +694,37 @@ def ROUTINE_Transfer_Function_over_Time():
 def ROUTINE_average_transfer_function():
     """Capture the Average ADC Transfer function using Caplo->Spacely method"""
 
-    VIN_STEP_mV = 1
+    VIN_STEP_uV = 100
 
-    NUM_AVERAGES = 100
+    NUM_AVERAGES = 10
+    
+    VIN_RANGE = [i/1000 for i in range(0,1000000,VIN_STEP_uV)]
+    
+    VIN_RANGE.reverse()
 
     #Set up pr, gc, and AWG
-    pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
-    gc = GlueConverter(DEFAULT_IOSPEC)
+    #pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    #gc = GlueConverter(DEFAULT_IOSPEC)
     config_AWG_as_DC(0)
+    
+    #Set CapTrim value and ensure 
+    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=25)
+    sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
     time.sleep(3)
     
     #Pre-generate patterns to run the ADC and to read from the scan chain.
     adc_op_glue = genpattern_ADC_Capture(10)
 
-    write_file = open(f"output\\Average_Transfer_Function_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+    write_file = open(f"output\\Average_Transfer_Function_Vin_step_by_{VIN_STEP_uV}_uV_on_"+time.strftime("%Y_%m_%d")+".csv","w")
 
     write_file.write("Vin,Avg Result,Std Dev\n")
 
 
-    #Set CapTrim value and ensure 
-    SC_PATTERN = SC_CFG(override=0,TestEn=1,Range2=0, CapTrim=0)
-    pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+    
 
 
-    for vin in range(0,1000,VIN_STEP_mV):
+    for vin in VIN_RANGE:
                 
         #Set the input voltage:
         set_Vin_mV(vin)
@@ -645,12 +733,12 @@ def ROUTINE_average_transfer_function():
 
         for i in range(NUM_AVERAGES):
             #Run the ADC to capture a reading.
-            adc_op_result = pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
+            adc_op_result = sg.pr.run_pattern(adc_op_glue,outfile_tag="adc_op_result")[0]
             #"adc_op_result_PXI1Slot4_NI6583_se_io.glue"
 
             #Get DACclr and capLo
-            dacclr_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"DACclr")
-            caplo_wave = gc.get_bitstream(gc.read_glue(adc_op_result),"capLo_ext")
+            dacclr_wave = sg.gc.get_bitstream(sg.gc.read_glue(adc_op_result),"DACclr")
+            caplo_wave = sg.gc.get_bitstream(sg.gc.read_glue(adc_op_result),"capLo_ext")
 
             result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
 
@@ -751,7 +839,7 @@ def ROUTINE_Noise_Histogram():
 
     VTEST_mV = 100
 
-    HISTOGRAM_SAMPLES = 1000000
+    HISTOGRAM_SAMPLES = 100000
 
     CENTER_CODE_SAMPLES = 2000
 
@@ -774,7 +862,7 @@ def ROUTINE_Noise_Histogram():
 
     print(histo)
     
-    with open("output\\SPROCKET2_Noise_Histogram_100mV.csv","w") as write_file:
+    with open("output\\SPROCKET2_Noise_Histogram_100mV_on_"+time.strftime("%Y_%m_%d")+".csv","w") as write_file:
         write_file.write("Code,Count\n")
 
         for code in histo.keys():
@@ -942,14 +1030,14 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
 
     print(f"(DBG) caplo_edges: {caplo_edges}")
 
-    if len(caplo_edges) != 11 or caplo_edges[0] != 0:
+    if len(caplo_edges) != 12 or caplo_edges[0] != 0:
         print(f"ERROR: Malformed caplo_edges {caplo_edges}")
         gc.plot_waves([caplo_wave,dacclr_wave],["caplo","dacclr"],1)
         return -99
 
     binary_approximation = []
     
-    for bit in range(1, 10):
+    for bit in range(1, 11):
 
         if caplo_edges[bit] - caplo_edges[bit-1] == 0:
             binary_approximation.append(1)
@@ -967,10 +1055,9 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
     #Notes:
     # - Reverse the binary approximation because it is naturally big-endian (MSB is decided first) whereas
     #   vec_to_int expects little-endian.
-    # - Multiply by 2 b/c it is a 9-bit approximation.
     binary_approximation.reverse()
     
-    return vec_to_int(binary_approximation)*2
+    return vec_to_int(binary_approximation)
 
 
             
@@ -992,7 +1079,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     waves["read_ext"]   = [0]*10
     
     
-    for adc_bit in range(1,11):
+    for adc_bit in range(1,12):  #Updated 12/8/2023 to add an 11th bit for 10b readout :D
         
         for clk_cycle in range(adc_bit):
 
@@ -1055,7 +1142,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     #3) Convert ASCII file to Glue.
     gc = GlueConverter(DEFAULT_IOSPEC)
 
-    gc.ascii2Glue("genpattern_adc_op.txt", 1, "genpattern_adc_op")
+    gc.ascii2Glue("output\\genpattern_adc_op.txt", 1, "genpattern_adc_op")
 
 
     return "genpattern_adc_op_se_io.glue"
@@ -1260,14 +1347,14 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
     waves["S_DIN"] = waves["S_DIN"] + [0]*2*time_scale_factor
 
     #2) Writing to an ASCII file.
-    with open("genpattern_SC_write.txt",'w') as write_file:
+    with open("output\\genpattern_SC_write.txt",'w') as write_file:
         for w in waves.keys():
             write_file.write(w+":"+"".join([str(x) for x in waves[w]])+"\n")
             
     #3) Convert ASCII file to Glue.
     gc = GlueConverter(DEFAULT_IOSPEC)
 
-    gc.ascii2Glue("genpattern_SC_write.txt", 1, "genpattern_SC_write")
+    gc.ascii2Glue("output\\genpattern_SC_write.txt", 1, "genpattern_SC_write")
 
 
     return "genpattern_SC_write_se_io.glue"
@@ -1276,4 +1363,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Transfer_Function_vs_ArbParam,ROUTINE_Qequal_Charging_Test, ROUTINE_Transfer_Function_vs_Vref, ROUTINE_average_transfer_function, ROUTINE_Transfer_Function_vs_Timescale, ROUTINE_Noise_Histogram, ROUTINE_Transfer_Function_vs_CapTrim]
+ROUTINES = [ROUTINE_Transfer_Function_vs_ArbParam,ROUTINE_Ramp_Histogram_vs_CapTrim, ROUTINE_Noise_Histogram, ROUTINE_average_transfer_function, ROUTINE_Transfer_Function_vs_CapTrim]

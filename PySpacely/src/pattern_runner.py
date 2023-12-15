@@ -243,10 +243,6 @@ class PatternRunner(ABC):
         out_fifo_name = pattern.fifo_name+"_fifo_to_pc"
         out_fifo = fpga.get_fifo(out_fifo_name)
         dbg = self._interface[pattern.fpga_name]
-
-
-        print(f"DEBUG: {in_fifo_name}")
-        print(f"DEBUG: {in_fifo}")
         
         #Ensure that there is enough memory on the host side for the pattern we want to run.
         
