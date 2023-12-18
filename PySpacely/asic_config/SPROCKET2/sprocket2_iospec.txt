@@ -32,7 +32,10 @@ capHib_ext,O,6
 
 //ADC Outputs
 CompOut,O,19
-halt_sample,O,0
+//NOTE: halt_sample cannot be captured by Spacely b/c the level shifter is in the 
+//      wrong direction, so we lifted the pin to kludge it. If you want to see
+//      halt_sample, you need to probe the pin silked as "Charge" on the flange board.
+//halt_sample,O,0
 
 
 END

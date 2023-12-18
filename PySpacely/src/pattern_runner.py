@@ -228,7 +228,7 @@ class PatternRunner(ABC):
     #   -- sets up (but doesn't run) a reader thread that will dump into a slot in self._return_data
     def setup_pattern(self,pattern):
 
-        self._log.info(f"Setting up pattern for hardware resource: {pattern.hardware_str}")
+        self._log.debug(f"Setting up pattern for hardware resource: {pattern.hardware_str}")
 
         #Get the fpga object which we will be sending this pattern to. 
         fpga = self._fpga_dict[pattern.fpga_name]

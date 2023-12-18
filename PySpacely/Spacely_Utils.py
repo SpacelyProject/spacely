@@ -83,11 +83,13 @@ def set_Vin_mV(val_mV: float) -> None:
         sg.AWG.set_offset(val_mV)
         #sg.AWG.send_line("VOLT:OFFS "+str(round(val_mV/1000,4)))
         #time.sleep(0.1)
+    sg.log.notice(f"Set AWG DC to: {val_mV} mV")
 
 
 def set_pulse_mag(val_mV: float) -> None:
     pulse = round(val_mV / 1000,6)
     sg.AWG.send_line_awg("VOLT "+str(pulse))
+    sg.log.notice(f"Set pulse mag to: {val_mV} mV")
 
 
 def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
@@ -1009,7 +1011,7 @@ def initialize_scope(interactive: bool = True) -> AgilentAWG:
         chosen_resource = DEFAULT_OSCILLOSCOPE_RESOURCE
 
     sg.log.info(f"Attempting to configure {chosen_resource} as an oscilloscope...")
-    sg.scope = TektronixOscilloscope(sg.log,chosen_resource)
+    sg.scope = Oscilloscope(sg.log,chosen_resource)
         
 
 def logger_demo():

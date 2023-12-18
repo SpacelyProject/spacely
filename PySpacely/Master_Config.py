@@ -14,7 +14,7 @@ USE_SCOPE = False
 #INSTR = {}
 #INSTR_INIT_SEQUENCE = []
 
-TARGET = "CITC2"
+TARGET = "SPROCKET2"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
