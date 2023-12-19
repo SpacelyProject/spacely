@@ -28,7 +28,7 @@ def SC_CFG(override,TestEn,Range2,CapTrim=0):
     return [0]*10 + captrim_vec + [override] + [TestEn] + [Range2]
 
 
-def ROUTINE_Scan_Chain_Loopback():
+def _ROUTINE_Scan_Chain_Loopback():
     """Scan Chain Loopback"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -54,7 +54,7 @@ def ROUTINE_Scan_Chain_Loopback():
     print("Received:",str(scanout_bits))
 
 
-def ROUTINE_Comparator_Smoke_Test():
+def _ROUTINE_Comparator_Smoke_Test():
     """Comparator Smoke Test uwu"""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -86,7 +86,7 @@ def ROUTINE_Comparator_Smoke_Test():
 
 
 
-def ROUTINE_Leakage_Test():
+def _ROUTINE_Leakage_Test():
     """Pulse a voltage on the CDAC output to see how fast it leaks away."""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -109,7 +109,7 @@ def ROUTINE_Leakage_Test():
 
 
 
-def ROUTINE_Qequal_Charging_Test():
+def _ROUTINE_Qequal_Charging_Test():
     """Apply a short pulse on Qequal to see how much charge is shared."""
 
     pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
@@ -165,7 +165,7 @@ def ROUTINE_Qequal_Charging_Test():
 
     
 
-def ROUTINE_Comparator_Offset_Tuning():
+def _ROUTINE_Comparator_Offset_Tuning():
     """Determine comparator offset for DACclr state."""
 
 
@@ -210,7 +210,7 @@ def ROUTINE_Comparator_Offset_Tuning():
             write_file.write(str(vin)+","+str(result)+"\n")
 
 
-def ROUTINE_Front_End_Demo():
+def _ROUTINE_Front_End_Demo():
     """Demo Front End w/ Analog Pileup"""
 
    
@@ -236,7 +236,7 @@ def ROUTINE_Front_End_Demo():
     pr.run_pattern(fe_glue,outfile_tag="fe_result")
     
     
-def ROUTINE_Front_End_Sweep():
+def _ROUTINE_Front_End_Sweep():
     """SWEEP Front End w/ Analog Pileup"""
 
    
@@ -272,7 +272,7 @@ def ROUTINE_Front_End_Sweep():
             write_file.write(str(pulse_mag)+","+str(result)+"\n")
     
 
-def ROUTINE_fpga_offset_debug():
+def _ROUTINE_fpga_offset_debug():
     """Debug FPGA readback offset when reading a pattern multiple times."""
 
     #Set up pr, gc, and AWG
@@ -799,11 +799,13 @@ def ROUTINE_Full_Conversion_Demo():
 def ROUTINE_Full_Conversion_Sweep():
     """FULL SWEEP of full conversion, all the way from preamplifier through the ADC."""
 
-    VIN_STEP_mV = 10
+    VIN_STEP_uV = 1000
     
-    PULSE_MAG_RANGE = [i for i in range(10,1000,VIN_STEP_mV)]
+    VIN_STEP_MAX_mV = 100
     
-    PULSE_MAG_RANGE.reverse()
+    VIN_STEP_MIN_mV = 5 # Cannot be < 2 mV
+    
+    PULSE_MAG_RANGE = [i/1000 for i in range(1000*VIN_STEP_MIN_mV,1000*VIN_STEP_MAX_mV,VIN_STEP_uV)]
     
     #NOTES:
     # - Trigger must be supplied from NI, pre-level-shifters. 
@@ -842,8 +844,6 @@ def ROUTINE_Full_Conversion_Sweep():
         set_pulse_mag(pulse_mag)
 
         fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
-
-        #"fc_result_PXI1Slot16_NI6583_se_io.glue"
         
         halt_sample_wave = sg.scope.get_wave(2)
         
@@ -864,6 +864,171 @@ def ROUTINE_Full_Conversion_Sweep():
 
 
     write_file.close()
+    
+    
+def ROUTINE_Full_Conversion_vs_ArbParam():
+    """Perform a single conversion while varying a parameter."""
+
+    ARB_PARAM_NAME = "StoC_Delay"
+    
+    VIN_mV = 75
+    
+    ARB_PARAM_RANGE = [i for i in range(0,10000000,100000)]
+    
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    input("""NOTE: PLEASE CONFIRM THAT
+    1) AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.
+    2) Scope Ch1 is also connected to P1.0
+    3) Scope Ch2 is also connected to halt_sample (silk as 'Charge')""")
+    
+    time_scale_factor = 10
+    tsf_sample_phase = 2
+    
+    
+    # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
+    config_AWG_as_Pulse(VIN_mV, pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=0.25*tsf_sample_phase+0.05)
+    #time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=25)
+    sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    
+
+
+    write_file = open(f"output\\Full_Conversion_Sweep_vs_{ARB_PARAM_NAME}_with_Vin_{VIN_mV}_mV_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+    write_file.write(f"{ARB_PARAM_NAME},Output Code,halt_sample\n")
+    
+    for param in ARB_PARAM_RANGE:
+    
+        fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase, StoC_Delay=param)
+    
+        sg.scope.setup_trigger(1,0.6)
+    
+        set_pulse_mag(VIN_mV)
+
+        fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
+        
+        halt_sample_wave = sg.scope.get_wave(2)
+        
+        if any([x > 0.6 for x in halt_sample_wave]):
+            halt_sample = 1
+        else:
+            halt_sample = 0
+
+        #Get DACclr and capLo
+        result_glue = sg.gc.read_glue(fc_result)
+        dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
+        caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
+
+        result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+        print(f"RESULT: {result} (halt_sample={halt_sample})")
+        write_file.write(f"{param},{result},{halt_sample}\n")
+
+
+    write_file.close()
+
+
+
+def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
+    """Capture the Full Conversion Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
+
+    VIN_STEP_mV = 1
+
+    VIN_RANGE = [i for i in range(5,100,VIN_STEP_mV)]
+
+
+    PARAM_NAME = "sstretch"
+
+    PARAM_RANGE = [i for i in range(0,40,2)]
+
+
+
+    input("""NOTE: PLEASE CONFIRM THAT
+    1) AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.
+    2) Scope Ch1 is also connected to P1.0
+    3) Scope Ch2 is also connected to halt_sample (silk as 'Charge')""")
+    
+    time_scale_factor = 10
+    tsf_sample_phase = 1
+    
+    
+    
+    #time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=25)
+    sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+  
+    
+    result_values = []
+    halt_sample_values = []
+
+    for param in PARAM_RANGE:
+    
+        # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
+        config_AWG_as_Pulse(VIN_RANGE[0], pulse_width_us=0.025*(10*tsf_sample_phase+param), pulse_period_us=0.025*(10*tsf_sample_phase+param)+0.05)
+        time.sleep(1)
+        
+        #Pre-generate patterns to run the ADC (Full Channel)
+        fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase, sample_phase_stretch=param)
+        fc_wave = sg.gc.read_glue(fc_glue)       
+
+        #Start a new list of result values for this ArbParam setting.
+        result_values.append([])
+        halt_sample_values.append([])
+
+        for vin in VIN_RANGE:
+        
+            
+            sg.scope.setup_trigger(1,0.6)
+    
+            set_pulse_mag(vin)
+
+            fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
+        
+            halt_sample_wave = sg.scope.get_wave(2)
+        
+            if any([x > 0.6 for x in halt_sample_wave]):
+                halt_sample = 1
+            else:
+                halt_sample = 0
+
+            #Get DACclr and capLo
+            result_glue = sg.gc.read_glue(fc_result)
+            dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
+            caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
+
+            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+            print(f"RESULT: {result} (halt_sample={halt_sample})")
+            
+            result_values[-1].append(result)
+            halt_sample_values[-1].append(halt_sample)
+        
+
+
+    print(result_values)
+    print(halt_sample_values)
+
+
+    write_parameter_sweep_to_csv(PARAM_RANGE,
+                                 VIN_RANGE,
+                                 result_values,
+                                 f"FC_Transfer_Function_result_vs_Arb_Param_{PARAM_NAME}_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
+                                 row_param_name="Vin")
+    
+    write_parameter_sweep_to_csv(PARAM_RANGE,
+                                 VIN_RANGE,
+                                 halt_sample_values,
+                                 f"FC_Transfer_Function_hs_vs_Arb_Param_{PARAM_NAME}_Vin_step_by_{VIN_STEP_mV}_on_"+time.strftime("%Y_%m_%d")+".csv",
+                                 row_param_name="Vin")
+
+
 
 
 def ROUTINE_Noise_Histogram():
@@ -1180,7 +1345,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     return "genpattern_adc_op_se_io.glue"
 
 
-def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1):
+def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0):
 
 
     #Initialize wave dictionary
@@ -1218,22 +1383,26 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1):
 
     for i in range(10):
         #w/ time_scale_factor = 1, the period of mclk is 20 ticks or 2 MHz
-        waves["mclk"] = waves["mclk"] + [1]*10*tsf_sample_phase + [0]*10*tsf_sample_phase
+        waves["mclk"] = waves["mclk"] + [1]*(10*tsf_sample_phase+sample_phase_stretch) + [0]*(10*tsf_sample_phase + sample_phase_stretch)
 
         #In the sampling phase, read=Rst=0, bufse1=1 (Vref_fe), and all the ADC signals are zero.
         #waves["read_ext"] = waves["read_ext"] + [0]*20*tsf_sample_phase
-        waves["calc"] = waves["calc"] + [0]*20*tsf_sample_phase
-        waves["capClk"] = waves["capClk"] + [0]*20*tsf_sample_phase
-        waves["Qequal"] = waves["Qequal"] + [0]*20*tsf_sample_phase
-        waves["DACclr"] = waves["DACclr"] + [0]*20*tsf_sample_phase
-        waves["Rst_ext"] = waves["Rst_ext"] + [0]*20*tsf_sample_phase
-        waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*20*tsf_sample_phase
+        waves["calc"] = waves["calc"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+        waves["capClk"] = waves["capClk"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+        waves["Qequal"] = waves["Qequal"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+        waves["DACclr"] = waves["DACclr"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+        waves["Rst_ext"] = waves["Rst_ext"] + [0]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+        waves["bufsel_ext"] = waves["bufsel_ext"] + [1]*(20*tsf_sample_phase + 2*sample_phase_stretch)
+
 
     ### CONVERSION PHASE ###
 
+    #So far, read has been exactly equal to calc. 
+    waves["read_ext"] = waves["calc"]
+
     #bufsel->0 and Rst->1. Two cycles later, read->1
     #waves["read_ext"] = waves["read_ext"] + [0,0,1]
-    waves["calc"] = waves["calc"] +         [0,0,1]
+    waves["read_ext"] = waves["read_ext"] +         [0,0,1]
     waves["capClk"] = waves["capClk"] +     [0,0,0]
     waves["Qequal"] = waves["Qequal"] +     [0,0,0]
     waves["DACclr"] = waves["DACclr"] +     [0,0,0]
@@ -1241,6 +1410,16 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1):
     waves["bufsel_ext"] = waves["bufsel_ext"] + [0,0,0]
     waves["mclk"] = waves["mclk"] + [0,0,0]
 
+    
+    #StoC_Delay
+    waves["mclk"] = waves["mclk"] + [0]*StoC_Delay
+    waves["read_ext"] = waves["read_ext"] + [1]*StoC_Delay
+    waves["calc"] = waves["calc"] + [0,0]+[0]*StoC_Delay + [1]
+    waves["capClk"] = waves["capClk"] + [0]*StoC_Delay
+    waves["Qequal"] = waves["Qequal"] + [0]*StoC_Delay
+    waves["DACclr"] = waves["DACclr"] + [0]*StoC_Delay
+    waves["Rst_ext"] = waves["Rst_ext"] + [1]*StoC_Delay
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*StoC_Delay
     
     for adc_bit in range(1,12):
         
@@ -1284,12 +1463,11 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1):
 
     #Fill in calc+Rst with all 1's, and mclk+bufsel with all 0's
     waves["calc"] = waves["calc"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
+    waves["read_ext"] = waves["read_ext"] + [1]*(len(waves["DACclr"])-len(waves["calc"]))
     waves["Rst_ext"] = waves["Rst_ext"] + [1]*(len(waves["DACclr"])-len(waves["Rst_ext"]))
     waves["mclk"] = waves["mclk"] + [0]*(len(waves["DACclr"])-len(waves["mclk"]))
     waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*(len(waves["DACclr"])-len(waves["bufsel_ext"]))
 
-
-    waves["read_ext"] = waves["calc"]
 
     waves["phi1_ext"] = [(1-x) for x in waves["mclk"]]
     waves["phi1_ext"][0:50] = [0]*51
@@ -1395,4 +1573,4 @@ def genpattern_SC_write(sc_bits, time_scale_factor=1):
 ####################################################
 
     
-ROUTINES = [ROUTINE_Full_Conversion_Demo,ROUTINE_Full_Conversion_Sweep]
+#ROUTINES = [ROUTINE_Full_Conversion_Demo,ROUTINE_Full_Conversion_Sweep, ROUTINE_Full_Conversion_vs_ArbParam]

@@ -22,6 +22,7 @@ from statistics import mean, NormalDist
 import csv
 import tkinter as tk
 from tkinter import filedialog
+import ast
 
 
 sys.path.append(os.path.abspath("./src"))
@@ -163,11 +164,6 @@ else:
 
 # # # # # #
 
-
-
-print("# Spacely ready to take commands (see \"help\" for details)")
-
-
 try:
     V_WARN_VOLTAGE
 except NameError:
@@ -175,13 +171,24 @@ except NameError:
     print("       No automatic voltage checking will be performed.")
     V_WARN_VOLTAGE = None
 
+#Get routines from file.
+with open(TARGET_ROUTINES_PY) as file:
+    node = ast.parse(file.read())
+    functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
+                    
+ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:
     start_timestamp = datetime.now()
-    ROUTINES[cmd_args.r]()
+    routine_idx = int(cmd_args.r)
+    sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
+    eval(f"{ROUTINES[routine_idx].name}()")
     runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
     sg.log.info(f"This Routine took: {runtime}")
+
+
+print("# Spacely ready to take commands (see \"help\" for details)")
 
 #Command loop
 while True:
@@ -266,10 +273,19 @@ while True:
                     print(x)
                 
         case 'lr':
-            for r in range(len(ROUTINES)):
-                print(r,ROUTINES[r].__doc__)
+            try:
+                for r in range(len(ROUTINES)):
+                    routine_name = ROUTINES[r].name.replace("ROUTINE","").replace("_"," ")
+                    routine_docs = eval(f"{ROUTINES[r].name}.__doc__")
+                    print(f"{r:<2} {routine_name: <33} -- {routine_docs}")
+            except FileNotFoundError:
+                sg.log.error(f"Could not find asic_config\\{TARGET}\\{TARGET}_Routines.py")
+            
+            print("(To add a new routine to this list, define a function in {TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
             if len(ROUTINES) == 0:
-                print("No routines to show! Try writing ROUTINES=[myFunction] in your Routines file.")
+                print("No routines to show!")
+                    
+                    
         case 'cls':
             clean_terminal()
             print("")
@@ -288,7 +304,9 @@ while True:
                 case '~':
                     #Routines should be called as "~r0"
                     start_timestamp = datetime.now()
-                    ROUTINES[int(cmd_txt[2])]()
+                    routine_idx = int(cmd_txt[2:].strip())
+                    sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
+                    eval(f"{ROUTINES[routine_idx].name}()")
                     runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
                     sg.log.info(f"This Routine took: {runtime}")
 

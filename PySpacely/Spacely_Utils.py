@@ -88,8 +88,12 @@ def set_Vin_mV(val_mV: float) -> None:
 
 def set_pulse_mag(val_mV: float) -> None:
     pulse = round(val_mV / 1000,6)
-    sg.AWG.send_line_awg("VOLT "+str(pulse))
-    sg.log.notice(f"Set pulse mag to: {val_mV} mV")
+    try:
+        sg.AWG.send_line_awg("VOLT "+str(pulse))
+        sg.log.notice(f"Set pulse mag to: {val_mV} mV")
+    except fnal_libawg.agilentawg.AgilentError as e:
+        print(e)
+        sg.log.critical(f"Failed to set pulse magnitude to  {val_mV} mV")
 
 
 def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
@@ -104,8 +108,9 @@ def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
     
     pd = round(pulse_period_us*1e-6,10)
     
-    sg.AWG.send_line_awg("PULSE:WIDTH "+str(w)) #Pw = 280 ns (just slightly longer than PreSamp)
-    sg.AWG.send_line_awg("PULSE:PERIOD "+str(pd)) #Period = 9 us ( < 10 us)
+    sg.AWG.send_line_awg("PULSE:WIDTH 50e-9") #Start out with pw of just 50 ns (very short)
+    sg.AWG.send_line_awg("PULSE:PERIOD "+str(pd)) #Update period first and then pulsewidth to avoid errors. 
+    sg.AWG.send_line_awg("PULSE:WIDTH "+str(w)) 
     
     sg.AWG.send_line_awg("VOLT:OFFS "+str(offset))
     sg.AWG.send_line_awg("VOLT "+str(pulse))
