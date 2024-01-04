@@ -724,9 +724,6 @@ def ROUTINE_average_transfer_function():
     write_file.write("Vin,Avg Result,Std Dev\n")
 
 
-    
-
-
     for vin in VIN_RANGE:
                 
         #Set the input voltage:
@@ -799,13 +796,15 @@ def ROUTINE_Full_Conversion_Demo():
 def ROUTINE_Full_Conversion_Sweep():
     """FULL SWEEP of full conversion, all the way from preamplifier through the ADC."""
 
-    VIN_STEP_uV = 1000
+    VIN_STEP_uV = 50000
     
-    VIN_STEP_MAX_mV = 100
+    VIN_STEP_MAX_mV = 1000
     
     VIN_STEP_MIN_mV = 5 # Cannot be < 2 mV
     
     PULSE_MAG_RANGE = [i/1000 for i in range(1000*VIN_STEP_MIN_mV,1000*VIN_STEP_MAX_mV,VIN_STEP_uV)]
+    
+    SINGLE_PULSE_MODE = True
     
     #NOTES:
     # - Trigger must be supplied from NI, pre-level-shifters. 
@@ -823,15 +822,20 @@ def ROUTINE_Full_Conversion_Sweep():
     tsf_sample_phase = 2
     
     
+    if SINGLE_PULSE_MODE:
+        period_us = 50
+    else:
+        period_us = 0.25*tsf_sample_phase+0.05
+    
     # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
-    config_AWG_as_Pulse(PULSE_MAG_RANGE[0], pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=0.25*tsf_sample_phase+0.05)
+    config_AWG_as_Pulse(PULSE_MAG_RANGE[0], pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=period_us)
     #time.sleep(3)
 
     #Set CapTrim value and ensure TestEn=0
     SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=0)
     sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
-    fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase)
+    fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase, one_shot=True, StoC_Delay=100)
 
 
     write_file = open("output\\Full_Conversion_Sweep_on_"+time.strftime("%Y_%m_%d")+".csv","w")
@@ -930,6 +934,192 @@ def ROUTINE_Full_Conversion_vs_ArbParam():
 
 
     write_file.close()
+    
+    
+    
+def ROUTINE_Full_Conversion_Histogram():
+    """Create a histogram of the results from a Full Conversion """
+    
+    VIN_mV = float(input("Vin_mV?"))
+    
+    NUM_SAMPLES = 10000
+    
+    SINGLE_PULSE_MODE = False
+    
+    #NOTES:
+    # - Trigger must be supplied from NI, pre-level-shifters. 
+
+    input("""NOTE: PLEASE CONFIRM THAT
+    1) AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.
+    2) Scope Ch1 is also connected to P1.0
+    3) Scope Ch2 is also connected to halt_sample (silk as 'Charge')""")
+    
+    custom_prefix = input("Custom Prefix?")
+    
+    time_scale_factor = 10
+    tsf_sample_phase = 2
+    
+    if SINGLE_PULSE_MODE:
+        period_us = 50
+    else:
+        period_us = 0.25*tsf_sample_phase+0.05
+    
+    # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
+    config_AWG_as_Pulse(VIN_mV, pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=period_us)
+    #time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=1, CapTrim=25)
+    sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    
+    fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase)
+
+    #write_file = open(f"output\\Full_Conversion_Sweep_vs_{ARB_PARAM_NAME}_with_Vin_{VIN_mV}_mV_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+    #write_file.write(f"{ARB_PARAM_NAME},Output Code,halt_sample\n")
+    
+    results = []
+    
+    for samp in range(NUM_SAMPLES):
+    
+        sg.scope.setup_trigger(1,0.6)
+    
+        fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
+        
+        #Get halt_sample
+        halt_sample_wave = sg.scope.get_wave(2)
+        
+        if any([x > 0.6 for x in halt_sample_wave]):
+            halt_sample = 1
+        else:
+            halt_sample = 0
+
+        #Get DACclr and capLo
+        result_glue = sg.gc.read_glue(fc_result)
+        dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
+        caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
+
+        #For now, only care about non-halt-sample results:
+        #if halt_sample == 0:
+        results.append(interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave))
+
+        print(f"RESULT: {results[-1]} (halt_sample={halt_sample})")
+        #write_file.write(f"{param},{result},{halt_sample}\n")
+    
+    
+    
+    #Process results
+    histo = liststring_histogram(" ".join([str(x) for x in results]))
+    
+    print(histo)
+    
+    with open(f"output\\{custom_prefix}_SPROCKET2_FullConv_Noise_Histogram_{VIN_mV}mV_on_"+time.strftime("%Y_%m_%d")+".csv","w") as write_file:
+        write_file.write("Code,Count\n")
+
+        for code in histo.keys():
+            write_file.write(f"{code},{histo[code]}\n")
+            
+    print(f"NOTE: NUM_SAMPLES={NUM_SAMPLES} and len(results)={len(results)}, {NUM_SAMPLES-len(results)} points were discarded b/c halt_sample=1")
+    print(f"MEAN: {np.mean(results)} STANDARD DEVIATION: {np.std(results)} codes")
+
+    #write_file.close()
+
+
+def ROUTINE_FC_Avg_XF():
+    """Capture the Average FullConv Transfer function"""
+
+    VIN_STEP_uV = 100
+
+    NUM_AVERAGES = 20
+    
+    VIN_MIN_mV = 2
+    
+    VIN_MAX_mV = 20
+    
+    VIN_RANGE = [i/1000 for i in range(int(1000*VIN_MIN_mV),int(1000*VIN_MAX_mV),VIN_STEP_uV)]
+    
+    #VIN_RANGE.reverse()
+
+    SINGLE_PULSE_MODE = False
+
+    #Set up pr, gc, and AWG
+    #pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+    #gc = GlueConverter(DEFAULT_IOSPEC)
+    input("""NOTE: PLEASE CONFIRM THAT
+    1) AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.
+    2) Scope Ch1 is also connected to P1.0
+    3) Scope Ch2 is also connected to halt_sample (silk as 'Charge')""")
+    
+    time_scale_factor = 10
+    tsf_sample_phase = 2
+    
+    title_prefix=input("Title prefix?")
+    
+    
+    if SINGLE_PULSE_MODE:
+        period_us = 50
+    else:
+        period_us = 0.25*tsf_sample_phase+0.05
+    
+    # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
+    config_AWG_as_Pulse(VIN_RANGE[0], pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=period_us)
+    #time.sleep(3)
+
+    #Set CapTrim value and ensure TestEn=0
+    SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=1, CapTrim=25)
+    sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
+
+    
+    fc_glue = genpattern_Full_Conversion(time_scale_factor=time_scale_factor,tsf_sample_phase=tsf_sample_phase)
+
+    write_file = open(f"output\\{title_prefix}_Average_FC_XF_Vin_step_by_{VIN_STEP_uV}_uV_on_"+time.strftime("%Y_%m_%d")+".csv","w")
+
+    write_file.write("Vin,Avg Result,Std Dev,Avg Halt_Sample\n")
+
+
+    for vin in VIN_RANGE:
+                
+        #Set the input voltage:
+        set_pulse_mag(vin)
+
+        results_this_vin = []
+        hs_this_vin = []
+
+        for i in range(NUM_AVERAGES):
+        
+            sg.scope.setup_trigger(1,0.6)
+        
+            fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
+        
+            #Get halt_sample
+            halt_sample_wave = sg.scope.get_wave(2)
+            
+            if any([x > 0.6 for x in halt_sample_wave]):
+                halt_sample = 1
+            else:
+                halt_sample = 0
+
+            #Get DACclr and capLo
+            result_glue = sg.gc.read_glue(fc_result)
+            dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
+            caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
+
+            #For now, only care about non-halt-sample results:
+            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+           
+            hs_this_vin.append(halt_sample)
+            results_this_vin.append(result)
+            
+        
+
+        write_file.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)},{np.mean(hs_this_vin)}\n")
+
+        #if np.mean(hs_this_vin) > 0.9:
+        #    break
+            
+            
+    write_file.close()
+
 
 
 
@@ -984,29 +1174,37 @@ def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
 
         for vin in VIN_RANGE:
         
-            
-            sg.scope.setup_trigger(1,0.6)
-    
-            set_pulse_mag(vin)
-
-            fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
+            try:
+                sg.scope.setup_trigger(1,0.6)
         
-            halt_sample_wave = sg.scope.get_wave(2)
-        
-            if any([x > 0.6 for x in halt_sample_wave]):
-                halt_sample = 1
-            else:
-                halt_sample = 0
+                set_pulse_mag(vin)
 
-            #Get DACclr and capLo
-            result_glue = sg.gc.read_glue(fc_result)
-            dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
-            caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
-
-            result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
-
-            print(f"RESULT: {result} (halt_sample={halt_sample})")
+                fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
             
+                halt_sample_wave = sg.scope.get_wave(2)
+            
+                if any([x > 0.6 for x in halt_sample_wave]):
+                    halt_sample = 1
+                else:
+                    halt_sample = 0
+
+                #Get DACclr and capLo
+                result_glue = sg.gc.read_glue(fc_result)
+                dacclr_wave = sg.gc.get_bitstream(result_glue,"DACclr")
+                caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
+
+                result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
+
+                print(f"RESULT: {result} (halt_sample={halt_sample})")
+                
+                
+                
+            except Exception as e:
+                print(e)
+                sg.log.error("Bad data point! Proceeding with sentinel value -1 in data set. ")
+                result = -1
+                halt_sample = -1
+                
             result_values[-1].append(result)
             halt_sample_values[-1].append(halt_sample)
         
@@ -1345,7 +1543,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     return "genpattern_adc_op_se_io.glue"
 
 
-def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0):
+def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0, one_shot = False):
 
 
     #Initialize wave dictionary
@@ -1381,7 +1579,12 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay
     
     ### SAMPLING PHASE ###
 
-    for i in range(10):
+    if one_shot:
+        n_samples = 1
+    else:
+        n_samples = 10
+
+    for i in range(n_samples):
         #w/ time_scale_factor = 1, the period of mclk is 20 ticks or 2 MHz
         waves["mclk"] = waves["mclk"] + [1]*(10*tsf_sample_phase+sample_phase_stretch) + [0]*(10*tsf_sample_phase + sample_phase_stretch)
 
