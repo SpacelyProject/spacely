@@ -98,6 +98,7 @@ def set_pulse_mag(val_mV: float) -> None:
 
 def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
     sg.AWG.set_output(False)
+    time.sleep(0.2) # Maybe helps resolve Query Interrupted??
     sg.AWG.send_line_awg("FUNC PULS")
 
     #Pulse will be from (2.5 - pulse) to 2.5

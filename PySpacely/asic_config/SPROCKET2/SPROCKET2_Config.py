@@ -59,11 +59,10 @@ INSTR = {SMU_A:None,
 #UPDATES FROM SPROCKET1:
 # Vref_adc is taking the place of Vref (J3-10 to J6-5/J6-17), which corresponds to SMU_A, chan 1
 # Vref_fe and Ibdig are supplied using an external power supply (so not on this list)
-V_SEQUENCE = [ "VCC_LT", "VDDIO_LT", "Vref_adc", "Vdd12", "VDD_ASIC",        "Ib2", "vdda", "VCC_ASIC"]
+V_SEQUENCE = [ "VCC_LT", "VDDIO_LT", "Vref_adc", "Vdd12", "VDD_ASIC",    "vdda", "VCC_ASIC"]
 V_INSTR= {"vdda":   SMU_A,
           "Vref_adc":   SMU_A,
           "Vdd12":  SMU_A,
-          "Ib2":     SMU_A,
           "VDDIO_LT": PSU_A,          
           "VCC_LT":   PSU_A,
           "VCC_ASIC": PSU_B,            
@@ -72,7 +71,7 @@ V_CHAN = {# SMU_A
             "vdda": 0,            
             "Vref_adc":  1,
             "Vdd12": 2,
-            "Ib2": 3,
+            
           # SMU_B => not used here; configured as current channels
           # PSU_A
             "VDDIO_LT": 0,
@@ -86,7 +85,6 @@ V_LEVEL = {# SMU_A
              "vdda": 2.5,
              "Vref_adc":  1.0,
              "Vdd12": 1.2,
-             "Ib2": 1.35,
              # PSU_A
              "VDDIO_LT": 1.2,                  
              "VCC_LT":   3.3,
@@ -101,7 +99,6 @@ V_WARN_VOLTAGE = {
              "Vref_adc" : [0.95,1.05],
              "Vref":  [0.9,1.1],
              "Vdd12": [1.1,1.3],
-             "Ib2": [1.25,1.45],
              #"Iterm":1.415,
              "VCC_LT":   [3.2,3.4],
              "VDD_ASIC": [1.3,1.4],
@@ -120,7 +117,6 @@ V_CURR_LIMIT = {# SMU_A
                   "vdda": 0.1,
                   "Vref_adc":  0.00001,
                   "Vdd12": 0.00001,
-                  "Ib2": 0.00001,
                 # PSU_A
                   "VDDIO_LT": 0.1,                  
                   "VCC_LT":   0.3, #Changed from 0.1
@@ -142,17 +138,19 @@ V_PORT = {"vdda": None, # SMU_A
 
 
 #Current Channels
-I_SEQUENCE = ["Icomp", "Ib1", "Ibuf", "Iterm"]
+I_SEQUENCE = ["Icomp", "Ib1", "Ibuf", "Ib2", "Iterm"]
 I_INSTR = {
           "Iterm":   SMU_B,
           "Ib1":     SMU_B,
           "Ibuf": SMU_B,
+          "Ib2":     SMU_A,
           "Icomp":   SMU_B
           }
 I_CHAN  = {
           "Iterm":   0,
           "Ib1":     1,
           "Ibuf": 2,
+          "Ib2": 3,
           "Icomp":   3
           }
 
@@ -160,6 +158,7 @@ I_LEVEL  = {
             "Iterm":     80e-6,
             "Ib1":      -50e-6,
             "Ibuf":  -60e-6,
+            "Ib2":   -10e-6,
             "Icomp":    -20e-6
            }
             
@@ -167,6 +166,7 @@ I_PORT  = {
            "Iterm":   None,
            "Ib1":     None,
            "Ibuf": None,
+           "Ib2": None,
            "Icomp":   None
           }
 
@@ -175,4 +175,5 @@ I_VOLT_LIMIT = 2.5
 I_WARN_VOLTAGE = {"Iterm": [1,2],
                   "Ib1":   [1,2],
                   "Ibuf":  [1,2],
+                  "Ib2":   [1,2],
                   "Icomp": [1,2]}
