@@ -5,7 +5,44 @@ USE_AWG = True
 USE_SCOPE = True
 
 
-DEFAULT_OSCILLOSCOPE_RESOURCE = "USB0::0x0957::0x1745::MY48080042::INSTR"
+
+#INSTR_INIT_SEQUENCE = ["SMU_A", "SMU_B", "PSU_A", "PSU_B", "Scope", "AWG", "PSU_C"]
+
+
+
+INSTR = {"SMU_A" : {"type" : "NIDCPower", 
+                    "slot" : "PXI1Slot2"},
+         "SMU_B" : {"type" : "NIDCPower",
+                    "slot" : "PXI1Slot3"},
+         "PSU_A" : {"type" : "NIDCPower",
+                    "slot" : "PXI1Slot7"},
+         "PSU_B" : {"type" : "NIDCPower",
+                    "slot" : "PXI1Slot8"},
+         "Scope" : {"type" : "Oscilloscope",
+                    "io"   : "VISA",
+                    "resource" : "USB0::0x0957::0x1745::MY48080042::INSTR"},
+         "AWG"   : {"type" : "AWG",
+                    "io"   : "VISA",
+                    "resource" : "GPIB1::10::INSTR"
+                    },
+         "PSU_C" : {"type" : "Supply",
+                    "io"   : "Prologix",
+                    "ipaddr" : "192.168.1.15",
+                    "gpibaddr" : 10}
+        }
+         
+                    
+                   
+
+
+
+#SMU_A:None,
+#         SMU_B:None,
+#         PSU_A:None,
+#         PSU_B:None}
+
+
+#DEFAULT_OSCILLOSCOPE_RESOURCE = 
 
 DEFAULT_FPGA_BITFILE_MAP = {"PXI1Slot4":"NI7972_NI6583_40MHz"}
 DEFAULT_IOSPEC = ".\\asic_config\\SPROCKET2\\sprocket2_iospec.txt"
@@ -18,8 +55,8 @@ DEFAULT_IOSPEC = ".\\asic_config\\SPROCKET2\\sprocket2_iospec.txt"
 # When using Agilent gear, upon restarting, you should see an alert 
 # saying "GPIB Interface Selected (Address 10)" - this is the GPIB
 # address 
-DEFAULT_PROLOGIX_IPADDR = "192.168.1.15"
-DEFAULT_AWG_GPIBADDR = 10
+#DEFAULT_PROLOGIX_IPADDR = "192.168.1.15"
+#DEFAULT_AWG_GPIBADDR = 10
 
 #Emulation
 EMULATE_ASIC = False
@@ -29,16 +66,12 @@ DEFAULT_CDAC_TRIMSTRING = "100000"
 
 #Voltage Channels
 #SMU A and B designations are from Scott's PCB.
-SMU_A = "PXI1Slot2"
-SMU_B = "PXI1Slot3"
-PSU_A = "PXI1Slot7" # PXI-4110 or 4111; CH0=0-6VDC, CH1=0-20V, CH2=-20V-0V
-PSU_B = "PXI1Slot8" # PXI-4110 or 4111; CH0=0-6VDC, CH1=0-20V, CH2=-20V-0V
+#SMU_A = "PXI1Slot2"
+#SMU_B = "PXI1Slot3"
+#PSU_A = "PXI1Slot7" # PXI-4110 or 4111; CH0=0-6VDC, CH1=0-20V, CH2=-20V-0V
+#PSU_B = "PXI1Slot8" # PXI-4110 or 4111; CH0=0-6VDC, CH1=0-20V, CH2=-20V-0V
 
-INSTR_INIT_SEQUENCE = [SMU_A, SMU_B, PSU_A, PSU_B]
-INSTR = {SMU_A:None,
-         SMU_B:None,
-         PSU_A:None,
-         PSU_B:None}
+
 
 
 
@@ -60,13 +93,13 @@ INSTR = {SMU_A:None,
 # Vref_adc is taking the place of Vref (J3-10 to J6-5/J6-17), which corresponds to SMU_A, chan 1
 # Vref_fe and Ibdig are supplied using an external power supply (so not on this list)
 V_SEQUENCE = [ "VCC_LT", "VDDIO_LT", "Vref_adc", "Vdd12", "VDD_ASIC",    "vdda", "VCC_ASIC"]
-V_INSTR= {"vdda":   SMU_A,
-          "Vref_adc":   SMU_A,
-          "Vdd12":  SMU_A,
-          "VDDIO_LT": PSU_A,          
-          "VCC_LT":   PSU_A,
-          "VCC_ASIC": PSU_B,            
-          "VDD_ASIC": PSU_B}
+V_INSTR= {"vdda":   "SMU_A",
+          "Vref_adc":   "SMU_A",
+          "Vdd12":  "SMU_A",
+          "VDDIO_LT": "PSU_A",          
+          "VCC_LT":   "PSU_A",
+          "VCC_ASIC": "PSU_B",            
+          "VDD_ASIC": "PSU_B"}
 V_CHAN = {# SMU_A
             "vdda": 0,            
             "Vref_adc":  1,
@@ -140,11 +173,11 @@ V_PORT = {"vdda": None, # SMU_A
 #Current Channels
 I_SEQUENCE = ["Icomp", "Ib1", "Ibuf", "Ib2", "Iterm"]
 I_INSTR = {
-          "Iterm":   SMU_B,
-          "Ib1":     SMU_B,
-          "Ibuf": SMU_B,
-          "Ib2":     SMU_A,
-          "Icomp":   SMU_B
+          "Iterm":   "SMU_B",
+          "Ib1":     "SMU_B",
+          "Ibuf": "SMU_B",
+          "Ib2":     "SMU_A",
+          "Icomp":   "SMU_B"
           }
 I_CHAN  = {
           "Iterm":   0,

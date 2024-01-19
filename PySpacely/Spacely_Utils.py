@@ -27,10 +27,13 @@ sys.path.append(os.path.abspath("./src"))
 #Import utilities from py-libs-common
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
-from fnal_libawg import AgilentAWG
+
+
+
+from fnal_libIO import *
+from fnal_libinstrument import *
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
-from fnal_libvisa import *
 
 from Master_Config import *
 import Spacely_Globals as sg
@@ -62,124 +65,6 @@ def vec_to_int(vec):
             x = x+2**i
     return x
 
-
-
-def config_AWG_as_DC(val_mV: float) -> None:
-    if USE_ARDUINO and EMULATE_ASIC:
-        emucomp = str(val_mV*0.001)
-        sg.log.debug(f"EMULATE_ASCI compinp={emucomp}")
-        command_ng(sg.log, sg.port,"compinp:"+str(val_mV*0.001))
-    else:
-        awgdc = str(round(val_mV/1000,4))
-        #sg.log.debug(f"AWG_as_DC set to {awgdc}")
-        sg.AWG.send_line_awg("FUNC DC")
-        sg.AWG.set_offset(val_mV)
-        sg.AWG.set_output(True)
-
-def set_Vin_mV(val_mV: float) -> None:
-    if USE_ARDUINO and EMULATE_ASIC:
-        command_ng(sg.log, sg.port,"compinp:"+str(val_mV*0.001))
-    else:
-        sg.AWG.set_offset(val_mV)
-        #sg.AWG.send_line("VOLT:OFFS "+str(round(val_mV/1000,4)))
-        #time.sleep(0.1)
-    sg.log.notice(f"Set AWG DC to: {val_mV} mV")
-
-
-def set_pulse_mag(val_mV: float) -> None:
-    pulse = round(val_mV / 1000,6)
-    try:
-        sg.AWG.send_line_awg("VOLT "+str(pulse))
-        sg.log.notice(f"Set pulse mag to: {val_mV} mV")
-    except fnal_libawg.agilentawg.AgilentError as e:
-        print(e)
-        sg.log.critical(f"Failed to set pulse magnitude to  {val_mV} mV")
-
-
-def config_AWG_as_Pulse(pulse_mag_mV, pulse_width_us=0.28, pulse_period_us=9,):
-    sg.AWG.set_output(False)
-    time.sleep(0.2) # Maybe helps resolve Query Interrupted??
-    sg.AWG.send_line_awg("FUNC PULS")
-
-    #Pulse will be from (2.5 - pulse) to 2.5
-    pulse = round(pulse_mag_mV / 1000,6)
-    offset = round(2.5 - pulse_mag_mV/2000,6)
-    
-    w = round(pulse_width_us*1e-6,10)
-    
-    pd = round(pulse_period_us*1e-6,10)
-    
-    sg.AWG.send_line_awg("PULSE:WIDTH 50e-9") #Start out with pw of just 50 ns (very short)
-    sg.AWG.send_line_awg("PULSE:PERIOD "+str(pd)) #Update period first and then pulsewidth to avoid errors. 
-    sg.AWG.send_line_awg("PULSE:WIDTH "+str(w)) 
-    
-    sg.AWG.send_line_awg("VOLT:OFFS "+str(offset))
-    sg.AWG.send_line_awg("VOLT "+str(pulse))
-
-    #Bursts will be triggered by Trig In (w/ a positive slope)
-    #Note: Trig In will be connected to PreSamp
-   
-    sg.AWG.send_line_awg("BURS:MODE TRIG")
-    sg.AWG.send_line_awg("TRIG:SOUR EXT")
-    sg.AWG.send_line_awg("TRIG:SLOP POS")
-    #Each Trig In will result in 1 burst
-    sg.AWG.send_line_awg("BURS:NCYC 1")
-
-    #Enable bursts
-    sg.AWG.send_line_awg("BURS:STAT ON")
-
-    sg.AWG.set_output(True)
-
-
-# config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
-# source follower, based on the external trigger.
-#
-# GZ 6/9/2023: I removed all flush_buffer() calls here; you shouldn't manipulate buffers externally
-#              unless there's some proven bug existing that it needs it
-def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
-    sg.AWG.set_output(False)
-
-    #Output a user-defined function...
-    sg.AWG.send_line_awg("FUNC USER")
-
-    #Set up the skipper arbitrary waveform
-    sg.AWG.send_line_awg("FREQ 1000000") #50 ns / div
-    sg.AWG.send_line_awg("VOLT:OFFS 2.5") #4.0 Vreset
-
-    #NOTE: With Vpp = 2.0V, +1.0 = +1.0V and -1.0 = -1.0V.
-    p = round(pedestal_mag_mV / 1000,6)
-    s = round((signal_mag_mV + pedestal_mag_mV)/1000,6)
-
-    #wave = [0,-p,-p,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
-
-    # Modified timing:
-    wave = [0,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
-
-    print(wave)
-
-    sg.AWG.send_line_awg("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
-
-    #NOTE: There is a bug in the AWG, where sending data w/ DATA VOLATILE
-    #will completely scramble the Vpp magnitude. So we need to write Vpp
-    #just after sending data. EDIT: Still doesn't solve the problem. :(
-    sg.AWG.send_line_awg("VOLT 2.0") #2 Volt pp magnitude
-    #sg.AWG.send_line("VOLT:HIGH 3.5") #2 Volt pp magnitude
-    #sg.AWG.send_line("VOLT:LOW 1.5") #2 Volt pp magnitude
-
-    #Bursts will be triggered by Trig In (w/ a positive slope)
-    #Note: Trig In will be connected to PostSamp
-    sg.AWG.send_line_awg("BURS:MODE TRIG")
-    sg.AWG.send_line_awg("TRIG:SOUR EXT")
-    sg.AWG.send_line_awg("TRIG:SLOP POS")
-    #Each Trig In will result in 1 burst
-    sg.AWG.send_line_awg("BURS:NCYC 1")
-
-    #Enable bursts
-    sg.AWG.send_line_awg("BURS:STAT ON")
-
-    sg.AWG.send_line_awg("FUNC:USER VOLATILE")
-
-    sg.AWG.set_output(True)
 
 
 def abbreviate_list(big_list):
@@ -818,6 +703,171 @@ def deinitialize_Arduino() -> None:
 
 ## NI SETUP ##
 
+#Fields that must be present for a given instrument type.
+instr_type_required_fields = {"NIDCPower" : ["slot"],
+                            "Oscilloscope" : ["io"],
+                            "AWG"          : ["io"],
+                            "Supply"       : ["io"]}
+                         
+   
+#Fields that must be present to use a given type of io.   
+io_required_fields = {"VISA" : ["resource"],
+                      "Prologix" : ["ipaddr", "gpibaddr"]}
+
+
+#Lint checker for INSTR library.
+#Returns: The # of non-NI instruments that need to be initialized, or -1 if there is an error.
+def INSTR_lint():
+
+    non_ni_instruments = []
+
+    for instr in INSTR.keys():
+        this_type = INSTR[instr]["type"]
+        if this_type not in instr_type_required_fields.keys():
+            sg.log.error(f"INSTR Error: {instr} is {this_type} which is not a valid instrument type. Valid instrument types are: {instr_type_required_fileds.keys()}.")
+            return -1
+        
+        for field in instr_type_required_fields[this_type]:
+            
+            if field not in INSTR[instr].keys():
+                sg.log.error(f"INSTR Error: Instruments of type {this_type} must have field {field} which is not present for {instr}.")
+                return -1
+                
+        if "io" in INSTR[instr].keys():
+            this_io = INSTR[instr]["io"]
+            
+            if this_io not in io_required_fields.keys():
+                sg.log.gerr(f"INSTR Error: Instrument {instr} uses io type {this_io} which is not recognized. Recognized io types are {io_required_fields.keys()}")
+                return -1
+            
+            for field in io_required_fields[this_io]:
+                if field not in INSTR[instr].keys():
+                    sg.log.error(f"INSTR Error: Instruments using io type {this_io} must have field {field} which is not present for {instr}.")
+                    return -1
+                
+                
+        if INSTR[instr]["type"] != "NIDCPower":
+            non_ni_instruments.append(instr)
+                
+    sg.log.debug("INSTR lint check completed successfully.")
+    
+    num_instr = len(non_ni_instruments)
+    if num_instr > 0:
+        sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} non-NI instruments that need to be initialized: {non_ni_instruments}")
+    return num_instr
+        
+
+def initialize_INSTR(interactive: bool = False):
+
+    for instr in INSTR.keys():
+    
+        #If io setup is necessary, do that first.
+        if "io" in INSTR[instr].keys():
+            if INSTR[instr]["io"] == "VISA":
+                io = initialize_VISA(INSTR[instr], interactive)
+            elif INSTR[instr]["io"] == "Prologix":
+                io = initialize_Prologix(INSTR[instr], interactive)
+                
+    
+        #Next perform setup for the actual instrument.
+        if INSTR[instr]["type"] == "AWG":
+            print(io.inst)
+            sg.INSTR[instr] = initialize_AWG(INSTR[instr], io)
+            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+            
+        elif INSTR[instr]["type"] == "Oscilloscope":
+            print(io.inst)
+            sg.INSTR[instr] = Oscilloscope(sg.log,io)
+            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+            
+        elif INSTR[instr]["type"] == "Supply":
+            sg.INSTR[instr] = Supply(sg.log,io)
+            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+        
+        
+def deinitialize_INSTR():
+    for instr in INSTR.keys():
+    
+        #Next perform setup for the actual instrument.
+        if INSTR[instr]["type"] == "AWG":
+            try:
+                deinitialize_AWG(sg.INSTR[instr])
+            except KeyError:
+                sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
+
+#Set up a VISA connection, interactively if requested.
+def initialize_VISA(cfg, interactive = False):
+    chosen_resource = None
+    DEFAULT_RESOURCE = cfg["resource"]
+    
+    if interactive:
+        while True:
+            rm = pyvisa.ResourceManager()
+            resources = rm.list_resources()
+
+            print("Available resources:")
+            for i in range(len(resources)):
+                print(f"{i}. {resources[i]}")
+
+            try:
+                user_in = input(f"Which resource should be used for {cfg['type']} (Press Enter to use {DEFAULT_RESOURCE})? ")
+                resource_idx = int(user_in)
+                chosen_resource = resources[resource_idx]
+                break
+            except ValueError:
+                if user_in == "":
+                    break
+                else:
+                    print("Could not parse \""+str(user_in)+"\", try again...")
+        
+        
+
+    if chosen_resource is None:
+        chosen_resource = DEFAULT_RESOURCE
+
+    return VISAInterface(sg.log, chosen_resource)
+
+#Set up a Prologix connection, interactively if requested.
+def initialize_Prologix(cfg, interactive = False):
+    
+    DEFAULT_PROLOGIX_IPADDR = cfg["ipaddr"]
+    DEFAULT_DEVICE_GPIBADDR = cfg["gpibaddr"]
+
+    connected = False
+    while True:
+        if interactive:
+            PROLOGIX_IPADDR = input(f"IP ADDRESS? (Hit enter to use \"{DEFAULT_PROLOGIX_IPADDR}\") >>>")
+
+            if PROLOGIX_IPADDR == "":
+                PROLOGIX_IPADDR = DEFAULT_PROLOGIX_IPADDR
+
+            DEVICE_GPIBADDR = input(f"GPIB ADDRESS? (Hit enter to use \"{DEFAULT_DEVICE_GPIBADDR}\") >>>")
+
+            if DEVICE_GPIBADDR == "":
+                DEVICE_GPIBADDR = DEFAULT_DEVICE_GPIBADDR
+        else:
+            PROLOGIX_IPADDR = DEFAULT_PROLOGIX_IPADDR
+            DEVICE_GPIBADDR = DEFAULT_DEVICE_GPIBADDR
+
+        sg.log.info(f"Connecting to Device @ GPIB#{DEVICE_GPIBADDR} via IP:{PROLOGIX_IPADDR}")
+        
+        prologix_interface = PrologixInterface(sg.log, PROLOGIX_IPADDR, DEVICE_GPIBADDR)
+        
+        # Connection succesful
+        if prologix_interface.is_connected():
+            sg.log.info("Prologix interface successfully connected...")
+            break
+
+        prologix_interface = None
+        
+        if interactive:
+            sg.log.error(f"Prologix connection failed! Try again.")
+        else:
+            sg.log.warning(f"Prologix connection failed - falling back to interactive mode")
+            interactive = True
+            
+    return prologix_interface
+
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_NI():
     global V_SEQUENCE, I_SEQUENCE
@@ -857,9 +907,13 @@ def initialize_NI():
 
     sg.log.debug("NI INSTR init")
     try:
-        for instr_name in INSTR_INIT_SEQUENCE:
+        for instr_name in INSTR.keys():
+        
+            if INSTR[instr_name]["type"] != "NIDCPower":
+                continue
+        
             sg.log.blocking(f"Initializing NI INSTR \"{instr_name}\"")
-            INSTR[instr_name] = nidcpower_init(instr_name)
+            sg.INSTR[instr_name] = nidcpower_init(INSTR[instr_name]["slot"])
             sg.log.block_res()
         sg.log.debug("NI INSTR init done")
 
@@ -874,7 +928,7 @@ def initialize_NI():
                 else:
                     curr_limit = V_CURR_LIMIT
                 
-                V_PORT[Vsource] = Source_Port(INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
+                V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
                 sg.log.block_res()
             sg.log.debug("NI Vsource init done")
@@ -891,7 +945,7 @@ def initialize_NI():
                 else:
                     volt_limit = I_VOLT_LIMIT
                     
-                I_PORT[Isource] = Source_Port(INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=volt_limit)
+                I_PORT[Isource] = Source_Port(sg.INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=volt_limit)
                 I_PORT[Isource].set_current(I_LEVEL[Isource])
                 sg.log.block_res()
             sg.log.debug("NI Isource init done")
@@ -934,91 +988,35 @@ def deinitialize_NI() -> None:
 
 ## sg.AWG SETUP ##
 
-def initialize_AWG(interactive: bool = True) -> AgilentAWG:
-    if sg.AWG_CONNECTED or sg.AWG is not None:
-        sg.log.warning("AWG already initialized; reinitializing")
-        deinitialize_AWG()
+def initialize_AWG(instr_cfg, io) -> AgilentAWG:
 
-    connected = False
-    while True:
-        if interactive:
-            PROLOGIX_IPADDR = input(f"IP ADDRESS? (Hit enter to use \"{DEFAULT_PROLOGIX_IPADDR}\") >>>")
+    new_AWG = AgilentAWG(sg.log, io)
 
-            if PROLOGIX_IPADDR == "":
-                PROLOGIX_IPADDR = DEFAULT_PROLOGIX_IPADDR
+    new_AWG.send_line_awg("OUTP:LOAD INF") #sg.AWG will be driving a MOSFET gate; set to high impedance mode.
+    #new_AWG.set_local_controls(True)
+    new_AWG.display_text("Managed by Spacely")
+    
+    return new_AWG
 
-            AWG_GPIBADDR = input(f"GPIB ADDRESS? (Hit enter to use \"{DEFAULT_AWG_GPIBADDR}\") >>>")
+def deinitialize_AWG(instr) -> None:
 
-            if AWG_GPIBADDR == "":
-                AWG_GPIBADDR = DEFAULT_AWG_GPIBADDR
-        else:
-            PROLOGIX_IPADDR = DEFAULT_PROLOGIX_IPADDR
-            AWG_GPIBADDR = DEFAULT_AWG_GPIBADDR
-
-        sg.log.info(f"Connecting to AWG @ GPIB#{AWG_GPIBADDR} via IP:{PROLOGIX_IPADDR}")
-        sg.AWG = AgilentAWG(sg.log, PROLOGIX_IPADDR, AWG_GPIBADDR)
-        sg.AWG.connect()
-        sg.AWG.set_limit(2.5)
-
-        # Connection succesful
-        if sg.AWG.is_connected():
-            sg.log.info("AWG succesfully initialized! NOTE: Vlimit is set to 2.5V")
-            break
-
-        sg.AWG = None
-        sg.AWG_CONNECTED = False
-        if interactive:
-            sg.log.error(f"AWG connection failed! Try again.")
-        else:
-            sg.log.warning(f"AWG connection failed - falling back to interactive mode")
-            interactive = True
-
-
-    sg.AWG_CONNECTED = True
-
-
-    sg.AWG.send_line_awg("OUTP:LOAD INF") #sg.AWG will be driving a MOSFET gate; set to high impedance mode.
-    sg.AWG.set_local_controls(True)
-    sg.AWG.display_text("Managed by Spacely")
-
-    sg.log.notice("sg.AWG connected & initialized")
-    return sg.AWG
-
-def deinitialize_AWG() -> None:
-
-    if sg.AWG is None:
+    if instr is None:
         sg.log.debug(f"Skipping AWG deinit - not initialized")
         return
 
     sg.log.blocking(f"Deinitializing AWG")
-    sg.AWG.set_output(False)
-    sg.AWG.disconnect()
+    #instr.set_output(False)
+    instr.disconnect()
     sg.log.block_res()
-    sg.AWG_CONNECTED = False
 
-
-def initialize_scope(interactive: bool = True) -> AgilentAWG:
-
-    chosen_resource = None
-    
-    if interactive:
-        rm = pyvisa.ResourceManager()
-        resources = rm.list_resources()
-
-        print("Available resources:")
-        for i in range(len(resources)):
-            print(f"{i}. {resources[i]}")
-
-        resource_idx = int(input("Which one represents the scope?"))
-
-        chosen_resource = resources[resource_idx]
-
-    if chosen_resource is None:
-        chosen_resource = DEFAULT_OSCILLOSCOPE_RESOURCE
-
-    sg.log.info(f"Attempting to configure {chosen_resource} as an oscilloscope...")
-    sg.scope = Oscilloscope(sg.log,chosen_resource)
         
+
+
+
+
+
+
+
 
 def logger_demo():
     sg.log.info("sg.log.info")
@@ -1074,3 +1072,107 @@ def auto_voltage_monitor():
             print("")
     
 
+## Experiments and Data Files (metadata logging) ##
+
+class Experiment:
+    
+    def __init__(self, name, folders=[], initial_metadata={}):
+        self.metadata = initial_metadata
+        self.name = name
+        self.base_path = os.sep.join(["output"]+folders+[name])
+        
+        
+        sg.log.notice(f"Creating Experiment {name} at {self.base_path}")
+        if not os.path.isdir(self.base_path):
+            os.makedirs(self.base_path)
+        
+        
+        self.data_files = []
+ 
+    def new_data_file(self,df_name):
+        self.data_files.append(DataFile(df_name,self))
+        return self.data_files[-1]
+ 
+    #Get a piece of experiment-level metadata
+    def get(self,key):
+        if key in self.metadata.keys():
+            return self.metadata[key]
+        else:
+            sg.log.error(f"Could not find metadata {key}")
+            return None
+                
+    #Set a piece of default experiment-level metadata
+    def set(self,key, value):
+        self.metadata[key] = value
+        self.write_metadata()
+ 
+    #Write all metadata in this experiment to file. (Should be done after updating metadata)       
+    def write_metadata(self):
+        metadata_file_name = os.sep.join([self.base_path,"meta.txt"])
+        current_date = time.strftime("%Y_%m_%d")
+        
+        with open(metadata_file_name,"w") as write_file:
+            write_file.write("-----------------------------------\n")
+            write_file.write("Metadata for Experiment {self.name}\n")
+            write_file.write("-----------------------------------\n")
+            write_file.write("Defaults:\n")
+            
+            for k in self.metadata.keys():
+                write_file.write(f"{k} :: {self.metadata[k]}\n")
+                
+            write_file.write("\n\n")
+            for df in self.data_files:
+                write_file.write(f"\nDATA FILE:{df.name}\n")
+                
+                if len(df.metadata.keys()) < 1:
+                    write_file.write("<default>\n")
+                else:
+                    for k in df.metadata.keys():
+                        write_file.write(f"{k} :: {df.metadata[k]}\n")
+                
+        
+        
+        
+    
+    
+class DataFile:
+
+    def __init__(self,name,experiment):
+        self.name = name
+        self.e = experiment
+        self.file = open(os.sep.join([self.e.base_path,f"{self.name}.csv"]),"w")
+        self.metadata = {}
+       
+
+    def get(self,key):
+        #Prioritize returning metadata that's specific to this particular file.
+        if key in self.metadata.keys():
+            return self.metadata[key]
+        else:
+            return self.e.get(key)
+        
+    def set(self,key,value):
+        self.metadata[key] = value
+        self.e.write_metadata()
+       
+    def write(self,write_string):
+        self.file.write(write_string)
+        
+        
+    def close(self):
+        self.file.close()
+    
+    #Check to make sure that all the items in to_check[] are actually valid metadata for this DF.
+    def check(self,to_check):
+        if type(to_check) == str:
+            to_check = [to_check]
+            
+            
+        for item in to_check:
+            val = self.get(item)
+            if val is None:
+                print(val,item)
+                return False
+        
+        return True
+    

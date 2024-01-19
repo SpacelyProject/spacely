@@ -31,11 +31,11 @@ sys.path.append(os.path.abspath("./src"))
 #Import utilities from py-libs-common
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
-from fnal_libawg import AgilentAWG
+
+from fnal_libinstrument import *
+from fnal_libIO import *
 from fnal_ni_toolbox import * #todo: this should import specific class(es)
 import fnal_log_wizard as liblog
-from fnal_libvisa import *
-
 
 
 #Global Configuration data.
@@ -55,8 +55,8 @@ from Spacely_Utils import *
 argp = argparse.ArgumentParser(prog='Spacely')
 argp.add_argument('--hal', action=argparse.BooleanOptionalAction, help='Perform Arudino HAL init')
 argp.add_argument('--ni', action=argparse.BooleanOptionalAction, help='Perform NI voltage sources init')
-argp.add_argument('--awg', action=argparse.BooleanOptionalAction, help='Perform AWG (wave generator) init')
-argp.add_argument('--scope', action=argparse.BooleanOptionalAction, help='Perform Oscilloscope init')
+argp.add_argument('--instr', action=argparse.BooleanOptionalAction, help='Perform non-NI Instrument init')
+#argp.add_argument('--scope', action=argparse.BooleanOptionalAction, help='Perform Oscilloscope init')
 argp.add_argument('-d', '--defaults', action='store_true', help='Assume defaults for Arduino ports etc. (otherwise it will ask)')
 argp.add_argument('--file-log', const=None, default=False, nargs='?', action='store', help='When specified saves a copy of a log to a given file')
 argp.add_argument('--ansi', action=argparse.BooleanOptionalAction, help='Whether to enable ANSI (color) output')
@@ -88,9 +88,8 @@ if cmd_args.file_log is not False:
 
 # Ensure all resources are freed automatically on exit (even if error occured)
 def exit_handler():
-    sg.log.info("Freeing resources...")
-    deinitialize_AWG()
-    deinitialize_NI()
+    sg.log.info("(Exit Handler) Freeing resources...")
+    deinitialize_INSTR()
     deinitialize_Arduino()
 
 atexit.register(exit_handler)
@@ -108,10 +107,15 @@ if USE_ARDUINO and EMULATE_ASIC:
 
 assume_defaults = cmd_args.defaults
 
-if (USE_NI or USE_AWG) and not assume_defaults:
+if not assume_defaults:
     print("Did you know you can skip interactive initialization with --defaults ?")
 
 # # # Default Setup # # #
+
+num_instr = INSTR_lint()
+
+if num_instr == -1:
+    exit()
 
 #Arduino HAL
 init_hal = cmd_args.hal is not None
@@ -136,30 +140,30 @@ if init_ni:
 else:
     sg.log.debug('NI init skipped')
 
-#AWG
-init_awg = (cmd_args.awg is not None) or (assume_defaults and USE_AWG)
-if not init_awg and USE_AWG == True:
-    cmd_txt = input("DEFAULT: Set up AWG. 'n' to Skip>>>")
-    init_awg = False if cmd_txt == 'n' else True
-if init_awg:
+#Other non-NI Instruments
+init_instr = (cmd_args.instr is not None) or (assume_defaults and USE_AWG)
+if not init_instr and num_instr > 0:
+    cmd_txt = input(f"DEFAULT: Initialize {num_instr} Test Instruments. 'n' to Skip>>>")
+    init_instr = False if cmd_txt == 'n' else True
+if init_instr:
     if USE_ARDUINO and EMULATE_ASIC:
-        sg.log.error('ASIC emulation enabled - AWG should NOT be initialized!')
+        sg.log.error('ASIC emulation enabled - instruments should NOT be initialized!')
     else:
-        initialize_AWG(interactive=not assume_defaults)
+        initialize_INSTR(interactive=not assume_defaults)
 
 else:
-    sg.log.debug('AWG init skipped')
+    sg.log.debug('INSTR init skipped')
 
 #Oscilloscope
-init_scope = (cmd_args.scope is not None) or (assume_defaults and USE_SCOPE)
-if not init_scope and USE_SCOPE == True:
-    cmd_txt = input("DEFAULT: Set up Oscilloscope. 'n' to Skip>>>")
-    init_scope = False if cmd_txt == 'n' else True
-if init_scope:
-    initialize_scope(interactive=not assume_defaults)
-
-else:
-    sg.log.debug('Scope init skipped')
+#init_scope = (cmd_args.scope is not None) or (assume_defaults and USE_SCOPE)
+#if not init_scope and USE_SCOPE == True:
+#    cmd_txt = input("DEFAULT: Set up Oscilloscope. 'n' to Skip>>>")
+#    init_scope = False if cmd_txt == 'n' else True
+#if init_scope:
+#    initialize_scope(interactive=not assume_defaults)
+#
+#else:
+#    sg.log.debug('Scope init skipped')
 
 
 # # # # # #

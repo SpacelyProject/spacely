@@ -8,8 +8,9 @@
 #commands that would affect the NI System or analog to send
 #emulation commands to the Arduino instead.
 port = None
-AWG = None
-scope = None
+INSTR = {}
+#AWG = None
+#scope = None
 
 #Global pattern runner and glue converter instances.
 pr = None

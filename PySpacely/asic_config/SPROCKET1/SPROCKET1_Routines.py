@@ -5,6 +5,60 @@ R0_VTEST_MIN = 470
 R0_VTEST_MAX = 515
 R0_VTEST_INCR = 1000
 
+
+
+# config_AWG_as_Skipper - Sets up the AWG to mimic the output of a Skipper-CCD
+# source follower, based on the external trigger.
+#
+# GZ 6/9/2023: I removed all flush_buffer() calls here; you shouldn't manipulate buffers externally
+#              unless there's some proven bug existing that it needs it
+def config_AWG_as_Skipper(pedestal_mag_mV: int, signal_mag_mV: int) -> None:
+    sg.AWG.set_output(False)
+
+    #Output a user-defined function...
+    sg.AWG.send_line_awg("FUNC USER")
+
+    #Set up the skipper arbitrary waveform
+    sg.AWG.send_line_awg("FREQ 1000000") #50 ns / div
+    sg.AWG.send_line_awg("VOLT:OFFS 2.5") #4.0 Vreset
+
+    #NOTE: With Vpp = 2.0V, +1.0 = +1.0V and -1.0 = -1.0V.
+    p = round(pedestal_mag_mV / 1000,6)
+    s = round((signal_mag_mV + pedestal_mag_mV)/1000,6)
+
+    #wave = [0,-p,-p,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
+
+    # Modified timing:
+    wave = [0,-p,-p,-p,-s,-s,-s,-s,-s,-s,0,0,0,0,0,0,0,0]
+
+    print(wave)
+
+    sg.AWG.send_line_awg("DATA VOLATILE, "+", ".join([str(x) for x in wave])+"\n")
+
+    #NOTE: There is a bug in the AWG, where sending data w/ DATA VOLATILE
+    #will completely scramble the Vpp magnitude. So we need to write Vpp
+    #just after sending data. EDIT: Still doesn't solve the problem. :(
+    sg.AWG.send_line_awg("VOLT 2.0") #2 Volt pp magnitude
+    #sg.AWG.send_line("VOLT:HIGH 3.5") #2 Volt pp magnitude
+    #sg.AWG.send_line("VOLT:LOW 1.5") #2 Volt pp magnitude
+
+    #Bursts will be triggered by Trig In (w/ a positive slope)
+    #Note: Trig In will be connected to PostSamp
+    sg.AWG.send_line_awg("BURS:MODE TRIG")
+    sg.AWG.send_line_awg("TRIG:SOUR EXT")
+    sg.AWG.send_line_awg("TRIG:SLOP POS")
+    #Each Trig In will result in 1 burst
+    sg.AWG.send_line_awg("BURS:NCYC 1")
+
+    #Enable bursts
+    sg.AWG.send_line_awg("BURS:STAT ON")
+
+    sg.AWG.send_line_awg("FUNC:USER VOLATILE")
+
+    sg.AWG.set_output(True)
+
+
+
 def ROUTINE0_CDAC_Trim():
     """r0: Measure the DNL for every CDAC Trim code, and report the best."""
     print(ROUTINE0_CDAC_Trim.__doc__)
