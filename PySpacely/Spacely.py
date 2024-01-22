@@ -91,6 +91,7 @@ def exit_handler():
     sg.log.info("(Exit Handler) Freeing resources...")
     deinitialize_INSTR()
     deinitialize_Arduino()
+    #deinitialize_NI()
 
 atexit.register(exit_handler)
 
@@ -130,13 +131,13 @@ else:
 #NI Chassis
 init_ni = (cmd_args.ni is not None) or (assume_defaults and USE_NI)
 if not init_ni and USE_NI == True:
-    cmd_txt = input("DEFAULT: Set up NI sources. 'n' to Skip>>>")
+    cmd_txt = input("DEFAULT: Set up NIFPGA 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
 if init_ni:
     if USE_ARDUINO and EMULATE_ASIC:
         sg.log.error('ASIC emulation enabled - NI sources should NOT be initialized!')
     else:
-        initialize_NI()
+        initialize_NIFPGA()
 else:
     sg.log.debug('NI init skipped')
 
@@ -153,6 +154,11 @@ if init_instr:
 
 else:
     sg.log.debug('INSTR init skipped')
+
+#Always initialize rails, if we've initialized the instruments that supply them.
+if init_instr:
+    initialize_Rails()
+
 
 #Oscilloscope
 #init_scope = (cmd_args.scope is not None) or (assume_defaults and USE_SCOPE)
@@ -218,7 +224,7 @@ while True:
         print("exit")
         break
 
-    sg.log.debug(f"Running: {cmd_txt}")
+    #sg.log.debug(f"Running: {cmd_txt}")
     ### Full commands
     match cmd_txt.lower():
         case '': # noop - just print another command prompt
@@ -253,9 +259,11 @@ while True:
         case 'arduino':
             sg.port=initialize_Arduino()
         case 'ni':
-            initialize_NI()
+            initialize_NIFPGA()
         case 'ni_mon':
             report_NI(0.5)
+        case 'ni_mon -a':
+            report_NI(1, True)
         case 'awg':
             initialize_AWG()
         case 'gcshell':

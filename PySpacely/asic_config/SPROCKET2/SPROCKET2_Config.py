@@ -28,7 +28,7 @@ INSTR = {"SMU_A" : {"type" : "NIDCPower",
          "PSU_C" : {"type" : "Supply",
                     "io"   : "Prologix",
                     "ipaddr" : "192.168.1.15",
-                    "gpibaddr" : 10}
+                    "gpibaddr" : 5}
         }
          
                     
@@ -92,14 +92,16 @@ DEFAULT_CDAC_TRIMSTRING = "100000"
 #UPDATES FROM SPROCKET1:
 # Vref_adc is taking the place of Vref (J3-10 to J6-5/J6-17), which corresponds to SMU_A, chan 1
 # Vref_fe and Ibdig are supplied using an external power supply (so not on this list)
-V_SEQUENCE = [ "VCC_LT", "VDDIO_LT", "Vref_adc", "Vdd12", "VDD_ASIC",    "vdda", "VCC_ASIC"]
+V_SEQUENCE = [ "VCC_LT", "VDDIO_LT", "Vref_adc", "Vdd12", "VDD_ASIC",    "vdda", "VCC_ASIC", "Vref_fe", "Ibdig"]
 V_INSTR= {"vdda":   "SMU_A",
           "Vref_adc":   "SMU_A",
           "Vdd12":  "SMU_A",
           "VDDIO_LT": "PSU_A",          
           "VCC_LT":   "PSU_A",
           "VCC_ASIC": "PSU_B",            
-          "VDD_ASIC": "PSU_B"}
+          "VDD_ASIC": "PSU_B",
+          "Vref_fe" : "PSU_C",
+          "Ibdig"   : "PSU_C"}
 V_CHAN = {# SMU_A
             "vdda": 0,            
             "Vref_adc":  1,
@@ -111,7 +113,10 @@ V_CHAN = {# SMU_A
             "VCC_LT":   1,
           # PSU_B
             "VDD_ASIC": 0,
-            "VCC_ASIC": 1
+            "VCC_ASIC": 1,
+          # PSU_C
+            "Vref_fe" : "P6V",
+            "Ibdig"   : "P25V"
          }
 
 V_LEVEL = {# SMU_A
@@ -123,7 +128,10 @@ V_LEVEL = {# SMU_A
              "VCC_LT":   3.3,
              # PSU_B
              "VDD_ASIC": 1.35, #Boosted from 1.2V to account for PCB drop.
-             "VCC_ASIC": 3.3             
+             "VCC_ASIC": 3.3 ,
+             # PSU_C
+             "Vref_fe" : 0.65,
+             "Ibdig"   : 0.5
            }
 
            
@@ -137,6 +145,8 @@ V_WARN_VOLTAGE = {
              "VDD_ASIC": [1.3,1.4],
              "VCC_ASIC":   [3.2,3.4],
              "VDDIO_LT": [1.1,1.3]
+             #"Vref_fe" : [0.6,0.7],
+             #"Ibdig"   : [0.4,0.6]
            }
 
 
@@ -155,7 +165,9 @@ V_CURR_LIMIT = {# SMU_A
                   "VCC_LT":   0.3, #Changed from 0.1
                 # PSU_B
                   "VCC_ASIC": 0.02, #Edit 11/15: Double currents to 20mA and 200mA for cryo.
-                  "VDD_ASIC": 0.20 # this is correct: fixes latchup by giving the ASIC 100mA
+                  "VDD_ASIC": 0.20, # this is correct: fixes latchup by giving the ASIC 100mA
+                  "Vref_fe" : 0.1,
+                  "Ibdig"   : 0.1
                   }
 
 #Global dict to hold the port objects created for each of these.
@@ -166,7 +178,9 @@ V_PORT = {"vdda": None, # SMU_A
           "VDDIO_LT": None, # PSU_A                  
           "VCC_LT":   None, # PSU_A
           "VCC_ASIC": None, # PSU_B
-          "VDD_ASIC": None  # PSU_B      
+          "VDD_ASIC": None,  # PSU_B  
+          "Vref_fe" : None,
+          "Ibdig"   : None
          }
 
 

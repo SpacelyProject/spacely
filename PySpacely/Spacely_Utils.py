@@ -95,7 +95,7 @@ def clean_terminal() -> None:
     #os.system('cls')
     #print(chr(27) + "[2J")
 
-def report_NI(repeat_delay: float|None = 1):
+def report_NI(repeat_delay: float|None = 1, report_non_ni_instr = False):
     v_stats = {}
     i_stats = {}
 
@@ -137,8 +137,10 @@ def report_NI(repeat_delay: float|None = 1):
         rails_count = len(ports)
         row_counter = 0
         for rail, ni in ports.items():
-            row_counter += 1
-            pt.add_row(get_row(rail, ni), divider=True if row_counter == rails_count else False)
+        
+            if report_non_ni_instr or type(ni) == NIDCPowerInstrument:
+                row_counter += 1
+                pt.add_row(get_row(rail, ni), divider=True if row_counter == rails_count else False)
 
     def tabulate_all_rails() -> PrettyTable:
         pt = PrettyTable()
@@ -161,6 +163,8 @@ def report_NI(repeat_delay: float|None = 1):
             print(f"NI PSU Status at {now}\n")
             print(pt)
             print(f"Redrawing in {repeat_delay}s (Ctrl+C to stop)")
+            if not report_non_ni_instr:
+                print("NOTE: Non-NI source ports are excluded from the monitor by default. Use 'ni_mon -a' to include")
             time.sleep(repeat_delay)
 
     except KeyboardInterrupt:
@@ -719,7 +723,7 @@ io_required_fields = {"VISA" : ["resource"],
 #Returns: The # of non-NI instruments that need to be initialized, or -1 if there is an error.
 def INSTR_lint():
 
-    non_ni_instruments = []
+    #non_ni_instruments = []
 
     for instr in INSTR.keys():
         this_type = INSTR[instr]["type"]
@@ -746,14 +750,14 @@ def INSTR_lint():
                     return -1
                 
                 
-        if INSTR[instr]["type"] != "NIDCPower":
-            non_ni_instruments.append(instr)
+        #if INSTR[instr]["type"] != "NIDCPower":
+        #    non_ni_instruments.append(instr)
                 
     sg.log.debug("INSTR lint check completed successfully.")
     
-    num_instr = len(non_ni_instruments)
+    num_instr = len(INSTR.keys())
     if num_instr > 0:
-        sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} non-NI instruments that need to be initialized: {non_ni_instruments}")
+        sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
     return num_instr
         
 
@@ -773,25 +777,49 @@ def initialize_INSTR(interactive: bool = False):
         if INSTR[instr]["type"] == "AWG":
             print(io.inst)
             sg.INSTR[instr] = initialize_AWG(INSTR[instr], io)
-            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
             
         elif INSTR[instr]["type"] == "Oscilloscope":
             print(io.inst)
             sg.INSTR[instr] = Oscilloscope(sg.log,io)
-            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+            
             
         elif INSTR[instr]["type"] == "Supply":
             sg.INSTR[instr] = Supply(sg.log,io)
-            sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+                  
+            
+        elif INSTR[instr]["type"] == "NIDCPower":
+            sg.log.blocking(f"Initializing NI INSTR \"{instr}\"")
+            sg.INSTR[instr] = NIDCPowerInstrument(INSTR[instr]["slot"])
+            sg.log.block_res()
+            
+        sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
         
         
 def deinitialize_INSTR():
     for instr in INSTR.keys():
     
-        #Next perform setup for the actual instrument.
-        if INSTR[instr]["type"] == "AWG":
+        if INSTR[instr]["type"] == "NIDCPower":
             try:
-                deinitialize_AWG(sg.INSTR[instr])
+                sg.log.blocking(f"Deinitializing NI INSTR \"{instr}\"")
+                sg.INSTR[instr].deinit()
+                sg.log.block_res()
+            except KeyError:
+                sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
+            except Exception as e:
+                sg.log.block_res(False)
+                sg.log.error(f"Failed to deinitialize NI \"{instr}\": {str(e)}")
+                pass # we cannot throw here - other things must de-init regardless
+    
+        elif INSTR[instr]["type"] == "AWG":
+            try:
+                sg.INSTR[instr].set_output(False)
+            except KeyError:
+                sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
+    
+        #For any instruments that use Prologix, deinitialize that:
+        if "io" in INSTR[instr].keys() and INSTR[instr]["io"] == "Prologix":
+            try:
+                sg.INSTR[instr].io.disconnect()
             except KeyError:
                 sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
 
@@ -868,10 +896,8 @@ def initialize_Prologix(cfg, interactive = False):
             
     return prologix_interface
 
-# todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
-def initialize_NI():
-    global V_SEQUENCE, I_SEQUENCE
 
+def initialize_NIFPGA():
     try:
         DEFAULT_IOSPEC
         DEFAULT_FPGA_BITFILE_MAP
@@ -887,10 +913,10 @@ def initialize_NI():
         sg.gc = GlueConverter(DEFAULT_IOSPEC)
         time.sleep(2)
 
-    
-    if sg.NI_CONNECTED:
-        sg.log.warning("NI already initialized; reinitializing")
-        deinitialize_NI()
+
+# todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
+def initialize_Rails():
+    global V_SEQUENCE, I_SEQUENCE
 
     try:
         V_SEQUENCE
@@ -907,15 +933,6 @@ def initialize_NI():
 
     sg.log.debug("NI INSTR init")
     try:
-        for instr_name in INSTR.keys():
-        
-            if INSTR[instr_name]["type"] != "NIDCPower":
-                continue
-        
-            sg.log.blocking(f"Initializing NI INSTR \"{instr_name}\"")
-            sg.INSTR[instr_name] = nidcpower_init(INSTR[instr_name]["slot"])
-            sg.log.block_res()
-        sg.log.debug("NI INSTR init done")
 
         if V_SEQUENCE is not None:
             sg.log.debug("NI Vsource init")
@@ -963,28 +980,20 @@ def initialize_NI():
     sg.log.notice("NI PXI initialized")
 
 
-def cycle_NI():
-    deinitialize_NI()
-    initialize_NI()
+#def cycle_NI():
+#    deinitialize_NI()
+#    initialize_NI()
 
-def deinitialize_NI() -> None:
-    for instr_name, session in INSTR.items():
-        if session is None:
-            sg.log.debug(f"Skipping NI {instr_name} deinit - not initialized")
-            continue
-
-        try:
-            sg.log.blocking(f"Deinitializing NI INSTR \"{instr_name}\"")
-            nidcpower_deinit(session)
-            INSTR[instr_name] = None
-            sg.log.block_res()
-        except Exception as e:
-            sg.log.block_res(False)
-            sg.log.error(f"Failed to deinitialize NI \"{instr_name}\": {str(e)}")
-            pass # we cannot throw here - other things must de-init regardless
-
-    sg.log.debug("NI deinit done")
-    sg.NI_CONNECTED = False
+#def deinitialize_NI() -> None:
+#    for instr_name, session in INSTR.items():
+#        if session is None:
+#            sg.log.debug(f"Skipping NI {instr_name} deinit - not initialized")
+#            continue
+#
+#        
+#
+#    sg.log.debug("NI deinit done")
+#    sg.NI_CONNECTED = False
 
 ## sg.AWG SETUP ##
 
@@ -998,16 +1007,6 @@ def initialize_AWG(instr_cfg, io) -> AgilentAWG:
     
     return new_AWG
 
-def deinitialize_AWG(instr) -> None:
-
-    if instr is None:
-        sg.log.debug(f"Skipping AWG deinit - not initialized")
-        return
-
-    sg.log.blocking(f"Deinitializing AWG")
-    #instr.set_output(False)
-    instr.disconnect()
-    sg.log.block_res()
 
         
 
@@ -1034,6 +1033,8 @@ def auto_voltage_monitor():
         # Automatic Voltage Warning
         abnormal_rails = []
         abnormal_rail_voltages = []
+        
+        unmonitored_rails = []
 
         #print("(DBG) auto_voltage_monitor running")
         try:
@@ -1048,20 +1049,24 @@ def auto_voltage_monitor():
 
         if V_SEQUENCE is not None:
             for Vsource in V_SEQUENCE:
-                voltage = V_PORT[Vsource].get_voltage()
                 if Vsource in V_WARN_VOLTAGE.keys():
+                    voltage = V_PORT[Vsource].get_voltage()
                     if voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
                         abnormal_rails.append(Vsource)
                         abnormal_rail_voltages.append(voltage)
+                else:
+                    unmonitored_rails.append(Vsource)
 
 
         if I_SEQUENCE is not None:
             for Isource in I_SEQUENCE:
-                voltage = I_PORT[Isource].get_voltage()
                 if Isource in I_WARN_VOLTAGE.keys():
+                    voltage = I_PORT[Isource].get_voltage()
                     if voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
                         abnormal_rails.append(Isource)
                         abnormal_rail_voltages.append(voltage)
+                else:
+                    unmonitored_rails.append(Isource)
 
 
         if len(abnormal_rails) > 0:
@@ -1070,6 +1075,9 @@ def auto_voltage_monitor():
                 print(abnormal_rails[i],"("+str(round(abnormal_rail_voltages[i],2))+"V) ",end='')
 
             print("")
+        
+        if len(unmonitored_rails) > 0:
+            sg.log.debug(f"Unmonitored Rails: {unmonitored_rails}")
     
 
 ## Experiments and Data Files (metadata logging) ##

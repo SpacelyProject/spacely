@@ -778,7 +778,7 @@ def ROUTINE_Full_Conversion_Demo():
     SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=0)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
-    fc_glue = genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase)
+    fc_glue = genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase,n_samp=1)
 
     fc_result = pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
 
@@ -798,7 +798,7 @@ def ROUTINE_Full_Conversion_Demo():
 def ROUTINE_Full_Conversion_Sweep():
     """FULL SWEEP of full conversion, all the way from preamplifier through the ADC."""
 
-    VIN_STEP_uV = 20000
+    VIN_STEP_uV = 50000
     
     VIN_STEP_MAX_mV = 1000
     
@@ -814,6 +814,7 @@ def ROUTINE_Full_Conversion_Sweep():
     #pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
     #gc = GlueConverter(DEFAULT_IOSPEC)
 
+    print("!!!! WARNING MODIFIED FOR EXPERIMENT 1/19/2024 -- tsf_sample_phase, etc")
 
     input("""NOTE: PLEASE CONFIRM THAT
     1) AWG TRIG IS CONNECTED to phi1_ext (silk as 'P1.0') on the NI side.
