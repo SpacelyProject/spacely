@@ -772,6 +772,10 @@ def initialize_INSTR(interactive: bool = False):
             elif INSTR[instr]["io"] == "Prologix":
                 io = initialize_Prologix(INSTR[instr], interactive)
                 
+                
+            if io == None:
+                sg.log.warning(f"No I/O initialized, we will SKIP initializing {INSTR[instr]['type']}")
+                continue
     
         #Next perform setup for the actual instrument.
         if INSTR[instr]["type"] == "AWG":
@@ -838,7 +842,9 @@ def initialize_VISA(cfg, interactive = False):
                 print(f"{i}. {resources[i]}")
 
             try:
-                user_in = input(f"Which resource should be used for {cfg['type']} (Press Enter to use {DEFAULT_RESOURCE})? ")
+                user_in = input(f"Which resource should be used for {cfg['type']} (Press Enter to use {DEFAULT_RESOURCE}, 'n' to skip)? ")
+                if user_in.strip() == 'n':
+                    return None
                 resource_idx = int(user_in)
                 chosen_resource = resources[resource_idx]
                 break
@@ -1120,8 +1126,10 @@ class Experiment:
         current_date = time.strftime("%Y_%m_%d")
         
         with open(metadata_file_name,"w") as write_file:
+            currentTime = datetime.now().strftime("%Y-%m-%d_%a_%H-%M-%S")
             write_file.write("-----------------------------------\n")
-            write_file.write("Metadata for Experiment {self.name}\n")
+            write_file.write(f"Metadata for Experiment {self.name}\n")
+            write_file.write(f"Written at {currentTime}\n")
             write_file.write("-----------------------------------\n")
             write_file.write("Defaults:\n")
             
@@ -1166,7 +1174,10 @@ class DataFile:
     def write(self,write_string):
         self.file.write(write_string)
         
-        
+    #Ensure file is closed when ref count drops to 0.
+    def __del__(self):
+        self.close()
+    
     def close(self):
         self.file.close()
     

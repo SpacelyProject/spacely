@@ -76,6 +76,10 @@ GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,
 # For basic example, see ROUTINE4
 
 
+
+
+
+
 class PatternRunner(ABC):
     _fpga: NiFpga = None
 
@@ -387,6 +391,38 @@ class PatternRunner(ABC):
                 
         #3) Convert ASCII file to Glue
         return self.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+        
+        
+        
+        
+   # A shell for manipulating IOs manually. 
+    def ioshell(self):
+        
+        while True:
+            #Print out current i/o defaults
+            for io in self.gc.Input_IOs:
+                hw = self.gc.IO_hardware[io]
+                pos = self.gc.IO_pos[io]
+                default = self.gc.IO_default[io]
+
+                print(f" {default} | {io:<13} | {hw:<10}:{pos:<2} |")
+            
+            while True:
+                which_io = input(">>>").strip()
+                
+                if which_io in self.gc.Input_IOs:
+                    self.gc.IO_default[which_io] = 1 - self.gc.IO_default[which_io]
+                    self._update_io_defaults()
+                    break
+                    
+                elif which_io == "exit":
+                    return
+                    
+                print(f"ERR: {which_io} not in gc.Input_IOs")
+                
+            
+                
+    
         
 
 
