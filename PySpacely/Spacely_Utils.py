@@ -1104,6 +1104,59 @@ def auto_voltage_monitor():
             sg.log.debug(f"Unmonitored Rails: {unmonitored_rails}")
     
 
+# merge_data_files() -- Merges 2 or more .csv data files by concatenating them horizontally. 
+#  file_list -- List of filenames to concatenate. If it is empty, will prompt the user 
+#               to select files using fd.askopenfilenames()
+def merge_data_files(file_list=None, merged_name=None):
+
+    if file_list == None:
+        file_list = filedialog.askopenfilenames()
+    
+    if merged_name == None:
+        merged_name = input("Name of merged file?")
+
+    outfile_lines = [""]
+    files_merged = 0
+    
+    for f in file_list:
+        with open(f,'r') as read_file:
+            lines = read_file.readlines()
+            
+        num_cols = max([x.count(",")+1 for x in lines])
+        
+        
+        f_name = f.split("/")[-1].replace(",","-")
+            
+        sg.log.debug(f"Merging data file {f_name} which has {num_cols} columns")
+            
+        outfile_lines[0] = outfile_lines[0] + f_name+num_cols*","
+        
+        for i in range(len(lines)):
+        
+            this_line = lines[i].replace("\n",",")
+        
+            #Number of columns that should exist to the LEFT of this new file.
+            cols_needed = num_cols*files_merged
+            
+            if len(outfile_lines) < i + 2:  
+                outfile_lines.append(","*cols_needed+this_line)
+                continue
+                
+            else:
+                cols = outfile_lines[i+1].count(",")
+                
+                outfile_lines[i+1] = outfile_lines[i+1]+","*(cols_needed-cols)+this_line
+            
+            
+        files_merged = files_merged + 1
+        
+        
+    with open(merged_name+".csv",'w') as write_file:
+        for line in outfile_lines:
+            write_file.write(line+"\n")
+
+
+
 ## Experiments and Data Files (metadata logging) ##
 
 class Experiment:
@@ -1167,8 +1220,8 @@ class Experiment:
         
         
         
-    
-    
+# Class to represent a data file (i.e. xyz.csv) and all its associated metadata.    
+# Will be saved under {Experiment_Directory}/{name}.csv    
 class DataFile:
 
     def __init__(self,name,experiment):
