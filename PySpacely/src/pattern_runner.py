@@ -93,6 +93,9 @@ class PatternRunner(ABC):
         self._log = logger
         self._interface = {}
         self._fpga_dict = {}
+        
+        self.iospecfile = iospecfile
+        self.fpga_bitfile_map = fpga_bitfile_map
 
         #Init an instance of GlueConverter to handle GlueWave() operations.
         self.gc = GlueConverter(iospecfile)

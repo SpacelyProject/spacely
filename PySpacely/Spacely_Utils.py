@@ -1015,7 +1015,25 @@ def initialize_AWG(instr_cfg, io) -> AgilentAWG:
 
 
         
+# Given a dictionary of waves:
+# {"signal1" : [0,1,1,1,0],
+#  "signal2" : [0,0,0,0,1]}
+#
+# This function will generate a glue wave.
+def genpattern_from_waves_dict(waves_dict):
 
+    #2) Writing to an ASCII file.
+    with open("genpattern.txt",'w') as write_file:
+        for w in waves_dict.keys():
+            write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
+            
+    #3) Convert ASCII file to Glue.
+    gc = GlueConverter(DEFAULT_IOSPEC)
+
+    gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+
+
+    return "genpattern_se_io.glue"
 
 
 

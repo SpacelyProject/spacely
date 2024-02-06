@@ -10,7 +10,7 @@ S_PASS,I,14
 
 //NOTE: bufsel_ext is multiplexed with S_DIN
 bufsel_ext,I,12
-read_ext,I,1,1
+read_ext,I,1
 Rst_ext,I,2
 
 mclk,I,4

@@ -18,6 +18,14 @@ from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
 
+def onstartup():
+    #sg.INSTR["Scope"].enable_channels([1,2,3,4])
+    #sg.INSTR["Scope"].set_timebase(1e-6)
+    #sg.INSTR["Scope"].set_scale(0.5)
+    #sg.INSTR["Scope"].set_offset(1.5)
+    #sg.INSTR["Scope"].set_scale(1,chan_num=1)
+    #sg.INSTR["Scope"].set_offset(3,chan_num=1)
+    pass
 
 #Function to generate a SPROCKET2 test pixel scan chain vector (19 bits long)
 #based on setting each individual field by name. 
@@ -304,6 +312,7 @@ def _ROUTINE_fpga_offset_debug():
 
 
 
+#<<Registered w/ Spacely as ROUTINE 0, call as ~r0>>
 def ROUTINE_Ramp_Histogram_vs_CapTrim():
     """Characterize ADC DNL using a ramp Histogram. Caplo->Spacely method"""
 
@@ -374,7 +383,7 @@ def ROUTINE_Ramp_Histogram_vs_CapTrim():
                                  f"Ramp_Histogram_vs_CapTrim_Vin_step_by_{VIN_STEP_uV}_uV_on_"+time.strftime("%Y_%m_%d")+".csv",
                                  row_param_name="Vin")
     
-def ROUTINE_Transfer_Function_vs_CapTrim():
+def _ROUTINE_Transfer_Function_vs_CapTrim():
     """Capture the ADC Transfer function vs CapTrim, using Caplo->Spacely method"""
 
     VIN_STEP_mV = 10
@@ -425,6 +434,7 @@ def ROUTINE_Transfer_Function_vs_CapTrim():
                                  row_param_name="Vin")
     
 
+#<<Registered w/ Spacely as ROUTINE 1, call as ~r1>>
 def ROUTINE_Transfer_Function_vs_Vref():
     """Capture the ADC Transfer function for different Vref_adc voltages, using Caplo->Spacely method"""
 
@@ -476,6 +486,7 @@ def ROUTINE_Transfer_Function_vs_Vref():
                                  row_param_name="Vin")
 
 
+#<<Registered w/ Spacely as ROUTINE 2, call as ~r2>>
 def ROUTINE_Transfer_Function_vs_Timescale():
     """Capture the ADC Transfer function for different Time Scale Factors, using Caplo->Spacely method"""
 
@@ -527,6 +538,7 @@ def ROUTINE_Transfer_Function_vs_Timescale():
 
 
 
+#<<Registered w/ Spacely as ROUTINE 3, call as ~r3>>
 def ROUTINE_Transfer_Function_vs_ArbParam():
     """Capture the ADC Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
 
@@ -634,6 +646,7 @@ def ROUTINE_Transfer_Function_vs_ArbParam():
                                  
                                  
                                  
+#<<Registered w/ Spacely as ROUTINE 4, call as ~r4>>
 def ROUTINE_Transfer_Function_over_Time():
     """Sample the ADC Transfer Function over a period of time, using Caplo->Spacely method"""
 
@@ -696,6 +709,7 @@ def ROUTINE_Transfer_Function_over_Time():
         time_elapsed = time_elapsed + SAMPLE_INTERVAL_MINUTES
 
 
+#<<Registered w/ Spacely as ROUTINE 5, call as ~r5>>
 def ROUTINE_average_transfer_function():
     """Capture the Average ADC Transfer function using Caplo->Spacely method"""
 
@@ -749,6 +763,7 @@ def ROUTINE_average_transfer_function():
         write_file.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)}\n")
 
 
+#<<Registered w/ Spacely as ROUTINE 6, call as ~r6>>
 def ROUTINE_Full_Conversion_Demo(use_scope=False):
     """Demo of a full conversion, all the way from preamplifier through the ADC."""
 
@@ -767,7 +782,11 @@ def ROUTINE_Full_Conversion_Demo(use_scope=False):
     time_scale_factor = 10
     tsf_sample_phase = 2
     
-    
+    print("PR INFO")
+    print(pr.fpga_bitfile_map)
+    print(pr.iospecfile)
+
+   
     # When tsf=1, pulses are 250 nanoseconds (0.25 us) wide because mclk's frequency is 2 MHz (T=500ns).
     sg.INSTR["AWG"].config_AWG_as_Pulse(pm, pulse_width_us=0.25*tsf_sample_phase, pulse_period_us=0.25*tsf_sample_phase+0.05)
     time.sleep(3)
@@ -779,7 +798,7 @@ def ROUTINE_Full_Conversion_Demo(use_scope=False):
     SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=0, CapTrim=0)
     pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
-    fc_glue = genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase,n_samp=1)
+    fc_glue = genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase,n_samp=1, tsf_reset=2)
 
     fc_result = pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
 
@@ -797,6 +816,7 @@ def ROUTINE_Full_Conversion_Demo(use_scope=False):
     print(f"RESULT: {result}")
 
 
+#<<Registered w/ Spacely as ROUTINE 7, call as ~r7>>
 def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     """FULL SWEEP of full conversion, all the way from preamplifier through the ADC."""
     
@@ -863,6 +883,7 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     time_scale_factor = df.get("time_scale_factor")
     tsf_sample_phase = df.get("tsf_sample_phase")
     
+    unstick_VDD_ASIC()
     
     #if SINGLE_PULSE_MODE:
     #    period_us = 50
@@ -878,7 +899,7 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     SC_PATTERN = SC_CFG(override=0,TestEn=0,Range2=df.get("Range2"), CapTrim=df.get("CapTrim"))
     sg.pr.run_pattern( genpattern_SC_write(SC_PATTERN),outfile_tag="sc_cfg")
 
-    fc_glue = genpattern_Full_Conversion(time_scale_factor=df.get("time_scale_factor"),tsf_sample_phase=df.get("tsf_sample_phase"), n_samp=df.get("n_skip"), trig_delay=1)
+    fc_glue = genpattern_Full_Conversion(time_scale_factor=df.get("time_scale_factor"),tsf_sample_phase=df.get("tsf_sample_phase"), n_samp=df.get("n_skip"), trig_delay=0)
 
 
     #write_file = open("output\\Full_Conversion_Sweep_on_"+time.strftime("%Y_%m_%d")+".csv","w")
@@ -920,6 +941,7 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     df.close()
     
     
+#<<Registered w/ Spacely as ROUTINE 8, call as ~r8>>
 def ROUTINE_Full_Conversion_vs_ArbParam():
     """Perform a single conversion while varying a parameter."""
 
@@ -986,6 +1008,7 @@ def ROUTINE_Full_Conversion_vs_ArbParam():
     write_file.close()
     
 
+#<<Registered w/ Spacely as ROUTINE 9, call as ~r9>>
 def ROUTINE_Vref_Loopback_Experiment():
     """Use the TPI as a buffer to loop back Vref_fe to the ADC for measurement."""
     
@@ -1019,8 +1042,8 @@ def ROUTINE_Vref_Loopback_Experiment():
     df.write("Vref,Mean,Stddev,Min,Max\n")
     
     sg.INSTR["Scope"].enable_channels([1,2,3,4])
-    sg.INSTR["Scope"].set_scale(4,0.5)
-    sg.INSTR["Scope"].set_offset(4,1.5)
+    sg.INSTR["Scope"].set_scale(0.5,chan_num=4)
+    sg.INSTR["Scope"].set_offset(1.5,chan_num=4)
     sg.INSTR["Scope"].set_timebase(1)
     sg.INSTR["Scope"].io.set_timeout(15000)
     
@@ -1056,6 +1079,7 @@ def ROUTINE_Vref_Loopback_Experiment():
     #df.close()
     
 
+#<<Registered w/ Spacely as ROUTINE 10, call as ~r10>>
 def ROUTINE_Sweep_vs_Vreffe_Experiment():
     """Run a Full Conversion Sweep for different values of Vref_fe"""
     
@@ -1103,6 +1127,7 @@ def ROUTINE_Sweep_vs_Vreffe_Experiment():
         
  
 
+#<<Registered w/ Spacely as ROUTINE 11, call as ~r11>>
 def ROUTINE_Sweep_vs_trigdelay_Experiment():
     """Run a Full Conversion Sweep for different values of trig_delay"""
     
@@ -1182,7 +1207,56 @@ def _ROUTINE_Nskip_Noise_Experiment():
             df.close()
             
     summary_file.close()
+  
+
+#<<Registered w/ Spacely as ROUTINE 12, call as ~r12>>
+def ROUTINE_FC_Histo_4quad():
+
+    unstick_VDD_ASIC()
+
+    e = Experiment("FullConv_Histogram_RT")
     
+    e.set("time_scale_factor",10)
+    e.set("tsf_sample_phase",2)
+    e.set("NUM_SAMPLES",10000)
+    e.set("CapTrim",25)
+    
+    #Region0
+    df0 = e.new_data_file("Region0_FC_Histo")
+    df1.set("VIN_mV",4)
+    df0.set("Range2",1)
+    df0.set("n_skip",10)
+    df0.set("SINGLE_PULSE_MODE",False)
+    ROUTINE_Full_Conversion_Histogram(e,df0)
+    
+    #Region1
+    df1 = e.new_data_file("Region1_FC_Histo")
+    df1.set("VIN_mV",40)
+    df1.set("Range2",1)
+    df1.set("n_skip",1)
+    df1.set("SINGLE_PULSE_MODE",True)
+    ROUTINE_Full_Conversion_Histogram(e,df1)
+    
+    #Region2
+    df2 = e.new_data_file("Region2_FC_Histo")
+    df1.set("VIN_mV",40)
+    df2.set("Range2",0)
+    df2.set("n_skip",10)
+    df2.set("SINGLE_PULSE_MODE",False)
+    ROUTINE_Full_Conversion_Histogram(e,df2)
+    
+    #Region3
+    df3 = e.new_data_file("Region3_FC_Histo")
+    df1.set("VIN_mV",400)
+    df3.set("Range2",0)
+    df3.set("n_skip",1)
+    df3.set("SINGLE_PULSE_MODE",True)
+    ROUTINE_Full_Conversion_Histogram(e,df3)
+    
+    
+
+  
+#<<Registered w/ Spacely as ROUTINE 13, call as ~r13>>
 def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):            #VIN_mV = None, custom_prefix = None, NUM_SAMPLES = 10000, SINGLE_PULSE_MODE = True, Range2=0):
     """Create a histogram of the results from a Full Conversion """
     
@@ -1303,6 +1377,7 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):       
 
 
 
+#<<Registered w/ Spacely as ROUTINE 14, call as ~r14>>
 def ROUTINE_FE_Bias_Sweep_Exp2():
     """Execute FC Avg XF while sweeping FE Bias Currents"""
     
@@ -1430,6 +1505,65 @@ def _ROUTINE_FE_Bias_Sweep_Exp():
             
 
 
+
+#<<Registered w/ Spacely as ROUTINE 15, call as ~r15>>
+def ROUTINE_FC_Avg_XF_4quad():
+    """Single experiment to collect FC Avg XF across all 4 gain regions"""
+    
+    unstick_VDD_ASIC()
+    
+    e = Experiment("FullConv_Avg_XF_RT_Feb06")
+    
+    e.set("NUM_AVERAGES",20)
+    e.set("time_scale_factor",10)
+    e.set("tsf_sample_phase",2)
+    e.set("CapTrim",25)
+    e.set("Temperature","RT")
+    e.set("trig_delay",0)
+    e.set("USE_SCOPE", False)
+    
+    #Region0
+    df0 = e.new_data_file("Region0_FC_Avg_XF")
+    df0.set("VIN_STEP_MIN_mV",2)
+    df0.set("VIN_STEP_MAX_mV",20)
+    df0.set("VIN_STEP_uV",100)
+    df0.set("Range2",1)
+    df0.set("n_skip",10)
+    df0.set("SINGLE_PULSE_MODE",False)
+    ROUTINE_FC_Avg_XF(e,df0)
+    
+    #Region1
+    df1 = e.new_data_file("Region1_FC_Avg_XF")
+    df1.set("VIN_STEP_MIN_mV",2)
+    df1.set("VIN_STEP_MAX_mV",100)
+    df1.set("VIN_STEP_uV",100)
+    df1.set("Range2",1)
+    df1.set("n_skip",1)
+    df1.set("SINGLE_PULSE_MODE",True)
+    ROUTINE_FC_Avg_XF(e,df1)
+    
+    #Region2
+    df2 = e.new_data_file("Region2_FC_Avg_XF")
+    df2.set("VIN_STEP_MIN_mV",2)
+    df2.set("VIN_STEP_MAX_mV",100)
+    df2.set("VIN_STEP_uV",100)
+    df2.set("Range2",0)
+    df2.set("n_skip",10)
+    df2.set("SINGLE_PULSE_MODE",False)
+    ROUTINE_FC_Avg_XF(e,df2)
+    
+    #Region3
+    df3 = e.new_data_file("Region3_FC_Avg_XF")
+    df3.set("VIN_STEP_MIN_mV",2)
+    df3.set("VIN_STEP_MAX_mV",1000)
+    df3.set("VIN_STEP_uV",1000)
+    df3.set("Range2",0)
+    df3.set("n_skip",1)
+    df3.set("SINGLE_PULSE_MODE",True)
+    ROUTINE_FC_Avg_XF(e,df3)
+
+
+#<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
 def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
     """Capture the Average FullConv Transfer function"""
 
@@ -1477,10 +1611,10 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
            
     #############################################################################
     
-    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
+    if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV", "USE_SCOPE"]):
         return -1
 
-
+    USE_SCOPE = df.get("USE_SCOPE")
 
     VIN_STEP_uV = df.get("VIN_STEP_uV")
 
@@ -1537,13 +1671,13 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
 
         for i in range(NUM_AVERAGES):
         
-            if not SINGLE_PULSE_MODE:
+            if USE_SCOPE and not SINGLE_PULSE_MODE:
                 sg.INSTR["Scope"].setup_trigger(1,0.6)
         
             fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
         
             #Get halt_sample
-            if not SINGLE_PULSE_MODE:
+            if USE_SCOPE and not SINGLE_PULSE_MODE:
                 halt_sample_wave = sg.INSTR["Scope"].get_wave(2)
                 
                 if any([x > 0.6 for x in halt_sample_wave]):
@@ -1559,12 +1693,12 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
             #For now, only care about non-halt-sample results:
             result = interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave)
            
-            if not SINGLE_PULSE_MODE:
+            if USE_SCOPE and not SINGLE_PULSE_MODE:
                 hs_this_vin.append(halt_sample)
             results_this_vin.append(result)
             
         
-        if not SINGLE_PULSE_MODE:
+        if USE_SCOPE and not SINGLE_PULSE_MODE:
             df.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)},{np.mean(hs_this_vin)}\n")
         else:
             df.write(f"{vin},{np.mean(results_this_vin)},{np.std(results_this_vin)}\n")
@@ -1578,6 +1712,7 @@ def ROUTINE_FC_Avg_XF(experiment=None, data_file=None):
 
 
 
+#<<Registered w/ Spacely as ROUTINE 17, call as ~r17>>
 def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
     """Capture the Full Conversion Transfer function for different values of ~Arb Param~, using Caplo->Spacely method"""
 
@@ -1691,6 +1826,7 @@ def ROUTINE_FullConv_Transfer_Function_vs_ArbParam():
 
 
 
+#<<Registered w/ Spacely as ROUTINE 18, call as ~r18>>
 def ROUTINE_Noise_Histogram():
     """Generate a noise histogram for the ADC"""
 
@@ -1724,9 +1860,31 @@ def ROUTINE_Noise_Histogram():
 
         for code in histo.keys():
             write_file.write(f"{code},{histo[code]}\n")
+            
+#<<Registered w/ Spacely as ROUTINE 19, call as ~r19>>
+def ROUTINE_unstick_VDD_ASIC():
+    unstick_VDD_ASIC()
 
 ### HELPER FUNCTIONS ###
 
+
+def unstick_VDD_ASIC():
+    
+    while True:
+        VDD_ASIC_Current = V_PORT["VDD_ASIC"].get_current()
+        
+        if VDD_ASIC_Current < 50e-6:
+            break
+        
+        rando = np.random.randint(0,350)
+        voltage = 1 + float(rando)/1000
+        print(f"Setting VDD_ASIC={voltage}")
+        V_PORT["VDD_ASIC"].set_voltage(voltage)
+        
+    #Restore VDD_ASIC to set voltage.
+    V_PORT["VDD_ASIC"].set_voltage(V_LEVEL["VDD_ASIC"])
+    print("DONE!")
+        
 
 def SP2_Vin_histogram(pr, gc, pattern_glue, Vtest_mV: int, points: int) -> dict[int, int]:
     """
@@ -1923,6 +2081,8 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
 #            PATTERN GENERATORS                   #
 # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
+def FullConv_Scope_Setup():
+    sg.INSTR["Scope"].enable_channels([1,2,3,4])
 
 # Generates the pattern necessary to run the ADC.
 def genpattern_Vref_Loopback(time_scale_factor):
@@ -2043,7 +2203,7 @@ def genpattern_ADC_Capture(time_scale_factor, apply_pulse_1_fix=False, tsf_qequa
     return "genpattern_adc_op_se_io.glue"
 
 
-def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0, trig_delay=0, n_samp = 10):
+def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay=0, sample_phase_stretch=0, trig_delay=0, n_samp = 10, tsf_reset=1):
 
 
     #Initialize wave dictionary
@@ -2064,18 +2224,18 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay
     ### RESET PHASE ###
 
     #mclk=0 and Rst=1. read/calc=0, but we pulse it at the beginning to make sure SAR logic is reset.
-    waves["mclk"] =       waves["mclk"]+[0]*40
+    waves["mclk"] =       waves["mclk"]+[0]*40 + [0]*40*(tsf_reset-1)
     #waves["read_ext"] =   waves["read_ext"] + [1]*5 + [0]*35
-    waves["calc"] =   waves["calc"] + [1]*5 + [0]*35
-    waves["Rst_ext"] =    waves["Rst_ext"] + [1]*40
+    waves["calc"] =   waves["calc"] + [1]*5 + [0]*35 + [0]*40*(tsf_reset-1)
+    waves["Rst_ext"] =    waves["Rst_ext"] + [1]*40 + [1]*40*(tsf_reset-1)
 
     #Establish autorange comparison voltage of 0.75V, see user manual.
-    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*20 + [1]*20
-    waves["capClk"] = waves["capClk"] + [0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*27
-    waves["Qequal"] = waves["Qequal"] + [0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*23
+    waves["bufsel_ext"] = waves["bufsel_ext"] + [0]*20 + [1]*20 + [1]*40*(tsf_reset-1)
+    waves["capClk"] = waves["capClk"] + [0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*27 + [0]*40*(tsf_reset-1)
+    waves["Qequal"] = waves["Qequal"] + [0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0] + [0]*23 + [0]*40*(tsf_reset-1)
 
     #DACclr = 0
-    waves["DACclr"] =       waves["DACclr"]+[0]*40
+    waves["DACclr"] =       waves["DACclr"]+[0]*40 + [0]*40*(tsf_reset-1)
 
     
     ### SAMPLING PHASE ###
@@ -2198,6 +2358,10 @@ def genpattern_Full_Conversion(time_scale_factor, tsf_sample_phase=1, StoC_Delay
     
     #Option to delay phi1_ext relative to mclk. 
     waves["phi1_ext"] = [0]*(trig_delay) + waves["phi1_ext"] 
+    
+    
+    #TWEAKS TO HELP DEBUG 
+    #waves["calc"] = waves["calc"][1:]
 
     return genpattern_from_waves_dict(waves)
     
@@ -2241,20 +2405,6 @@ def genpattern_Front_End_demo(time_scale_factor):
     return genpattern_from_waves_dict(waves)
 
 
-def genpattern_from_waves_dict(waves_dict):
-
-    #2) Writing to an ASCII file.
-    with open("genpattern.txt",'w') as write_file:
-        for w in waves_dict.keys():
-            write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
-            
-    #3) Convert ASCII file to Glue.
-    gc = GlueConverter(DEFAULT_IOSPEC)
-
-    gc.ascii2Glue("genpattern.txt", 1, "genpattern")
-
-
-    return "genpattern_se_io.glue"
 
 
 # Given a string of bits to write to the scan chain, generates a glue waveform that will write those bits.
