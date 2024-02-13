@@ -99,6 +99,10 @@ class PatternRunner(ABC):
 
         #Init an instance of GlueConverter to handle GlueWave() operations.
         self.gc = GlueConverter(iospecfile)
+        
+        if not self.gc.loaded_iospec_file:
+            self._log.error("PatternRunner could not be set up due to failure parsing iospec file.")
+            return None
 
         #Create an internal data structure with software handles to each FPGA we care about.
         #NOTE: This function sets up the self._fpga_dict and self._interface dictionaries.

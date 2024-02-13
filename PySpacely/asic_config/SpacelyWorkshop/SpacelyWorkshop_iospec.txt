@@ -11,16 +11,11 @@
 
 HARDWARE PXI1Slot4/NI6583/se_io BEGIN
 
-//0.0 -- green   -- Charge  -- 0 -- OUTPUT
-//0.1 -- yellow  -- Rst     -- 1 -- S_CLK
-//0.2 -- orange  -- Qequal  -- 2 -- S_DIN
-//0.3 -- red     -- PreSamp -- 3 -- TRIGGER
 
+S_CLK,I,??
+S_DIN,I,??
+TRIGGER,I,??
 
-S_CLK,I,1
-S_DIN,I,2
-TRIGGER,I,3
-
-OUTPUT,O,0
+OUTPUT,O,??
 
 END

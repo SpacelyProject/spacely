@@ -17,14 +17,15 @@ def ROUTINE_Run_Pattern_From_VCD():
 
     #Get a VCD file from the user via interactive prompt.
     vcd_file = filedialog.askopenfilename()
-    strobe_ps = 40000  #40e3 ps = 40 ns = 1 tick, so this is in real time.
+    strobe_ps = 25000  #40e3 ps = 40 ns = 1 tick, so this is in real time.
     output_file_name = "test1"
     inputs_only = True
     
     glue_file = sg.gc.VCD2Glue(vcd_file, strobe_ps, output_file_name, inputs_only, tb_name="tb")[0]
  
-    sg.pr.run_pattern(glue_file,outfile_tag="result")
-    
+    #ADAM'S NOTES: Wow, okay, I have this glue file... but I forgot how to run a pattern w/ Spacely?
+    #              It's something like sg.pr.something 
+    print("TO BE IMPLEMENTED!")
     
     
 
@@ -38,20 +39,24 @@ def ROUTINE_Write_to_Scan_Chain():
     
     user_bitstream = []
     
+    # ADAM'S NOTE: Careful, I think an Alien may have sabotaged this code...
+    
     for c in user_text:
         if c == "0":
-            user_bitstream.append(0)
-        elif c == "1":
             user_bitstream.append(1)
+        elif c == "1":
+            user_bitstream.append(0)
         else:
             sg.log.error(f"'{c}' is not a 0 or a 1. Honestly, what are you even doing?")
             return
             
     #Generate a Glue pattern that will write this SC data to the chip.
-    sc_pattern = genpattern_scan_chain_write(user_bitstream,100000)
+    # ADAM'S NOTE: I dunno how slow this Alien ASIC will be, I better include a big time_scale_factor
+    time_scale_factor = 100000
+    sc_pattern = genpattern_scan_chain_write(user_bitstream,time_scale_factor)
     
     #Run that pattern.
-    sg.pr.run_pattern(sc_pattern)
+    sg.pr.run_patern(sc_pattern)
 
 
 
