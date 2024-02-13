@@ -865,8 +865,8 @@ def ROUTINE_Full_Conversion_Sweep(experiment=None, data_file=None):
     if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","VIN_STEP_uV","VIN_STEP_MAX_mV","VIN_STEP_MIN_mV"]):
         return -1
     
-    
-    use_scope = not df.get("SINGLE_PULSE_MODE")
+    #NOTE: CHANGE THIS BACK IF WE WANNA USE THE SCOPE! LOL
+    use_scope = False #not df.get("SINGLE_PULSE_MODE")
     
     VIN_STEP_uV = df.get("VIN_STEP_uV")
     
@@ -1214,7 +1214,7 @@ def ROUTINE_FC_Histo_4quad():
 
     unstick_VDD_ASIC()
 
-    e = Experiment("FullConv_Histogram_RT")
+    e = Experiment("FullConv_Histogram_RT_Feb08")
     
     e.set("time_scale_factor",10)
     e.set("tsf_sample_phase",2)
@@ -1223,7 +1223,7 @@ def ROUTINE_FC_Histo_4quad():
     
     #Region0
     df0 = e.new_data_file("Region0_FC_Histo")
-    df1.set("VIN_mV",4)
+    df0.set("VIN_mV",4)
     df0.set("Range2",1)
     df0.set("n_skip",10)
     df0.set("SINGLE_PULSE_MODE",False)
@@ -1239,7 +1239,7 @@ def ROUTINE_FC_Histo_4quad():
     
     #Region2
     df2 = e.new_data_file("Region2_FC_Histo")
-    df1.set("VIN_mV",40)
+    df2.set("VIN_mV",40)
     df2.set("Range2",0)
     df2.set("n_skip",10)
     df2.set("SINGLE_PULSE_MODE",False)
@@ -1247,7 +1247,7 @@ def ROUTINE_FC_Histo_4quad():
     
     #Region3
     df3 = e.new_data_file("Region3_FC_Histo")
-    df1.set("VIN_mV",400)
+    df3.set("VIN_mV",400)
     df3.set("Range2",0)
     df3.set("n_skip",1)
     df3.set("SINGLE_PULSE_MODE",True)
@@ -1300,6 +1300,8 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):       
     
     # (1) CONFIGURE THE TEST SETUP ############################################################################
     
+    use_scope = False
+    
     if not df.check(["SINGLE_PULSE_MODE","tsf_sample_phase","Range2","CapTrim","n_skip","NUM_SAMPLES"]):
         return
     
@@ -1326,17 +1328,19 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):       
     
     for samp in range(df.get("NUM_SAMPLES")):
     
-        sg.INSTR["Scope"].setup_trigger(1,0.6)
+        if use_scope:
+            sg.INSTR["Scope"].setup_trigger(1,0.6)
     
         fc_result = sg.pr.run_pattern(fc_glue,outfile_tag="fc_result")[0]
         
-        #Get halt_sample
-        halt_sample_wave = sg.INSTR["Scope"].get_wave(2)
-        
-        if any([x > 0.6 for x in halt_sample_wave]):
-            halt_sample = 1
-        else:
-            halt_sample = 0
+        if use_scope:
+            #Get halt_sample
+            halt_sample_wave = sg.INSTR["Scope"].get_wave(2)
+            
+            if any([x > 0.6 for x in halt_sample_wave]):
+                halt_sample = 1
+            else:
+                halt_sample = 0
 
         #Get DACclr and capLo
         result_glue = sg.gc.read_glue(fc_result)
@@ -1344,10 +1348,13 @@ def ROUTINE_Full_Conversion_Histogram(experiment = None, data_file=None):       
         caplo_wave = sg.gc.get_bitstream(result_glue,"capLo_ext")
 
         #For now, only care about non-halt-sample results:
-        if halt_sample == 0:
-            results.append(interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave))
+        #if halt_sample == 0:
+        results.append(interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave))
 
-        print(f"RESULT: {results[-1]} (halt_sample={halt_sample})")
+        if use_scope:
+            print(f"RESULT: {results[-1]} (halt_sample={halt_sample})")
+        else:
+            print(f"RESULT: {results[-1]} (no_scope)")
         #write_file.write(f"{param},{result},{halt_sample}\n")
     
     
@@ -1512,7 +1519,7 @@ def ROUTINE_FC_Avg_XF_4quad():
     
     unstick_VDD_ASIC()
     
-    e = Experiment("FullConv_Avg_XF_RT_Feb06")
+    e = Experiment("FullConv_Sweep_RT_Feb07")
     
     e.set("NUM_AVERAGES",20)
     e.set("time_scale_factor",10)
@@ -1530,7 +1537,8 @@ def ROUTINE_FC_Avg_XF_4quad():
     df0.set("Range2",1)
     df0.set("n_skip",10)
     df0.set("SINGLE_PULSE_MODE",False)
-    ROUTINE_FC_Avg_XF(e,df0)
+    #ROUTINE_FC_Avg_XF(e,df0)
+    ROUTINE_Full_Conversion_Sweep(e,df0)
     
     #Region1
     df1 = e.new_data_file("Region1_FC_Avg_XF")
@@ -1540,7 +1548,8 @@ def ROUTINE_FC_Avg_XF_4quad():
     df1.set("Range2",1)
     df1.set("n_skip",1)
     df1.set("SINGLE_PULSE_MODE",True)
-    ROUTINE_FC_Avg_XF(e,df1)
+    #ROUTINE_FC_Avg_XF(e,df1)
+    ROUTINE_Full_Conversion_Sweep(e,df1)
     
     #Region2
     df2 = e.new_data_file("Region2_FC_Avg_XF")
@@ -1550,7 +1559,8 @@ def ROUTINE_FC_Avg_XF_4quad():
     df2.set("Range2",0)
     df2.set("n_skip",10)
     df2.set("SINGLE_PULSE_MODE",False)
-    ROUTINE_FC_Avg_XF(e,df2)
+    #ROUTINE_FC_Avg_XF(e,df2)
+    ROUTINE_Full_Conversion_Sweep(e,df2)
     
     #Region3
     df3 = e.new_data_file("Region3_FC_Avg_XF")
@@ -1560,7 +1570,8 @@ def ROUTINE_FC_Avg_XF_4quad():
     df3.set("Range2",0)
     df3.set("n_skip",1)
     df3.set("SINGLE_PULSE_MODE",True)
-    ROUTINE_FC_Avg_XF(e,df3)
+    #ROUTINE_FC_Avg_XF(e,df3)
+    ROUTINE_Full_Conversion_Sweep(e,df3)
 
 
 #<<Registered w/ Spacely as ROUTINE 16, call as ~r16>>
