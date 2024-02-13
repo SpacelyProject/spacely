@@ -3,7 +3,7 @@
 # This file contains all the static configuration info that describes how
 # your ASIC test stand is set up, for example PSU and SMU voltages.
 
-
+USE_NI = True
 
 # This dict gives a default FPGA bitfile for each slot that you are using.
 # "NI7972_NI6583_40MHz" is a bitfile that has been generated for the NI7972
@@ -17,7 +17,7 @@ INSTR = {"SMU_A" : {"type" : "NIDCPower",
                     "slot" : "PXI1Slot2"}}
 
 
-DEFAULT_IOSPEC = ".\\asic_config\\ExampleASIC\\SpacelyWorkshop_iospec.txt"
+DEFAULT_IOSPEC = ".\\asic_config\\SpacelyWorkshop\\SpacelyWorkshop_iospec.txt"
 
 
 
@@ -39,14 +39,14 @@ V_SEQUENCE = ["V_PWR1","V_PWR2"]
 # Example: VDD is on myPSU channel 0, etc.
 V_INSTR = {"V_PWR1": "SMU_A",
            "V_PWR2": "SMU_A"}
-V_CHAN  = {"V_PWR1": 0,
-           "V_PWR2":1}
+V_CHAN  = {"V_PWR1": 2,
+           "V_PWR2":3}
 
 
 # 3) Define the nominal output level. V_PORTs are in volts, I_PORTs are in amps.
 
-V_LEVEL = {"V_PWR1":3.1,      #1.2 V
-           "V_PWR2":1.6}     #1.0 V
+V_LEVEL = {"V_PWR1":3.1,     
+           "V_PWR2":1.6}     
 
 
 # 4) Define limit values. For V_PORTs we set a maximum current. For I_PORTs

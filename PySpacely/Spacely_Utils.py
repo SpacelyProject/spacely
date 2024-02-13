@@ -77,6 +77,11 @@ def abbreviate_list(big_list):
         return "["+s1+".........."+s2+"] (total # elems = "+str(len(big_list))+")"
 
 
+def format_time(value: float, precision: int = 5) -> str:
+    if value is None:
+        return "N/A"
+    return si_format(value, precision, u'{value} {prefix}s')
+    
 def format_voltage(value: float, precision: int = 5) -> str:
     if value is None:
         return "N/A"
@@ -137,8 +142,7 @@ def report_NI(repeat_delay: float|None = 1, report_non_ni_instr = False):
         rails_count = len(ports)
         row_counter = 0
         for rail, ni in ports.items():
-        
-            if report_non_ni_instr or type(ni) == NIDCPowerInstrument:
+            if report_non_ni_instr or type(ni) == Source_Port:
                 row_counter += 1
                 pt.add_row(get_row(rail, ni), divider=True if row_counter == rails_count else False)
 
@@ -922,19 +926,21 @@ def initialize_NIFPGA():
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_Rails():
-    global V_SEQUENCE, I_SEQUENCE
+    global V_SEQUENCE, I_SEQUENCE, V_PORT, I_PORT
 
     try:
         V_SEQUENCE
     except NameError:
         sg.log.info("V_SEQUENCE not defined in Config. No Vsources will be initialized.")
         V_SEQUENCE = None
+        V_PORT = {}
 
     try:
         I_SEQUENCE
     except NameError:
         sg.log.info("I_SEQUENCE not defined in Config. No Isources will be initialized.")
         I_SEQUENCE = None
+        I_PORT = {}
 
 
     sg.log.debug("NI INSTR init")

@@ -142,7 +142,7 @@ else:
     sg.log.debug('NI init skipped')
 
 #Other non-NI Instruments
-init_instr = (cmd_args.instr is not None) or (assume_defaults and USE_AWG)
+init_instr = (cmd_args.instr is not None) or (assume_defaults and len(INSTR) > 0)
 if not init_instr and num_instr > 0:
     cmd_txt = input(f"DEFAULT: Initialize {num_instr} Test Instruments. 'n' to Skip>>>")
     init_instr = False if cmd_txt == 'n' else True
@@ -303,8 +303,11 @@ while True:
             report_NI(0.5)
         case 'ni_mon -a':
             report_NI(1, True)
-        case 'awg':
-            initialize_AWG()
+        case 'ioshell':
+            sg.pr.ioshell()
+        case 'run_pattern':
+            glue_wave = filedialog.askopenfilename()
+            sg.pr.run_pattern(glue_wave,outfile_tag="result")
         case 'gcshell':
             if 'DEFAULT_IOSPEC' in globals():
                 print("** Starting gcshell with",DEFAULT_IOSPEC,"**")
