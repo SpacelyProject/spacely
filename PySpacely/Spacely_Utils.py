@@ -1117,18 +1117,22 @@ def merge_data_files(file_list=None, merged_name=None):
 
     outfile_lines = [""]
     files_merged = 0
+    total_cols_merged = 0
     
     for f in file_list:
         with open(f,'r') as read_file:
             lines = read_file.readlines()
-            
+        
+        #Get the # of columns that this file has. It's the number of commas + 1
+        #in the line with the most commas. 
         num_cols = max([x.count(",")+1 for x in lines])
         
         
         f_name = f.split("/")[-1].replace(",","-")
             
         sg.log.debug(f"Merging data file {f_name} which has {num_cols} columns")
-            
+        
+        #The first row of the merged file is the name of the file we merged from.
         outfile_lines[0] = outfile_lines[0] + f_name+num_cols*","
         
         for i in range(len(lines)):
@@ -1136,7 +1140,7 @@ def merge_data_files(file_list=None, merged_name=None):
             this_line = lines[i].replace("\n",",")
         
             #Number of columns that should exist to the LEFT of this new file.
-            cols_needed = num_cols*files_merged
+            cols_needed = total_cols_merged
             
             if len(outfile_lines) < i + 2:  
                 outfile_lines.append(","*cols_needed+this_line)
@@ -1149,6 +1153,7 @@ def merge_data_files(file_list=None, merged_name=None):
             
             
         files_merged = files_merged + 1
+        total_cols_merged = total_cols_merged + num_cols
         
         
     with open(merged_name+".csv",'w') as write_file:
