@@ -87,12 +87,22 @@ if cmd_args.file_log is not False:
 
 
 # Ensure all resources are freed automatically on exit (even if error occured)
-def exit_handler():
-    sg.log.info("(Exit Handler) Freeing resources...")
-    deinitialize_INSTR()
-    deinitialize_Arduino()
-    #deinitialize_NI()
 
+#Static EXIT_HANDLER_RAN variable ensures that exit handler will only run once.
+EXIT_HANDLER_RAN = False
+
+def exit_handler():
+    global EXIT_HANDLER_RAN
+    if not EXIT_HANDLER_RAN:
+        sg.log.info("(Exit Handler) Freeing resources...")
+        deinitialize_INSTR()
+        deinitialize_Arduino()
+        
+        EXIT_HANDLER_RAN = True
+
+
+#We intend that the exit handler should run at the end of the loop
+#(see below) but just in case we crash in some other way, we register it here.
 atexit.register(exit_handler)
 
 print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+")
@@ -376,3 +386,7 @@ while True:
                    except Exception as e:
                         print(f"={type(e).__name__}=> ", end='')
                         print(e)
+
+
+#Intended exit path
+exit_handler()

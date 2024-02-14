@@ -20,6 +20,11 @@ import tkinter as tk
 from tkinter import filedialog
 import pyvisa
 
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print("WARNING: matplotlib could not be imported. df.quickplot() will not function.")
+
 
 sys.path.append(os.path.abspath("./src"))
 
@@ -37,6 +42,8 @@ import fnal_log_wizard as liblog
 
 from Master_Config import *
 import Spacely_Globals as sg
+
+
 
 # SPACELY GLOBAL VARIABLES
 
@@ -805,7 +812,7 @@ def initialize_INSTR(interactive: bool = False):
         
 def deinitialize_INSTR():
     for instr in INSTR.keys():
-    
+        
         if INSTR[instr]["type"] == "NIDCPower":
             try:
                 sg.log.blocking(f"Deinitializing NI INSTR \"{instr}\"")
@@ -820,14 +827,26 @@ def deinitialize_INSTR():
     
         elif INSTR[instr]["type"] == "AWG":
             try:
+                sg.log.blocking(f"Setting AWG \"{instr}\" output to \"OFF\"")
                 sg.INSTR[instr].set_output(False)
+                sg.log.block_res()
+            except KeyError:
+                sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
+                
+        elif INSTR[instr]["type"] == "Supply":
+            try:
+                sg.log.blocking(f"Setting Bench Supply \"{instr}\" output to \"OFF\"")
+                sg.INSTR[instr].set_output_off()
+                sg.log.block_res()
             except KeyError:
                 sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
     
         #For any instruments that use Prologix, deinitialize that:
         if "io" in INSTR[instr].keys() and INSTR[instr]["io"] == "Prologix":
             try:
+                sg.log.blocking(f"Disconnecting from Prologix Instrument instr \"{instr}\"")
                 sg.INSTR[instr].io.disconnect()
+                sg.log.block_res()
             except KeyError:
                 sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
 
@@ -959,6 +978,7 @@ def initialize_Rails():
                 
                 V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
+                V_PORT[Vsource].set_output_on()
                 sg.log.block_res()
             sg.log.debug("NI Vsource init done")
         
@@ -976,6 +996,7 @@ def initialize_Rails():
                     
                 I_PORT[Isource] = Source_Port(sg.INSTR[I_INSTR[Isource]], I_CHAN[Isource],default_voltage_limit=volt_limit)
                 I_PORT[Isource].set_current(I_LEVEL[Isource])
+                I_PORT[Isource].set_output_on()
                 sg.log.block_res()
             sg.log.debug("NI Isource init done")
         
@@ -1238,7 +1259,8 @@ class DataFile:
     def __init__(self,name,experiment):
         self.name = name
         self.e = experiment
-        self.file = open(os.sep.join([self.e.base_path,f"{self.name}.csv"]),"w")
+        self.file_path = os.sep.join([self.e.base_path,f"{self.name}.csv"])
+        self.file = open(self.file_path,"w")
         self.metadata = {}
        
 
@@ -1276,4 +1298,34 @@ class DataFile:
                 return False
         
         return True
+        
+    # WARNING: STILL IN DEVELOPMENT, NOT STABLE YET.    
+    def quickplot(self):
+        with open(self.file_path,"r") as read_file:
+            lines = read_file.readlines()
+            header = lines[0]
+            header_tokens = header.split(',')
+            
+            raw_data = {}
+            
+            for tok in header_tokens:
+                raw_data[tok] = []
+            
+            lines = lines[1:]
+            for i in range(len(lines)):
+                tokens = lines[i].split(',')
+               
+                for j in range(len(header_tokens)):
+                    try:
+                        d = float(tokens[j])
+                    except ValueError:
+                        d = NaN
+                        
+                    raw_data[header_tokens[j]].append(d)
+                    
+                    
+        plt.scatter(raw_data[header_tokens[0]],raw_data[header_tokens[1]])
+        plt.show()
+        
+                
     
