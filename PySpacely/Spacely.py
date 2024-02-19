@@ -316,8 +316,8 @@ while True:
         case 'ioshell':
             sg.pr.ioshell()
         case 'run_pattern':
-            glue_wave = filedialog.askopenfilename()
-            sg.pr.run_pattern(glue_wave,outfile_tag="result")
+            glue_waves = filedialog.askopenfilenames()
+            sg.pr.run_pattern(glue_waves,outfile_tag="result")
         case 'gcshell':
             if 'DEFAULT_IOSPEC' in globals():
                 print("** Starting gcshell with",DEFAULT_IOSPEC,"**")
@@ -345,7 +345,7 @@ while True:
             except FileNotFoundError:
                 sg.log.error(f"Could not find asic_config\\{TARGET}\\{TARGET}_Routines.py")
             
-            print("(To add a new routine to this list, define a function in {TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
+            print(f"(To add a new routine to this list, define a function in {TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
             if len(ROUTINES) == 0:
                 print("No routines to show!")
                     
