@@ -51,6 +51,11 @@ GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,
                      "NI7962_NI6581_40MHz":GlueBitfile("NI7972","NI6581",3,40e6,GLUEFPGA_DEFAULT_CFG,
                                                                SPACELY_BITFILE_FOLDER+"\\GlueDirectBitfile_NI7962_NI6581_40M_PROTO_12_6_2023.lvbitx")}
 
+# This dictionary lists the valid FIFOs for each NI RIO I/O card to enable lint checking.
+NI_IO_CARD_VALID_FIFOS = {"NI6583" : ["lvds", "se_io"],
+                          "NI6581" : ["ddca_P0", "ddca_P1", "ddca_P2", "ddcb_P0", "ddcb_P1", "ddcb_P2"]}
+
+
 
 #####################################################################
 
@@ -104,9 +109,13 @@ class PatternRunner(ABC):
             self._log.error("PatternRunner could not be set up due to failure parsing iospec file.")
             return None
 
+        if self.hardware_cfg_lint() == -1:
+            return
+
         #Create an internal data structure with software handles to each FPGA we care about.
         #NOTE: This function sets up the self._fpga_dict and self._interface dictionaries.
-        self.initialize_hardware(self._log,fpga_bitfile_map)
+        if self.initialize_hardware(self._log,fpga_bitfile_map) == -1:
+            return
 
         #For each of these FPGAs, initialize a debugger, and configure them by using the right
         #config for their bitfile.
@@ -123,12 +132,45 @@ class PatternRunner(ABC):
         #    self._interface[hw].interact("w","Set_Voltage_Family",False)
         
         self._return_data = []
-        self._update_io_dir()
+        
+        if self._update_io_dir() == -1:
+            return
+            
         self._update_io_defaults()
 
         if pattern is not None:
             self.update_pattern(pattern)
 
+
+    #This function performs a lint check on the hardware detected in the IOspec.
+    def hardware_cfg_lint(self):
+    
+        #For each HW configuration present in the iospec...
+        for hw in self.gc.IO_hardware.values():
+            slot_name, io_module, fifo = hw.split("/")
+            
+            #Find the appropriate bitfile for that slot:
+            try:
+                bitfile_name = self.fpga_bitfile_map[slot_name]
+            except KeyError:
+                self._log.error(f"Your .iospec file references \"{slot_name}\" but \nyou did not provide a bitfile for that slot in your fpga_bitfile_map.")
+                return -1
+            
+            #Check that the I/O module in .iospec and the bitfile match.
+            bitfile_io = GLUEFPGA_BITFILES[bitfile_name].IO_SERIAL_NUM    
+            if io_module != bitfile_io:
+                self._log.error(f"The bitfile you have chosen for slot {slot_name} works for NI FlexRIO card {bitfile_io}, but your .iospec file contains pins mapped for {io_module}.")
+                return -1
+            
+            #Check that the FIFO specified in your iospec is correct.
+            valid_fifos = NI_IO_CARD_VALID_FIFOS[io_module]
+            list_of_valid_fifos = ", ".join(valid_fifos)
+            if fifo not in valid_fifos:
+                self._log.error(f"Your iospec maps some pins to FIFO={fifo}, but your FPGA bitfile only supports the following FIFOs: {list_of_valid_fifos}")
+                return -1
+                
+        
+        return 0
 
     # initialize_hardware() - This function sets up a hardware dictionary and initializes
     #  all FPGAs required for the I/Os in iospec. 
@@ -144,7 +186,7 @@ class PatternRunner(ABC):
                 bitfile_name = fpga_bitfile_map[slot_name]
             except KeyError:
                 self._log.error(f"Your .iospec file references \"{slot_name}\" but \nyou did not provide a bitfile for that slot in your fpga_bitfile_map.")
-                exit()
+                return -1
 
             #The identifier we will use for this FPGA in THIS session is
             #it's slot name + the I/O name (ig because the I/O capabilities are
@@ -154,10 +196,21 @@ class PatternRunner(ABC):
             #If we haven't already set up this FPGA in _fpga_dict and _interface, do it.
             if fpga_name not in self._fpga_dict.keys():
                 self._log.debug(f"Initializing FPGA Hardware:{fpga_name}...")
-                #Create NiFpga Object using Slot Name (and store the bitfile_name for later reference)
-                self._fpga_dict[fpga_name] = NiFpga(log, slot_name, bitfile_name=bitfile_name)
-                #Flash the correct bitfile
-                self._fpga_dict[fpga_name].start(GLUEFPGA_BITFILES[bitfile_name].BITFILE)
+                
+                try:
+                    #Create NiFpga Object using Slot Name (and store the bitfile_name for later reference)
+                    self._fpga_dict[fpga_name] = NiFpga(log, slot_name, bitfile_name=bitfile_name)
+                    #Flash the correct bitfile
+                    self._fpga_dict[fpga_name].start(GLUEFPGA_BITFILES[bitfile_name].BITFILE)
+                except Exception as e:
+                    print(e)
+                    if "InvalidResourceName" in e.__str__():
+                        self._log.error(f"FAILED to communicate with FPGA at slot {slot_name}. Please double-check that you can see the FPGA in NI MAX and that the slot name is correct. (Remember, it's not always PXI1Slot(N)).") 
+                        return -1
+                    else:
+                        raise e
+                    
+                
                 #Start an interface referencing the object we just created.
                 self._interface[fpga_name] = NiFpgaDebugger(log, self._fpga_dict[fpga_name])
                 #Configure as appropriate for the bitfile.
@@ -223,10 +276,22 @@ class PatternRunner(ABC):
             else:
                 #Set direction by port.
                 this_port_contains_asic_inputs = False
+                this_port_contains_asic_outputs = False
+                
                 #If there are any ASIC inputs which use this hw...
                 for io in self.gc.Input_IOs:
                     if self.gc.IO_hardware[io] == hw:
                         this_port_contains_asic_inputs = True
+                    
+                for io in self.gc.Output_IOs:
+                    if self.gc.IO_hardware[io] == hw:
+                        this_port_contains_asic_outputs = True        
+                
+                
+                if this_port_contains_asic_inputs and this_port_contains_asic_outputs:
+                    self._log.error(f"{fpga_name} sets I/O direction by port. You cannot have both inputs & outputs in the same port!")
+                    return -1
+                
                 
                 self._log.debug(f"Programming {hw} I/O Direction as: {this_port_contains_asic_inputs}")
                 self._interface[fpga_name].interact("w",fifo+"_WE",this_port_contains_asic_inputs)
@@ -261,8 +326,11 @@ class PatternRunner(ABC):
             in_fifo.ref.buffer_size
             READ_BUFFER_SIZE_SUPPORTED = True
         except Exception as e:
-            print(f"ERROR: Unable to get buffer sizes due to {e}")
-            READ_BUFFER_SIZE_SUPPORTED = False
+            if "FeatureNotSupported" in e.__str__():
+                self._log.warning("Unable to get buffer sizes due to FeatureNotSupported")
+                READ_BUFFER_SIZE_SUPPORTED = False
+            else:
+                raise(e)
         
         
         if not READ_BUFFER_SIZE_SUPPORTED or (in_fifo.ref.buffer_size < pattern.len+FPGA_READBACK_OFFSET):
@@ -302,8 +370,15 @@ class PatternRunner(ABC):
     def run_pattern(self,patterns,time_scale_factor=1,outfile_tag=None):
 
         #Make sure "patterns" is a list :p
-        if type(patterns) is not list:
+        if type(patterns) is str:
             patterns = [patterns]
+            
+        if type(patterns) is tuple:
+            patterns = [i for i in patterns]
+            
+        if type(patterns) is not list:
+            self._log.error(f"run_pattern could not parse patterns={patterns}")
+            return
 
         #If it's a filename, we use read_glue() to get the actual GlueWave() object.
         for i in range(len(patterns)):
