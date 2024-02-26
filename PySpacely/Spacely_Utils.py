@@ -1298,10 +1298,40 @@ class DataFile:
                 return False
         
         return True
+
+
+    
+
+
+## DATA PROCESSING FUNCTIONS ##
+#
+# An analysis object can load data from multiple data files. It will carry out some analysis task on this data using its functions. 
+#
+
+
+class Analysis():
+
+    def __init__(self):
+
+        #Each value in self.data is a dictionary, which contains the
+        #headers and table values from a single data file. 
+        self.data = {}
+        self.data_sources = []
+
+
+
+    # Loads data into the analysis from a DataFile object or CSV path.
+    def load_df(self, df):
+
+        if type(df) == str:
+            file_path = df
+        else:
+            file_path = df.file_path
+
+
+        sg.log.debug(f"Analysis: Loading DataFile from {file_path}...")
         
-    # WARNING: STILL IN DEVELOPMENT, NOT STABLE YET.    
-    def quickplot(self):
-        with open(self.file_path,"r") as read_file:
+        with open(file_path,"r") as read_file:
             lines = read_file.readlines()
             header = lines[0]
             header_tokens = header.split(',')
@@ -1324,8 +1354,184 @@ class DataFile:
                     raw_data[header_tokens[j]].append(d)
                     
                     
-        plt.scatter(raw_data[header_tokens[0]],raw_data[header_tokens[1]])
-        plt.show()
+
+        file_name = file_path.split(os.sep)[-1]
+
+        self.data_sources.append(file_name)
+        self.data[file_name] = raw_data
+        
+
+    #Loads data into the analysis object from a Python dictionary.
+    def load_dict(self,my_dict, name=None):
+
+        if name == None:
+            n = 0
+            name = f"Dict{n}"
+            while name in self.data_sources:
+                n = n + 1
+                name = f"Dict{n}"
+
+        sg.log.debug(f"Analysis: Loading {name}...")
+        
+        self.data[name] = my_dict
+        self.data_sources.append(my_dict)
+
+    def freq_avg(self,value_name, freq_name, source=None):
+        """This function returns the average from data specified in a frequency table."""
+
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for freq_avg")
+                return None
+
+        df = self.data[source]
+        
+        values = df[value_name]
+        frequencies = df[freq_name]
+
+        #Total # of counts = sum(frequencies)
+        sumproduct = sum([values[i]*frequencies[i] for i in range(len(values))])
+        n = sum(frequencies)
+        
+
+        return sumproduct/n
+
+    def freq_stddev(self,value_name, freq_name, source=None):
+        """This function returns the standard deviation from data specified in a frequency table."""
+
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for freq_avg")
+                return None
+
+        df = self.data[source]
+
+        values = df[value_name]
+        frequencies = df[freq_name]
+
+        mean = self.freq_avg(value_name, freq_name, source)
+
+        
+        sum_squared_diffs = sum([frequencies[i]*(values[i]-mean)**2 for i in range(len(values))])
+
+        #Divide by (n-1) for a sample standard deviation. We're never gonna have a population stddev in ASIC design.
+        return np.sqrt(sum_squared_diffs / (sum(frequencies)-1))
+    
+
+
+    def plot_scatter(self,x_key, y_key, source=None, save_path=None, title=None):
+        """
+        Plot a scatter plot of data from a dictionary.
+
+        Parameters:
+            x_key (str): Key in the dictionary for X values.
+            y_key (str): Key in the dictionary for Y values.
+            save_path (str, optional): Path to save the plot as a PNG file.
+        """
+
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for freq_avg")
+                return None
+
+        sg.log.debug("Analysis: Creating scatter plot...")
+
+        data_dict = self.data[source]
+        
+        # Extract X and Y values from the dictionary
+        x_values = data_dict.get(x_key, [])
+        y_values = data_dict.get(y_key, [])
+
+        # Check if the lengths of x_values and y_values match
+        if len(x_values) != len(y_values):
+            raise ValueError("Lengths of X and Y values must match.")
+
+        # Create scatter plot
+        plt.figure(figsize=(8, 6))
+        plt.scatter(x_values, y_values, color='b', alpha=0.7)
+        
+        # Set labels and title
+        plt.xlabel(x_key)
+        plt.ylabel(y_key)
+
+        if title == None:
+            title = f"{y_key} vs {x_key}"
+        plt.title(title)
+        
+        # Show grid
+        plt.grid(True)
+        
+        # Save plot as PNG if save_path is provided
+        if save_path:
+            plt.savefig(save_path)
+            print(f"Plot saved as {save_path}")
+        else:
+            plt.show()
+
+
+
+    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None):
+        """
+        Plot a histogram of data from a dictionary.
+
+        Parameters:
+            values_key (str): Key in the dictionary for values.
+            frequency_key (str): Key in the dictionary for frequency counts.
+            bin_size (float, optional): Size of bins for histogram. Default is None.
+            save_path (str, optional): Path to save the plot as a PNG file.
+        """
+
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for freq_avg")
+                return None
+
+        sg.log.debug("Analysis: Creating histogram...")
+
+        data_dict = self.data[source]
+        
+        # Extract values and frequency counts from the dictionary
+        values = data_dict.get(values_key, [])
+        frequencies = data_dict.get(frequency_key, [])
+
+        # Create histogram
+        plt.figure(figsize=(8, 6))
+
+        # Set bins based on bin_size or default to bin width of 1
+        if bin_size is None:
+            bins = range(int(min(values)), int(max(values)) + 2, 1)
+        else:
+            bins = int((max(values) - min(values)) / bin_size)
+
+        plt.hist(values, bins=bins, weights=frequencies, color='skyblue', edgecolor='black')
+
+        # Set labels and title
+        plt.xlabel(values_key)
+        plt.ylabel(frequency_key)
+
+        if title == None:
+            title = f'Histogram of {values_key}'
+        plt.title(title)
+
+        # Show grid
+        plt.grid(True)
+        
+        # Save plot as PNG if save_path is provided
+        if save_path:
+            plt.savefig(save_path)
+            print(f"Plot saved as {save_path}")
+        else:
+            plt.show()
+
+    
         
                 
     

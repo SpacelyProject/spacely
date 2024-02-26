@@ -2086,6 +2086,43 @@ def interpret_CDAC_pattern_edges(caplo_wave, dacclr_wave):
     return vec_to_int(binary_approximation)
 
 
+#<<Registered w/ Spacely as ROUTINE 20, call as ~r20>>
+def ROUTINE_df_arithmetic_lint():
+    """Check correctness of df_arithmetic functions"""
+    
+
+    # Instantiate the Analysis class
+    analysis = Analysis()
+
+    # Sample data
+    data = {
+        'X_values': [1, 2, 3, 4, 5],
+        'Y_values': [2, 3, 5, 7, 11],
+        'Values': [1,  2,  3,  4],
+        'Frequencies': [1, 3, 2, 1]
+    }
+
+    # Load sample data into analysis object
+    analysis.load_dict(data, name='Sample')
+
+    # Test freq_avg
+    print("Frequency Average:", analysis.freq_avg('Values', 'Frequencies', source='Sample'))
+    print("Expected Value: 2.429 (hand calc)")
+
+    # Test freq_stddev
+    print("Frequency Standard Deviation:", analysis.freq_stddev('Values','Frequencies', source='Sample'))
+    print("Expected Value: 0.9759 (calculator.net)")
+
+    # Test plot_scatter
+    try:
+        analysis.plot_scatter('X_values', 'Y_values', source='Sample')
+    except ValueError as e:
+        print("Error:", e)
+
+    # Test plot_histogram
+    analysis.plot_histogram('Values', 'Frequencies', source='Sample')
+
+    
             
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 

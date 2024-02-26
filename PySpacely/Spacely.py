@@ -58,6 +58,7 @@ argp.add_argument('--ni', action=argparse.BooleanOptionalAction, help='Perform N
 argp.add_argument('--instr', action=argparse.BooleanOptionalAction, help='Perform non-NI Instrument init')
 #argp.add_argument('--scope', action=argparse.BooleanOptionalAction, help='Perform Oscilloscope init')
 argp.add_argument('-d', '--defaults', action='store_true', help='Assume defaults for Arduino ports etc. (otherwise it will ask)')
+argp.add_argument('--skipall', action='store_true', help='Skip initialization of all instruments.')
 argp.add_argument('--file-log', const=None, default=False, nargs='?', action='store', help='When specified saves a copy of a log to a given file')
 argp.add_argument('--ansi', action=argparse.BooleanOptionalAction, help='Whether to enable ANSI (color) output')
 argp.add_argument('-r', type=int, default=None, help='Routine to automatically run.')
@@ -117,6 +118,7 @@ if USE_ARDUINO and EMULATE_ASIC:
     print("**ASIC will be EMULATED by ARDUINO**")
 
 assume_defaults = cmd_args.defaults
+skip_all = cmd_args.skipall
 
 if not assume_defaults:
     print("Did you know you can skip interactive initialization with --defaults ?")
@@ -130,7 +132,7 @@ if num_instr == -1:
 
 #Arduino HAL
 init_hal = cmd_args.hal is not None
-if not init_hal and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
+if not init_hal and not skip_all and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
     cmd_txt = input("DEFAULT: Connect to Arduino. 'n' to Skip>>>")
     init_hal = False if cmd_txt == 'n' else True # init by default
 if init_hal:
@@ -140,7 +142,7 @@ else:
 
 #NI Chassis
 init_ni = (cmd_args.ni is not None) or (assume_defaults and USE_NI)
-if not init_ni and USE_NI == True:
+if not init_ni and not skip_all and USE_NI == True:
     cmd_txt = input("DEFAULT: Set up NIFPGA 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
 if init_ni:
@@ -153,7 +155,7 @@ else:
 
 #Other non-NI Instruments
 init_instr = (cmd_args.instr is not None) or (assume_defaults and len(INSTR) > 0)
-if not init_instr and num_instr > 0:
+if not init_instr and not skip_all and num_instr > 0:
     cmd_txt = input(f"DEFAULT: Initialize {num_instr} Test Instruments. 'n' to Skip>>>")
     init_instr = False if cmd_txt == 'n' else True
 if init_instr:
