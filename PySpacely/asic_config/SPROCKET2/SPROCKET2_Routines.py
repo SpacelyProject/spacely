@@ -2122,7 +2122,7 @@ def ROUTINE_df_arithmetic_lint():
     # Test plot_histogram
     analysis.plot_histogram('Values', 'Frequencies', source='Sample')
 
-    
+
             
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # 

@@ -317,6 +317,9 @@ while True:
             report_NI(1, True)
         case 'ioshell':
             sg.pr.ioshell()
+        case 'ashell':
+            a = Analysis()
+            a.ashell()
         case 'run_pattern':
             glue_waves = filedialog.askopenfilenames()
             sg.pr.run_pattern(glue_waves,outfile_tag="result")

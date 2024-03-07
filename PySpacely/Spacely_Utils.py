@@ -1308,6 +1308,8 @@ class DataFile:
 # An analysis object can load data from multiple data files. It will carry out some analysis task on this data using its functions. 
 #
 
+ASHELL_HELPTEXT = """Supported Commands: df, mean, std, hist"""
+
 
 class Analysis():
 
@@ -1334,7 +1336,7 @@ class Analysis():
         with open(file_path,"r") as read_file:
             lines = read_file.readlines()
             header = lines[0]
-            header_tokens = header.split(',')
+            header_tokens = [x.strip() for x in header.split(',')]
             
             raw_data = {}
             
@@ -1355,7 +1357,7 @@ class Analysis():
                     
                     
 
-        file_name = file_path.split(os.sep)[-1]
+        file_name = file_path.split("/")[-1]
 
         self.data_sources.append(file_name)
         self.data[file_name] = raw_data
@@ -1461,7 +1463,7 @@ class Analysis():
         plt.ylabel(y_key)
 
         if title == None:
-            title = f"{y_key} vs {x_key}"
+            title = f"{source}: {y_key} vs {x_key}"
         plt.title(title)
         
         # Show grid
@@ -1476,7 +1478,7 @@ class Analysis():
 
 
 
-    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None):
+    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None, show=False):
         """
         Plot a histogram of data from a dictionary.
 
@@ -1518,20 +1520,146 @@ class Analysis():
         plt.ylabel(frequency_key)
 
         if title == None:
-            title = f'Histogram of {values_key}'
+            title = f'{source}: Histogram of {values_key}'
         plt.title(title)
+        
+        
+        FILENAME_ILLEGAL_CHARS = [" ",".",":","?"]
+        
+        if save_path == None:
+            for c in FILENAME_ILLEGAL_CHARS:
+                title = title.replace(c,"_")
+            save_path = "./output/" + title.replace(".","_").replace(" ","_") + ".png"
 
         # Show grid
         plt.grid(True)
         
         # Save plot as PNG if save_path is provided
-        if save_path:
+        if show:
+            plt.show()
+        else:
             plt.savefig(save_path)
             print(f"Plot saved as {save_path}")
-        else:
-            plt.show()
 
     
+    #Returns list of sources to perform the operation on.
+    # Returns: A LIST of sources the user has selected (even if that list is only 1 element).
+    def _ashell_get_source(self):
+        print("Select Data Source:")
+        print("0. All data sources")
+        
+        for i in range(len(self.data_sources)):
+            print(f"{i+1}. {self.data_sources[i]}")
+            
+        
+        while True:
+            try:
+                user_selection = int(input("selection?").strip())
+                
+                if user_selection == 0:
+                    return self.data_sources
+                elif user_selection > 0 and user_selection < len(self.data_sources)+1:
+                    return [self.data_sources[user_selection-1]]
+                else:
+                    print(f"Error! {user_selection} wasn't on the list.")
+                
+            except ValueError:
+                print("Error! Please enter an integer.")
+           
+    
+    #Given a particular source, gives the user the option to select which column they want to get data from. 
+    def _ashell_get_key(self,source):
+        print("Available Data Columns:")
+        
+        cols = list(self.data[source].keys())
+        
+        for i in range(len(cols)):
+            print(f"{i+1}. {cols[i]}")
+            
+        
+        while True:
+            try:
+                user_selection = int(input("selection?").strip())
+                
+                if user_selection > 0 and user_selection < len(cols)+1:
+                    return cols[user_selection-1]
+                else:
+                    print(f"Error! {user_selection} wasn't on the list.")
+                
+            except ValueError:
+                print("Error! Please enter an integer.")        
+        
+
+    def ashell(self):
+        """Analysis shell"""
+        
+        
+        
+        while True:
+            
+            user_input = input(">ashell>").strip()
+            
+            if user_input == "exit" or user_input == "quit":
+                break
+             
+            elif user_input == "df":
+                df_to_load = filedialog.askopenfilenames()
+                
+                for df in df_to_load:
+                    self.load_df(df)
+                
+            elif user_input in ["mean", "std", "hist"]:
+            
+                sources = self._ashell_get_source()
+                
+                print("Choose which column contains bins:")
+                bins = self._ashell_get_key(sources[0])
+                
+                print("Choose which column contains counts:")
+                counts = self._ashell_get_key(sources[0])
+                
+                
+                if user_input == "hist":
+                
+                    bin_size = input("Bin size? (hit enter for default)").strip()
+                    
+                    if bin_size == "":
+                        bin_size = None
+                        
+                    title = input("title? (hit enter for default)").strip()
+                    
+                    if title == "":
+                        title = None
+
+                    user_filename = input("filename (hit enter to just display) ?").strip()
+
+                    if user_filename == "":
+                        save_path = None
+                        show = True
+                    else:
+                        save_path = "./output/"+user_filename
+                        show = False
+                        
+                    
+                
+                for s in sources:
+                
+                    print(f"Data Source: {s}")
+                
+                    if user_input == "std" or user_input == "mean":
+                        print("Avg:",self.freq_avg(bins,counts,s))
+                        print("Std:",self.freq_stddev(bins,counts,s))
+                        
+                    else: #hist
+                        self.plot_histogram(bins,counts, s, bin_size, save_path, title, show)
+                        
+                
+            elif user_input == "":
+                continue
+            
+            else:
+                print("Unrecognized.")
+                print(ASHELL_HELPTEXT)
         
                 
     
