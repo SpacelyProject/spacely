@@ -1478,7 +1478,7 @@ class Analysis():
 
 
 
-    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None, show=False):
+    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None, output_option=0):
         """
         Plot a histogram of data from a dictionary.
 
@@ -1535,11 +1535,20 @@ class Analysis():
         plt.grid(True)
         
         # Save plot as PNG if save_path is provided
-        if show:
+        #1. Showing the histogram
+        #2. Save the histogram
+        #3. Both show and save the histogram
+        if output_option == 1:
             plt.show()
-        else:
+        elif output_option == 2:
             plt.savefig(save_path)
             print(f"Plot saved as {save_path}")
+        elif output_option == 3:
+            plt.show()
+            plt.savefig(save_path)
+            print(f"Plot saved as {save_path}")
+        else:
+            print(f"Error: Output Option must be 1, 2 or 3 : plot_histogram error")
 
     
     #Returns list of sources to perform the operation on.
@@ -1631,14 +1640,15 @@ class Analysis():
                     if title == "":
                         title = None
 
-                    user_filename = input("filename (hit enter to just display) ?").strip()
-
+                    user_filename = input("filename: Hit Enter to proceed for selections").strip()
+                    output_option = int(input("Let us know, what kind of output option you would like to have? \n 1. Show the histogram \n 2. Save the histogram \n 3. Both show and save the histogram"))
+                                            
                     if user_filename == "":
                         save_path = None
-                        show = True
+                        
                     else:
                         save_path = "./output/"+user_filename
-                        show = False
+                        
                         
                     
                 
@@ -1651,7 +1661,7 @@ class Analysis():
                         print("Std:",self.freq_stddev(bins,counts,s))
                         
                     else: #hist
-                        self.plot_histogram(bins,counts, s, bin_size, save_path, title, show)
+                        self.plot_histogram(bins,counts, s, bin_size, save_path, title, output_option)
                         
                 
             elif user_input == "":
