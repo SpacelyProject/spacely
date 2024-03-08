@@ -11,10 +11,10 @@ USE_NI = False
 
 TARGET = "SPROCKET2"
 
-TARGET_ROUTINES_MOD = f"asic_config.{TARGET}.{TARGET}_Routines"
-TARGET_ROUTINES_PY = f"asic_config\\{TARGET}\\{TARGET}_Routines.py"
-TARGET_CONFIG_MOD = f"asic_config.{TARGET}.{TARGET}_Config"
-TARGET_CONFIG_PY = f"asic_config\\{TARGET}\\{TARGET}_Config.py"
+TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
+TARGET_ROUTINES_PY = f"spacely-asic-config\\{TARGET}\\{TARGET}_Routines.py"
+TARGET_CONFIG_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Config"
+TARGET_CONFIG_PY = f"spacely-asic-config\\{TARGET}\\{TARGET}_Config.py"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 

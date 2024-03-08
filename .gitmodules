@@ -1,0 +1,3 @@
+[submodule "PySpacely/spacely-asic-config"]
+	path = PySpacely/spacely-asic-config
+	url = https://github.com/Fermilab-Microelectronics/spacely-asic-config.git
