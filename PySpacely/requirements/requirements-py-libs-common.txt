@@ -1,0 +1,4 @@
+git+https://github.com/Fermilab-Microelectronics/py-libs-common#subdirectory=libIO
+git+https://github.com/Fermilab-Microelectronics/py-libs-common#subdirectory=liblogwizard
+git+https://github.com/Fermilab-Microelectronics/py-libs-common#subdirectory=nitoolbox
+git+https://github.com/Fermilab-Microelectronics/py-libs-common#subdirectory=libinstrument

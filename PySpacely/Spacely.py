@@ -193,44 +193,50 @@ except NameError:
     print("       No automatic voltage checking will be performed.")
     V_WARN_VOLTAGE = None
 
-#Get routines from file.
-with open(TARGET_ROUTINES_PY) as file:
-    node = ast.parse(file.read())
-    functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
-                    
-ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
 
-#Write back routine # annotations to file. 
-with open(TARGET_ROUTINES_PY,"r") as read_file:
-    routines_py_lines = read_file.readlines()
-    
-annotation_update_needed = False
-new_routines_py_lines = []
+try:
+    #Get routines from file.
+    with open(TARGET_ROUTINES_PY) as file:
+        node = ast.parse(file.read())
+        functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
 
-for i in range(len(routines_py_lines)):
-    #For each line that looks like a routine,
-    if routines_py_lines[i].startswith("def ROUTINE"):
-        #Find which # routine is defined there.
-        for j in range(len(ROUTINES)):
-            if ROUTINES[j].name+"(" in routines_py_lines[i]:
-                annotation = f"#<<Registered w/ Spacely as ROUTINE {j}, call as ~r{j}>>\n"
-                
-                new_routines_py_lines.append(annotation)
-                
-                #If this annotation does not already exist on the previous line...
-                if i == 0 or annotation not in routines_py_lines[i-1]:
-                    annotation_update_needed = True
-                    
-    
-    #Filter out the old annotations. If they are correct they should have been added above.
-    if not routines_py_lines[i].startswith("#<<Registered w/ Spacely"):
-        new_routines_py_lines.append(routines_py_lines[i])
-     
-if annotation_update_needed:
-    sg.log.debug(f"Updating annotations in {TARGET_ROUTINES_PY}...")
-    with open(TARGET_ROUTINES_PY,"w") as write_file:
-        for i in range(len(new_routines_py_lines)):
-            write_file.write(new_routines_py_lines[i])
+    ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
+
+    #Write back routine # annotations to file. 
+    with open(TARGET_ROUTINES_PY,"r") as read_file:
+        routines_py_lines = read_file.readlines()
+
+    annotation_update_needed = False
+    new_routines_py_lines = []
+
+    for i in range(len(routines_py_lines)):
+        #For each line that looks like a routine,
+        if routines_py_lines[i].startswith("def ROUTINE"):
+            #Find which # routine is defined there.
+            for j in range(len(ROUTINES)):
+                if ROUTINES[j].name+"(" in routines_py_lines[i]:
+                    annotation = f"#<<Registered w/ Spacely as ROUTINE {j}, call as ~r{j}>>\n"
+
+                    new_routines_py_lines.append(annotation)
+
+                    #If this annotation does not already exist on the previous line...
+                    if i == 0 or annotation not in routines_py_lines[i-1]:
+                        annotation_update_needed = True
+
+
+        #Filter out the old annotations. If they are correct they should have been added above.
+        if not routines_py_lines[i].startswith("#<<Registered w/ Spacely"):
+            new_routines_py_lines.append(routines_py_lines[i])
+
+    if annotation_update_needed:
+        sg.log.debug(f"Updating annotations in {TARGET_ROUTINES_PY}...")
+        with open(TARGET_ROUTINES_PY,"w") as write_file:
+            for i in range(len(new_routines_py_lines)):
+                write_file.write(new_routines_py_lines[i])
+
+except FileNotFoundError:
+    sg.log.warning("ASIC_Routines.py file could not be found, no routines were loaded.")
+    ROUTINES = []
         
 #Run On-startup routine
 try:
