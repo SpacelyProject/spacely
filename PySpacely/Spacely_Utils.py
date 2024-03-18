@@ -1318,6 +1318,7 @@ class Analysis():
         #Each value in self.data is a dictionary, which contains the
         #headers and table values from a single data file. 
         self.data = {}
+        #self.data_sources is a list of the data sources which are represented in self.data (as strings)
         self.data_sources = []
 
 
@@ -1478,52 +1479,69 @@ class Analysis():
 
 
 
-    def plot_histogram(self,values_key, frequency_key, source=None, bin_size=None, save_path=None, title=None, output_option=0):
+    def plot_histogram(self,values_key, frequency_key, sources=None, bin_size=None, save_path=None, title=None, output_option=0):
         """
         Plot a histogram of data from a dictionary.
 
         Parameters:
             values_key (str): Key in the dictionary for values.
             frequency_key (str): Key in the dictionary for frequency counts.
+            sources (str, or list of str): names of data sources to be included in the histogram.
             bin_size (float, optional): Size of bins for histogram. Default is None.
             save_path (str, optional): Path to save the plot as a PNG file.
+            title (str, optional): Title
+            output_option(int): 1 = show, 2 = save, 3 = both
         """
 
-        if source == None:
+        # If no source is specified, but there's only one source in data_sources, just use that.
+        if sources == None:
             if len(self.data_sources) == 1:
-                source = self.data_sources[0]
+                sources = self.data_sources[0]
             else:
-                print("ERR: Must specify source for freq_avg")
+                print("ERR: Must specify source for histogram")
                 return None
+                
+        if type(sources) == str:
+            sources = [sources]
 
         sg.log.debug("Analysis: Creating histogram...")
 
-        data_dict = self.data[source]
+        #Create figure
+        #plt.figure(figsize=(8, 6))
         
-        # Extract values and frequency counts from the dictionary
-        values = data_dict.get(values_key, [])
-        frequencies = data_dict.get(frequency_key, [])
+        ## GENERATE A HISTOGRAM FROM EACH DATA SOURCE
+        for source in sources:
 
-        # Create histogram
-        plt.figure(figsize=(8, 6))
+            data_dict = self.data[source]
+            
+            # Extract values and frequency counts from the dictionary
+            values = data_dict.get(values_key, [])
+            frequencies = data_dict.get(frequency_key, [])
 
-        # Set bins based on bin_size or default to bin width of 1
-        if bin_size is None:
-            bins = range(int(min(values)), int(max(values)) + 2, 1)
-        else:
-            bins = int((max(values) - min(values)) / bin_size)
+            # Set bins based on bin_size or default to bin width of 1
+            if bin_size is None:
+                bins = range(int(min(values)), int(max(values)) + 2, 1)
+            else:
+                bins = int((max(values) - min(values)) / bin_size)
 
-        plt.hist(values, bins=bins, weights=frequencies, color='skyblue', edgecolor='black')
+            plt.hist(values, bins=bins, weights=frequencies, histtype='step', label=source)
 
+        
+        ## TITLE AND AXIS LABELS
+        
         # Set labels and title
         plt.xlabel(values_key)
         plt.ylabel(frequency_key)
 
+        #Default title generation
         if title == None:
-            title = f'{source}: Histogram of {values_key}'
+            if len(sources) == 1:
+                title = f'{sources[0]}: Histogram of {values_key}'
+            else:
+                title = f'Histogram of {values_key}'
         plt.title(title)
         
-        
+        #Default save path generation
         FILENAME_ILLEGAL_CHARS = [" ",".",":","?"]
         
         if save_path == None:
@@ -1533,6 +1551,8 @@ class Analysis():
 
         # Show grid
         plt.grid(True)
+        
+        plt.legend()
         
         # Save plot as PNG if save_path is provided
         #1. Showing the histogram
@@ -1544,8 +1564,8 @@ class Analysis():
             plt.savefig(save_path)
             print(f"Plot saved as {save_path}")
         elif output_option == 3:
-            plt.show()
             plt.savefig(save_path)
+            plt.show()
             print(f"Plot saved as {save_path}")
         else:
             print(f"Error: Output Option must be 1, 2 or 3 : plot_histogram error")
@@ -1617,7 +1637,7 @@ class Analysis():
                 for df in df_to_load:
                     self.load_df(df)
                 
-            elif user_input in ["mean", "std", "hist"]:
+            elif user_input in ["mean", "std", "hist", "mhist"]:
             
                 sources = self._ashell_get_source()
                 
@@ -1628,7 +1648,7 @@ class Analysis():
                 counts = self._ashell_get_key(sources[0])
                 
                 
-                if user_input == "hist":
+                if user_input == "hist" or user_input == "mhist":
                 
                     bin_size = input("Bin size? (hit enter for default)").strip()
                     
@@ -1640,7 +1660,7 @@ class Analysis():
                     if title == "":
                         title = None
 
-                    user_filename = input("filename: Hit Enter to proceed for selections").strip()
+                    user_filename = input("filename? (hit enter for default)").strip()
                     output_option = int(input("Let us know, what kind of output option you would like to have? \n 1. Show the histogram \n 2. Save the histogram \n 3. Both show and save the histogram"))
                                             
                     if user_filename == "":
@@ -1652,17 +1672,21 @@ class Analysis():
                         
                     
                 
-                for s in sources:
-                
-                    print(f"Data Source: {s}")
-                
-                    if user_input == "std" or user_input == "mean":
-                        print("Avg:",self.freq_avg(bins,counts,s))
-                        print("Std:",self.freq_stddev(bins,counts,s))
-                        
-                    else: #hist
-                        self.plot_histogram(bins,counts, s, bin_size, save_path, title, output_option)
-                        
+                if user_input == "mhist":
+                    self.plot_histogram(bins,counts, sources, bin_size, save_path, title, output_option)
+                    
+                else:
+                    for s in sources:
+                    
+                        print(f"Data Source: {s}")
+                    
+                        if user_input == "std" or user_input == "mean":
+                            print("Avg:",self.freq_avg(bins,counts,s))
+                            print("Std:",self.freq_stddev(bins,counts,s))
+                            
+                        elif user_input == "hist":
+                            self.plot_histogram(bins,counts, s, bin_size, save_path, title, output_option)
+  
                 
             elif user_input == "":
                 continue
