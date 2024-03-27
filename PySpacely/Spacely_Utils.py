@@ -23,7 +23,7 @@ import pyvisa
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    print("WARNING: matplotlib could not be imported. df.quickplot() will not function.")
+    print("WARNING: matplotlib could not be imported. Analysis plotting functions may not work.")
 
 
 sys.path.append(os.path.abspath("./src"))
@@ -32,6 +32,7 @@ sys.path.append(os.path.abspath("./src"))
 #Import utilities from py-libs-common
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
+from Spacely_Caribou import *
 
 
 
@@ -720,9 +721,10 @@ def deinitialize_Arduino() -> None:
 
 #Fields that must be present for a given instrument type.
 instr_type_required_fields = {"NIDCPower" : ["slot"],
-                            "Oscilloscope" : ["io"],
-                            "AWG"          : ["io"],
-                            "Supply"       : ["io"]}
+                              "Oscilloscope" : ["io"],
+                              "AWG"          : ["io"],
+                              "Supply"       : ["io"],
+                              "Caribou"    : ["host","port","device"]}
                          
    
 #Fields that must be present to use a given type of io.   
@@ -806,6 +808,9 @@ def initialize_INSTR(interactive: bool = False):
             sg.log.blocking(f"Initializing NI INSTR \"{instr}\"")
             sg.INSTR[instr] = NIDCPowerInstrument(INSTR[instr]["slot"])
             sg.log.block_res()
+
+        elif INSTR[instr]["type"] == "Caribou":
+            sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
             
         sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
         

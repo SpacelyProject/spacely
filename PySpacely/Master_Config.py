@@ -1,5 +1,6 @@
 # SPACELY MASTER CONFIGURATION #
 import importlib
+import os
 
 #Global software settings
 VERBOSE = True
@@ -9,12 +10,12 @@ PROGRESS = True
 USE_ARDUINO = False
 USE_NI = False
 
-TARGET = "SPROCKET2"
+TARGET = "SPROCKET3A"
 
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
-TARGET_ROUTINES_PY = f"spacely-asic-config\\{TARGET}\\{TARGET}_Routines.py"
+TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  #f"spacely-asic-config\\{TARGET}\\{TARGET}_Routines.py"
 TARGET_CONFIG_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Config"
-TARGET_CONFIG_PY = f"spacely-asic-config\\{TARGET}\\{TARGET}_Config.py"
+TARGET_CONFIG_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  #f"spacely-asic-config\\{TARGET}\\{TARGET}_Config.py"
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
@@ -36,7 +37,10 @@ try:
         globals().update({name: getattr(module, name) for name in all_names})
 
 except ModuleNotFoundError:
-    print(f"ERROR: {TARGET} ASIC COULD NOT BE FOUND! NO CONFIG OR ROUTINES LOADED.") 
+    if module_name.endswith("Routines"):
+        print(f"ERROR: {module_name} COULD NOT BE FOUND! NO ROUTINES LOADED.")
+    else:
+        print(f"ERROR: {module_name} COULD NOT BE FOUND! NO CONFIG OR ROUTINES LOADED.") 
 
 
 try:

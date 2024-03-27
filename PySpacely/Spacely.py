@@ -234,8 +234,9 @@ try:
             for i in range(len(new_routines_py_lines)):
                 write_file.write(new_routines_py_lines[i])
 
-except FileNotFoundError:
+except FileNotFoundError as e:
     sg.log.warning("ASIC_Routines.py file could not be found, no routines were loaded.")
+    print(e)
     ROUTINES = []
         
 #Run On-startup routine
