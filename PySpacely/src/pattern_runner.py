@@ -369,8 +369,21 @@ class PatternRunner(ABC):
     #           outfile - Optional .glue filename to write the result to.
     def run_pattern(self,patterns,time_scale_factor=1,outfile_tag=None):
 
-        #Make sure "patterns" is a list :p
-        if type(patterns) is str:
+        ## INPUT PROCESSING AND LINT CHECKING
+
+        if type(time_scale_factor) is not int:
+            self._log.error("run_pattern(): time_scale_factor must be an integer.")
+            return -1
+        
+        if type(outfile_tag) is not str:
+            if outfile_tag == None:
+                self._log.warning("run_pattern(): No outfile_tag was specified, so no outfile will be printed.")
+            else:
+                self._log.error("run_pattern(): Could not parse the value specified for outfile_tag. No outfile will be printed.")
+                outfile_tag = None
+
+        #Make sure "patterns" is a list of GlueWaves, or string filenames.
+        if type(patterns) is str or type(patterns) is GlueWave:
             patterns = [patterns]
             
         if type(patterns) is tuple:
@@ -380,7 +393,7 @@ class PatternRunner(ABC):
             self._log.error(f"run_pattern could not parse patterns={patterns}")
             return
 
-        #If it's a filename, we use read_glue() to get the actual GlueWave() object.
+        #If patterns contains filenames, we use read_glue() to get the actual GlueWave() object.
         for i in range(len(patterns)):
             if type(patterns[i]) == str:
                 patterns[i] = self.gc.read_glue(patterns[i])
@@ -394,12 +407,16 @@ class PatternRunner(ABC):
                 print("      If you are SURE this is the right pattern, edit the Glue file to add a valid HARDWARE.")
                 return -1
 
+        ## TIME SCALE FACTOR
+
         #Built-in method to slow down the pattern by a factor of time_scale_factor
         if time_scale_factor != 1:
             for i in range(len(patterns)):
                 patterns[i].vector = [x for x in patterns[i].vector for _ in range(0,time_scale_factor)]
                 patterns[i].len = len(patterns[i].vector)
 
+        ## SETUP 
+                
         #Set up buffers and reader threads.
         reader_threads = []
         for pattern in patterns:

@@ -13,9 +13,14 @@ USE_NI = False
 TARGET = "SPROCKET3A"
 
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
-TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  #f"spacely-asic-config\\{TARGET}\\{TARGET}_Routines.py"
+TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
+
+TARGET_SUBROUTINES_PY = f"spacely-asic-config\\{TARGET}\\{TARGET}_Subroutines.py"
+TARGET_SUBROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Subroutines"
+
 TARGET_CONFIG_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Config"
-TARGET_CONFIG_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  #f"spacely-asic-config\\{TARGET}\\{TARGET}_Config.py"
+TARGET_CONFIG_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
+
 
 print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
 
@@ -23,7 +28,7 @@ try:
     # Deep Python Magic which is basically equivalent to doing "from {module_name} import *"
     # where {module_name} is dynamically determined at runtime. We do this twice, once for 
     # ASIC_Config.py and once for ASIC_Routines.py.
-    for module_name in [TARGET_CONFIG_MOD, TARGET_ROUTINES_MOD]:
+    for module_name in [TARGET_CONFIG_MOD, TARGET_SUBROUTINES_MOD, TARGET_ROUTINES_MOD]:
 
         module = __import__(module_name, fromlist=['*'])
 
@@ -36,11 +41,14 @@ try:
 
         globals().update({name: getattr(module, name) for name in all_names})
 
+
 except ModuleNotFoundError:
     if module_name.endswith("Routines"):
         print(f"ERROR: {module_name} COULD NOT BE FOUND! NO ROUTINES LOADED.")
     else:
         print(f"ERROR: {module_name} COULD NOT BE FOUND! NO CONFIG OR ROUTINES LOADED.") 
+    print(f"(Detail: {e})")
+
 
 
 try:
