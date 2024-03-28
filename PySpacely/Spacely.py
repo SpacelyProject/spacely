@@ -381,10 +381,14 @@ while True:
                     #Routines should be called as "~r0"
                     start_timestamp = datetime.now()
                     routine_idx = int(cmd_txt[2:].strip())
-                    sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
-                    eval(f"{ROUTINES[routine_idx].name}()")
-                    runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
-                    sg.log.info(f"This Routine took: {runtime}")
+
+                    if routine_idx >= 0 and routine_idx < len(ROUTINES):
+                        sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
+                        eval(f"{ROUTINES[routine_idx].name}()")
+                        runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
+                        sg.log.info(f"This Routine took: {runtime}")
+                    else:
+                        sg.log.error(f"Invalid routine # {routine_idx} (out of range)")
 
                 case '#':
                     sg.log.notice(cmd_txt[1:].strip())

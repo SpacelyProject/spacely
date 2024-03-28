@@ -811,6 +811,11 @@ def initialize_INSTR(interactive: bool = False):
 
         elif INSTR[instr]["type"] == "Caribou":
             sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+
+
+        #Support the assigning of aliases.
+        if "alias" in INSTR[instr].keys():
+            globals()[INSTR[instr]["alias"]] = sg.INSTR[instr]
             
         sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
         

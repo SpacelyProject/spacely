@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
+import os
 
 from PearyClient import PearyClient, Device
+
+import Spacely_Globals as sg
 
 # Reasons why we run Spacely on Linux instead of on the ZCU102:
 # (1) We would have to get direct internet access on the ZCU102, which is annoying.
@@ -51,42 +54,78 @@ def parse_mem_map(mem_map_lines):
 
     mem_map = {}
 
+    ip_base_address = -1
+
     for line in mem_map_lines:
+
+        line = line.strip()
+
+        #Skip blank lines
+        if len(line) == 0:
+            continue
+
+        #Skip commented lines
+        if line.startswith("//"):
+            continue
+
+        #Base Address Line
+        if line.startswith("*BASE"):
+            base_address_token = line.split()[-1]
+
+            try:
+                ip_base_address = int(base_address_token,0)
+                continue
+            except ValueError:
+                sg.log.error(f"Parse Error determining base address from '{line}', '{base_address_token}' is not an integer.")
+                return -1
+
+        if ip_base_address == -1:
+            sg.log.error(f"Parse Error: Please define IP base address with '*BASE <base address>' before the first mem map entry.")
+            return -1
+            
         tokens = line.split(",")
 
         #Create a new memory map entry.
         if tokens[0] in mem_map.keys():
-            sg.error(f"Duplicate memory field {tokens[0]}")
+            sg.log.error(f"Duplicate memory field {tokens[0]}")
             return -1
         else:
             mem_map[tokens[0]] = {}
 
+
+        mem_map[tokens[0]]["IP Base Addr"] = ip_base_address
+
         try:
-            mem_map[tokens[0]]["IP Base Addr"] = int(tokens[1])
+             mem_map[tokens[0]]["Register Offs"] = int(tokens[1],0)
         except ValueError:
-            sg.error(f"Parse error in IP Base Addr for mem field {tokens[0]} (should be an int)")
+            sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
 
         try:
-             mem_map[tokens[0]]["Register Offs"] = int(tokens[2])
+             mem_map[tokens[0]]["Mask"] = int(tokens[2],0)
         except ValueError:
-            sg.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int)")
+            sg.log.error(f"Parse error in Mask for mem field {tokens[0]} (should be an int in hex or dec)")
+            return -1
+        
+        
+        try:
+            mem_map[tokens[0]]["Readable"] = bool(tokens[3])
+        except ValueError:
+            sg.log.error(f"Parse error in 'Readable' for mem field {tokens[0]} (should be an int)")
             return -1
 
         try:
-            mem_map[tokens[0]]["Readable"] = bool(tokens[4])
+            mem_map[tokens[0]]["Writeable"] = bool(tokens[4])
         except ValueError:
-            sg.error(f"Parse error in 'Readable' for mem field {tokens[0]} (should be an int)")
-            return -1
-
-        try:
-            mem_map[tokens[0]]["Writeable"] = bool(tokens[5])
-        except ValueError:
-            sg.error(f"Parse error in 'Writeable' for mem field {tokens[0]} (should be an int)")
+            sg.log.error(f"Parse error in 'Writeable' for mem field {tokens[0]} (should be an int)")
             return -1
         
 
     return mem_map
+
+#Returns an integer formatted as a string-format hex.
+def print_hex(myInt):
+    return f'{myInt:#08x}'
             
 #Creates a C++ code representation of a memory map in dictionary form.
 def mem_map_to_str(mem_map):
@@ -95,23 +134,31 @@ def mem_map_to_str(mem_map):
 
     for field in mem_map.keys():
 
-        register_address = mem_map[field]["IP Base Addr"] + mem_map[field]["Register Offs"] - 0x400000000
+        register_address = print_hex(mem_map[field]["IP Base Addr"] + mem_map[field]["Register Offs"] - 0x400000000)
+        mask = print_hex(mem_map[field]["Mask"])
         read = mem_map[field]["Readable"]
         write = mem_map[field]["Writeable"]
 
         s = s + "  {\""+field+"\", {FPGA_MEM, register_t<size_t>("
-        s = s +f"{register_absolute_address}, 0xFF, {read}, {write}, false)" + "}}, \\ \n"
+        s = s +f"{register_address}, {mask}, {read}, {write}, false)" + "}}, \\ \n"
 
 
-        s = s + "}"
+    s = s + "}\n"
+
+    return s
     
     
 
-def generate_peary_device():
+def generate_peary_device(name=None, filename=None):
 
     ## GET DEVICE NAME
-    user_devname = input("Please enter a name for your Peary device:")
+    if name == None:
+        user_devname = input("Please enter a name for your Peary device:")
+    else:
+        user_devname = name
+        
     devname = user_devname
+    
  
     FILENAME_ILLEGAL_CHARS = [" ",".",":","?"]
         
@@ -124,10 +171,13 @@ def generate_peary_device():
 
 
     ## GET mem_map.txt
-    print("To generate a Peary device, you will need a Memory Map. Press enter when you are ready to select your mem_map.txt...")
-    input("")
+    if filename == None:
+        print("To generate a Peary device, you will need a Memory Map. Press enter when you are ready to select your mem_map.txt...")
+        input("")
 
-    mem_map_filename = filedialog.askopenfilename()
+        mem_map_filename = filedialog.askopenfilename()
+    else:
+        mem_map_filename = filename
 
     with open(mem_map_filename,'r') as read_file:
         mem_map_lines = read_file.readlines()
@@ -145,7 +195,7 @@ def generate_peary_device():
     
     sg.log.debug(f"Creating {output_folder}")
 
-    os.makedirs(output_folder)
+    os.makedirs(output_folder,exist_ok=True)
 
     # CMakeLists.txt
     sg.log.debug("Writing CMakeLists.txt")
@@ -188,9 +238,10 @@ def generate_peary_device():
 
     with open(os.path.join(output_folder,"README.md"),"w") as write_file:
         write_file.write(f"# {devname} \n\n")
-        write_file.write("This is a Peary Device auto-generated by Spacely on "+datetime.now().strftime("%Y-%m-%d_%a_%H-%M-%S")+". \n\n")
-        write_file.write("Original mem_map.txt:")
-        write_file.write(mem_map_lines)
+        write_file.write("This is a Peary Device auto-generated by Spacely on "+datetime.now().strftime("%Y-%m-%d %a %H:%M:%S")+". \n\n")
+        write_file.write("Original mem_map.txt:\n")
+        for line in mem_map_lines:
+            write_file.write(line)
 
 
     
