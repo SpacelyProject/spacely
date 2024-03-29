@@ -1318,7 +1318,17 @@ class DataFile:
 # An analysis object can load data from multiple data files. It will carry out some analysis task on this data using its functions. 
 #
 
-ASHELL_HELPTEXT = """Supported Commands: df, mean, std, hist"""
+ASHELL_HELPTEXT = """Supported Commands: 
+df     --  Load a new data file
+clear  -- clear loaded data files.
+
+mean   --  Calculate mean from a freq table.
+std    --  Calculate stddev from a freq table.
+
+hist   --  Plot histograms from data.
+mhist  --  Plot multi-histograms (>1 hist overlayed on same axes) from data.
+
+"""
 
 
 class Analysis():
@@ -1436,6 +1446,34 @@ class Analysis():
     
 
 
+    def cancel_linear(self, x_key, y_key, source=None, crop_pts = 0):
+        """This function cancels the linear term from (x,y) data, which may make nonlinearity easier to analyze.
+           crop_pts = # of points to crop from either side of the transfer function (may help with nonlinear bits at the end)
+           """
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for cancel_linear")
+                return None
+
+        df = self.data[source]
+        
+        x_vals = df[x_key]
+        y_vals = df[y_key]
+        
+        if crop_pts > 0:
+            y_vals = y_vals[crop_pts:len(y_vals)-crop_pts]
+            x_vals = x_vals[crop_pts:len(x_vals)-crop_pts] 
+        
+        linear_term = [y_vals[0] + (i/len(y_vals))*(y_vals[-1]-y_vals[0]) for i in range(len(y_vals))]
+        
+        df[y_key] = [y_vals[i] - linear_term[i] for i in range(len(y_vals))]
+        df[x_key] = x_vals
+
+
+
+
     def plot_scatter(self,x_key, y_key, source=None, save_path=None, title=None):
         """
         Plot a scatter plot of data from a dictionary.
@@ -1488,8 +1526,38 @@ class Analysis():
             plt.show()
 
 
+    def _plot_scatter(self,x_key,y_key,sources):
+        for source in sources:
 
-    def plot_histogram(self,values_key, frequency_key, sources=None, bin_size=None, save_path=None, title=None, output_option=0):
+            data_dict = self.data[source]
+            
+            # Extract values and frequency counts from the dictionary
+            x_vals = data_dict.get(x_key, [])
+            y_vals = data_dict.get(y_key, [])
+
+            plt.scatter(x_vals, y_vals, label=source)
+
+    def _plot_histogram(self,x_key,y_key,sources,bin_size):
+        ## GENERATE A HISTOGRAM FROM EACH DATA SOURCE
+        for source in sources:
+
+            data_dict = self.data[source]
+            
+            # Extract values and frequency counts from the dictionary
+            values = data_dict.get(x_key, [])
+            frequencies = data_dict.get(y_key, [])
+
+            # Set bins based on bin_size or default to bin width of 1
+            if bin_size is None:
+                bins = range(int(min(values)), int(max(values)) + 2, 1)
+            else:
+                bins = int((max(values) - min(values)) / bin_size)
+
+            plt.hist(values, bins=bins, weights=frequencies, histtype='step', label=source)
+
+
+
+    def make_plots(self,x_key, y_key, plot_type, sources=None, bin_size=None, save_path=None, title=None, output_option=0):
         """
         Plot a histogram of data from a dictionary.
 
@@ -1514,41 +1582,30 @@ class Analysis():
         if type(sources) == str:
             sources = [sources]
 
-        sg.log.debug("Analysis: Creating histogram...")
+        sg.log.debug("Analysis: Creating plots...")
 
-        #Create figure
-        #plt.figure(figsize=(8, 6))
         
-        ## GENERATE A HISTOGRAM FROM EACH DATA SOURCE
-        for source in sources:
-
-            data_dict = self.data[source]
+        if plot_type == "Histogram":
+            self._plot_histogram(x_key, y_key, sources, bin_size)
             
-            # Extract values and frequency counts from the dictionary
-            values = data_dict.get(values_key, [])
-            frequencies = data_dict.get(frequency_key, [])
+        elif plot_type == "Scatter Plot":
+            self._plot_scatter(x_key, y_key, sources)
 
-            # Set bins based on bin_size or default to bin width of 1
-            if bin_size is None:
-                bins = range(int(min(values)), int(max(values)) + 2, 1)
-            else:
-                bins = int((max(values) - min(values)) / bin_size)
-
-            plt.hist(values, bins=bins, weights=frequencies, histtype='step', label=source)
-
+        else:
+            print(f"{plot_type} is unknown, please select either 'Histogram' or 'Scatter Plot'")
         
         ## TITLE AND AXIS LABELS
         
         # Set labels and title
-        plt.xlabel(values_key)
-        plt.ylabel(frequency_key)
+        plt.xlabel(x_key)
+        plt.ylabel(y_key)
 
         #Default title generation
         if title == None:
             if len(sources) == 1:
-                title = f'{sources[0]}: Histogram of {values_key}'
+                title = f'{sources[0]}: {plot_type} of {values_key}'
             else:
-                title = f'Histogram of {values_key}'
+                title = f'{plot_type} of {values_key}'
         plt.title(title)
         
         #Default save path generation
@@ -1578,7 +1635,9 @@ class Analysis():
             plt.show()
             print(f"Plot saved as {save_path}")
         else:
-            print(f"Error: Output Option must be 1, 2 or 3 : plot_histogram error")
+            print(f"make_plots() Error: Output Option must be 1, 2 or 3")
+            
+        plt.clf()
 
     
     #Returns list of sources to perform the operation on.
@@ -1641,12 +1700,14 @@ class Analysis():
             if user_input == "exit" or user_input == "quit":
                 break
              
+            ## Load Data Files
             elif user_input == "df":
                 df_to_load = filedialog.askopenfilenames()
                 
                 for df in df_to_load:
                     self.load_df(df)
-                
+            
+            ## Commands that deal with Freq-Type data
             elif user_input in ["mean", "std", "hist", "mhist"]:
             
                 sources = self._ashell_get_source()
@@ -1679,11 +1740,11 @@ class Analysis():
                     else:
                         save_path = "./output/"+user_filename
                         
-                        
+                    
                     
                 
                 if user_input == "mhist":
-                    self.plot_histogram(bins,counts, sources, bin_size, save_path, title, output_option)
+                    self.make_plots(bins,counts, "Histogram", sources, bin_size, save_path, title, output_option)
                     
                 else:
                     for s in sources:
@@ -1695,11 +1756,77 @@ class Analysis():
                             print("Std:",self.freq_stddev(bins,counts,s))
                             
                         elif user_input == "hist":
-                            self.plot_histogram(bins,counts, s, bin_size, save_path, title, output_option)
+                            self.make_plots(bins,counts,"Histogram", s, bin_size, save_path, title, output_option)
   
+  
+            ## Commands that deal with XY-Type Data
+            elif user_input in ["scatter","mscatter", "cancel_linear"]:
+            
+                sources = self._ashell_get_source()
                 
+                # Get X and Y keys
+                print("Choose which column contains X values:")
+                x_key = self._ashell_get_key(sources[0])
+                
+                print("Choose which column contains Y values:")
+                y_key = self._ashell_get_key(sources[0])
+                
+                
+                # For scatterplots only, get a title.
+                if user_input in ["scatter", "mscatter"]:
+                    title = input("title? (hit enter for default)").strip()
+                        
+                    if title == "":
+                        title = None
+
+                    user_filename = input("filename? (hit enter for default)").strip()
+                    output_option = int(input("Let us know, what kind of output option you would like to have? \n 1. Show the histogram \n 2. Save the histogram \n 3. Both show and save the histogram"))
+                                            
+                    if user_filename == "":
+                        save_path = None
+                        
+                    else:
+                        save_path = "./output/"+user_filename
+                
+
+                elif user_input == "cancel_linear":
+                    crop_pts = int(input("crop_pts?"))
+                    
+
+                # Actually run the requested functions
+                    
+                if user_input == "mscatter":
+                    self.make_plots(x_key, y_key, "Scatter Plot", sources, save_path=save_path, title=title, output_option=output_option)
+                else:
+                    for s in sources:
+                        print(f"Data Source: {s}")
+                        if user_input == "scatter":
+                            self.make_plots(x_key, y_key, "Scatter Plot", s, save_path=save_path, title=title, output_option=output_option)
+                        elif user_input == "cancel_linear":
+                            self.cancel_linear(x_key, y_key,s,crop_pts)
+
+            ## Clear datafiles
+            elif user_input == "clear":
+                print("Which data source should be removed?")
+                sources_to_delete = self._ashell_get_source().copy()
+                
+                sg.log.debug(f"Sources to delete: {sources_to_delete}")
+                
+                for s in sources_to_delete:
+                    sg.log.debug(f"Deleting source {s}")
+                    self.data_sources.remove(s)
+                    self.data.pop(s)
+            
+            
+            elif user_input == "ldf":
+                for i in range(len(self.data_sources)):
+                    print(f"{i+1}. {self.data_sources[i]}")
+            
             elif user_input == "":
                 continue
+            
+            elif user_input == "help":
+                print(ASHELL_HELPTEXT)
             
             else:
                 print("Unrecognized.")
