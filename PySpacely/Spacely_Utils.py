@@ -1221,12 +1221,13 @@ class Experiment:
         return self.data_files[-1]
  
     #Get a piece of experiment-level metadata
-    def get(self,key):
+    def get(self,key, missing_ok=False, default=None):
         if key in self.metadata.keys():
             return self.metadata[key]
         else:
-            sg.log.error(f"Could not find metadata {key}")
-            return None
+            if not missing_ok:
+                sg.log.error(f"Could not find metadata {key}")
+            return default
                 
     #Set a piece of default experiment-level metadata
     def set(self,key, value):
@@ -1274,12 +1275,12 @@ class DataFile:
         self.metadata = {}
        
 
-    def get(self,key):
+    def get(self,key, missing_ok=False, default=None):
         #Prioritize returning metadata that's specific to this particular file.
         if key in self.metadata.keys():
             return self.metadata[key]
         else:
-            return self.e.get(key)
+            return self.e.get(key, missing_ok, default)
         
     def set(self,key,value):
         self.metadata[key] = value
