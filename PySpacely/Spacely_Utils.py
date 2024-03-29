@@ -1355,6 +1355,9 @@ class Analysis():
 
         sg.log.debug(f"Analysis: Loading DataFile from {file_path}...")
         
+        #Flag to ensure that we only print one warning about missing columns.
+        warned_missing_columns = False
+        
         with open(file_path,"r") as read_file:
             lines = read_file.readlines()
             header = lines[0]
@@ -1368,8 +1371,15 @@ class Analysis():
             lines = lines[1:]
             for i in range(len(lines)):
                 tokens = lines[i].split(',')
+                
+                cols = min(len(tokens), len(header_tokens))
+                
+                if len(tokens) != len(header_tokens) and not warned_missing_columns: 
+                    sg.log.warning(f"Column count mismatch! Header has {len(header_tokens)} columns, but at least one row has {len(tokens)} columns. Only {cols} columns will be filled. \nFile path: {file_path}")
+                    warned_missing_columns = True
+                
                
-                for j in range(len(header_tokens)):
+                for j in range(cols):
                     try:
                         d = float(tokens[j])
                     except ValueError:
@@ -1733,7 +1743,7 @@ class Analysis():
                         title = None
 
                     user_filename = input("filename? (hit enter for default)").strip()
-                    output_option = int(input("Let us know, what kind of output option you would like to have? \n 1. Show the histogram \n 2. Save the histogram \n 3. Both show and save the histogram"))
+                    output_option = int(input("Let us know, what kind of output option you would like to have? \n 1. Show the plot \n 2. Save the plot \n 3. Both show and save the plot"))
                                             
                     if user_filename == "":
                         save_path = None
