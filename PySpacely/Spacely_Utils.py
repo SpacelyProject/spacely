@@ -1614,9 +1614,9 @@ class Analysis():
         #Default title generation
         if title == None:
             if len(sources) == 1:
-                title = f'{sources[0]}: {plot_type} of {values_key}'
+                title = f'{sources[0]}: {plot_type} of {y_key} vs {x_key}'
             else:
-                title = f'{plot_type} of {values_key}'
+                title = f'{plot_type} of {y_key} vs {x_key}'
         plt.title(title)
         
         #Default save path generation
