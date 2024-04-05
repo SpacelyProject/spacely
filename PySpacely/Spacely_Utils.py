@@ -235,6 +235,26 @@ def liststring_avg_stdev(liststring):
     return (np.mean(myList), np.std(myList))
 
 
+def binned_histogram(result_list, bin_size) -> dict[float, int]:
+    minimum = min(result_list)
+    minimum_bin = round(minimum / bin_size) * bin_size
+    maximum = max(result_list)
+    maximum_bin = (round(maximum / bin_size) +1)* bin_size
+
+    nr_bins = int(round(((maximum_bin - minimum_bin) / bin_size)))
+
+    histo = {}
+
+    for n in range(nr_bins):
+        this_bin = minimum_bin + n*bin_size
+        histo[this_bin] = 0
+        for item in result_list:
+            if item >= this_bin and item < this_bin + bin_size:
+                histo[this_bin] = histo[this_bin] + 1
+
+    return histo
+
+
 def liststring_histogram(liststring) -> dict[int, int]:
     """
     Groups a given list of numbers into a frequency-sorted list.
