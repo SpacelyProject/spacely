@@ -1349,6 +1349,8 @@ std    --  Calculate stddev from a freq table.
 hist   --  Plot histograms from data.
 mhist  --  Plot multi-histograms (>1 hist overlayed on same axes) from data.
 
+outliers -- Remove outliers from histo data by specifying upper/lower bound.
+
 """
 
 
@@ -1475,6 +1477,35 @@ class Analysis():
         #Divide by (n-1) for a sample standard deviation. We're never gonna have a population stddev in ASIC design.
         return np.sqrt(sum_squared_diffs / (sum(frequencies)-1))
     
+    
+    def exclude_outliers(self,x_key,y_key,source=None, bounds=[None,None]):
+        """This function removes outliers from a histogram distribution that fall outside [lower,upper] bounds."""
+        
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for cancel_linear")
+                return None
+
+        df = self.data[source]
+        
+        bins = df[x_key]
+        vals = df[y_key]
+        
+        removed_high_pts = 0
+        removed_low_pts = 0
+        
+        for i in range(len(bins)):
+            if bounds[0] is not None and bins[i] < bounds[0]:
+                removed_low_pts = removed_low_pts + vals[i]
+                vals[i] = 0
+            if bounds[1] is not None and bins[i] > bounds[1]:
+                removed_high_pts = removed_high_pts + vals[i]
+                vals[i] = 0
+        
+        df[y_key] = vals
+        sg.log.debug(f"Removed {removed_high_pts} points exceeding the upper bound and {removed_low_pts} points beneath the lower bound.")
 
 
     def cancel_linear(self, x_key, y_key, source=None, crop_pts = 0):
@@ -1739,7 +1770,7 @@ class Analysis():
                     self.load_df(df)
             
             ## Commands that deal with Freq-Type data
-            elif user_input in ["mean", "std", "hist", "mhist"]:
+            elif user_input in ["mean", "std", "hist", "mhist", "outliers"]:
             
                 sources = self._ashell_get_source()
                 
@@ -1771,7 +1802,9 @@ class Analysis():
                     else:
                         save_path = "./output/"+user_filename
                         
-                    
+                elif user_input == "outliers":
+                    lower_bound = int(input("lower bound?"))
+                    upper_bound = int(input("upper bound?"))
                     
                 
                 if user_input == "mhist":
@@ -1788,6 +1821,8 @@ class Analysis():
                             
                         elif user_input == "hist":
                             self.make_plots(bins,counts,"Histogram", s, bin_size, save_path, title, output_option)
+                        elif user_input == "outliers":
+                            self.exclude_outliers(bins, counts, s, [lower_bound, upper_bound])
   
   
             ## Commands that deal with XY-Type Data
