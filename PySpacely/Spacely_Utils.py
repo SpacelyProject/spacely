@@ -1453,6 +1453,38 @@ class Analysis():
         
 
         return sumproduct/n
+        
+        
+        
+    def freq_median(self,value_name, freq_name, source=None):
+        """This function returns the median from data specified in a frequency table."""
+
+        if source == None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for freq_median")
+                return None
+
+        df = self.data[source]
+        
+        values = df[value_name]
+        frequencies = df[freq_name]
+        
+        tmp = zip(values, frequencies)
+        tmp.sort()
+        values, frequencies = zip(*tmp)
+        
+        total_num = sum(frequencies)
+        x = 0
+        
+        for i in range(len(values)):
+            x = x + frequencies[i]
+            if x > total_num/2:
+                return values[i]
+            elif x == total_num/2:
+                return (values[i] + values[i+1])/2
+        
 
     def freq_stddev(self,value_name, freq_name, source=None):
         """This function returns the standard deviation from data specified in a frequency table."""
@@ -1613,7 +1645,8 @@ class Analysis():
             if bin_size is None:
                 bins = range(int(min(values)), int(max(values)) + 2, 1)
             else:
-                bins = int((max(values) - min(values)) / bin_size)
+                bins = range(int(min(values)),int(max(values))+2, int(bin_size))
+                #int((max(values) - min(values)) / bin_size)
 
             plt.hist(values, bins=bins, weights=frequencies, histtype='step', label=source)
 
@@ -1787,6 +1820,8 @@ class Analysis():
                     
                     if bin_size == "":
                         bin_size = None
+                    else:
+                        bin_size = float(bin_size)
                         
                     title = input("title? (hit enter for default)").strip()
                     
