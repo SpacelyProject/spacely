@@ -126,8 +126,9 @@ if not assume_defaults:
 # # # Default Setup # # #
 
 num_instr = INSTR_lint()
+rail_lint_result = rail_lint()
 
-if num_instr == -1:
+if num_instr == -1 or rail_lint_result == -1:
     exit()
 
 #Arduino HAL

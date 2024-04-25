@@ -150,7 +150,7 @@ def report_NI(repeat_delay: float|None = 1, report_non_ni_instr = False):
         rails_count = len(ports)
         row_counter = 0
         for rail, ni in ports.items():
-            if report_non_ni_instr or type(ni) == Source_Port:
+            if report_non_ni_instr or type(ni.instrument) == NIDCPowerInstrument:
                 row_counter += 1
                 pt.add_row(get_row(rail, ni), divider=True if row_counter == rails_count else False)
 
@@ -774,7 +774,7 @@ def INSTR_lint():
             this_io = INSTR[instr]["io"]
             
             if this_io not in io_required_fields.keys():
-                sg.log.gerr(f"INSTR Error: Instrument {instr} uses io type {this_io} which is not recognized. Recognized io types are {io_required_fields.keys()}")
+                sg.log.error(f"INSTR Error: Instrument {instr} uses io type {this_io} which is not recognized. Recognized io types are {io_required_fields.keys()}")
                 return -1
             
             for field in io_required_fields[this_io]:
@@ -792,7 +792,55 @@ def INSTR_lint():
     if num_instr > 0:
         sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
     return num_instr
-        
+
+
+#Lint checker for voltage and current dictionaries.
+# Rules for lint check:
+# (1) All rails that are in the V_PORT or I_PORT dictionary must be initialized.
+# (2) All rails which are initialized must have an entry for _INSTR, _CHAN, and _LEVEL 
+def rail_lint():
+
+
+    for rail in V_PORT.keys():
+        if rail not in V_SEQUENCE:
+            sg.log.error("CONFIG ERROR: All voltage / current rails defined in MyASIC_Config.py must be included in the initialization sequence\n"+
+                         "(V_SEQUENCE or I_SEQUENCE). If you want to dynamically initialize a rail, you can do so from within MyASIC_Routines.py.\n"+
+                         f"({rail} is missing from V_SEQUENCE).")
+            return -1
+            
+    for rail in V_SEQUENCE:
+        if rail not in V_INSTR.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_INSTR which specifies the INSTR this rail is supplied by.")
+            return -1
+        if rail not in V_CHAN.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_CHAN which specifies the instrument channel this rail is supplied by.")
+            return -1
+        if rail not in V_LEVEL.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_LEVEL which specifies the voltage setting (in volts) for this rail.")
+            return -1
+
+
+    for rail in I_PORT.keys():
+        if rail not in I_SEQUENCE:
+            sg.log.error("CONFIG ERROR: All voltage / current rails defined in MyASIC_Config.py must be included in the initialization sequence\n"+
+                         "(V_SEQUENCE or I_SEQUENCE). If you want to dynamically initialize a rail, you can do so from within MyASIC_Routines.py.\n"+
+                         f"({rail} is missing from I_SEQUENCE).")
+            return -1
+            
+
+    for rail in I_SEQUENCE:
+        if rail not in I_INSTR.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in I_INSTR which specifies the INSTR this rail is supplied by.")
+            return -1
+        if rail not in I_CHAN.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in I_CHAN which specifies the instrument channel this rail is supplied by.")
+            return -1
+        if rail not in I_LEVEL.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in I_LEVEL which specifies the current setting (in amps) for this rail.")
+            return -1
+
+
+            
 
 def initialize_INSTR(interactive: bool = False):
 
@@ -1010,6 +1058,7 @@ def initialize_Rails():
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
                 V_PORT[Vsource].set_output_on()
                 sg.log.block_res()
+            
             sg.log.debug("NI Vsource init done")
         
             
