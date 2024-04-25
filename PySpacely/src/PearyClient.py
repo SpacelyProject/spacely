@@ -22,7 +22,7 @@ class Failure(Exception):
     def __init__(self, cmd, code, reason):
         self.cmd = cmd
         self.code = code
-        self.readon = reason
+        self.reason = reason
         msg = 'Command \'{}\' failed with code {:d} \'{}\''
         super(Failure, self).__init__(msg.format(cmd, code, reason))
 

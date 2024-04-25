@@ -3,7 +3,8 @@ from tkinter import filedialog
 from datetime import datetime
 import os
 
-from PearyClient import PearyClient, Device
+from PearyClient import PearyClient, Device, Failure
+from fnal_libinstrument import Source_Instrument
 
 import Spacely_Globals as sg
 
@@ -14,7 +15,7 @@ import Spacely_Globals as sg
 # (4) Big picture, we want to treat the ZCU102 like a test instrument, not a place where long-term test data and analysis lives. 
 
 
-class Caribou():
+class Caribou(Source_Instrument):
 
     def __init__(self, pearyd_host, pearyd_port, device_name, log):
 
@@ -38,6 +39,15 @@ class Caribou():
         #Send a message to check that the interface is operational.
         self._client.keep_alive()
 
+    
+    #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
+    def request(self, cmd, *args):
+        try:
+            return self._dev._request(cmd, *args)
+        except Failure as e:
+            self.log.error(f"PearyClient Failure: Command '{e.cmd}' failed with Code {e.code} ({e.reason})")
+            return -1
+        
 
     def get_memory(self, mem_name):
         """Return the contents of an FPGA Memory Register"""
@@ -47,6 +57,67 @@ class Caribou():
         """Set the contents of an FPGA Memory Register"""
         return self._dev.set_memory(mem_name,value)
 
+
+    def get_voltage(self, name):
+        """Get the voltage of a named DAC channel."""
+        return self._dev.get_voltage(name)
+
+    def set_voltage(self, name, value, curr_limit=None):
+        """Set the voltage of a named DAC channel."""
+        if curr_limit != None:
+            self.log.warning("Spacely-Caribou Warning: Current limits for V supplies not implemented.")
+        return self.request('set_voltage',name, value)
+    
+    def get_current(self, name):
+        """Get the current of a named DAC channel."""
+        return self._dev.get_current(name)
+
+    def set_current(self, name, value, volt_limit=None):
+        """Set the current of a named DAC channel."""
+        if volt_limit != None:
+            self.log.warning("Spacely-Caribou Warning: Voltage limits for I supplies not implemented.")
+        return self._dev.set_current(name, value)
+
+    def set_output_on(self, name):
+        return NotImplementedError
+
+    def set_output_off(self, name):
+        return NotImplementedError
+    
+# CaribouDAC class corresponds to any Caribou PWR/BIAS rail.
+# Though this class is just a wrapper, it's important to have, as
+# it allows us to log custom entries in V_PORT or whatever.
+    
+#class CaribouDAC():
+#
+#    def __init__(self, logger, caribou, name):
+#        self.log = logger
+#        self.caribou = caribou
+#        self.name = name
+
+#
+#    def get_voltage(self):
+#        return self.caribou.get_voltage(self.name)
+#
+#    def set_voltage(self, voltage):
+#        return self.cariou.set_voltage(self.name, voltage)
+#
+#    def get_current(self):
+#        return self.caribou.get_current(self.name)
+#
+#    def set_current(self, current):
+#        return self.caribou.set_current(self.name, current)
+    
+
+
+
+
+
+##########################################################################################
+# Helper Functions for Creating Peary Cpp Devices
+##########################################################################################
+
+    
 #Given the raw lines extracted from mem_map.txt, this function checks for correctness.
 #If correct, a nested dict is returned with info for every mem field.
 #Otherwise, -1 is returned.

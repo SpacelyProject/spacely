@@ -799,6 +799,29 @@ def INSTR_lint():
 # (1) All rails that are in the V_PORT or I_PORT dictionary must be initialized.
 # (2) All rails which are initialized must have an entry for _INSTR, _CHAN, and _LEVEL 
 def rail_lint():
+    global V_SEQUENCE, I_SEQUENCE, V_PORT, I_PORT
+
+    try:
+        V_SEQUENCE
+    except NameError:
+        sg.log.info("V_SEQUENCE not defined in Config. No Vsources will be initialized.")
+        V_SEQUENCE = []
+
+    try:
+        V_PORT
+    except NameError:
+        V_PORT = {}
+
+    try:
+        I_SEQUENCE
+    except NameError:
+        sg.log.info("I_SEQUENCE not defined in Config. No Isources will be initialized.")
+        I_SEQUENCE = []
+
+    try:
+        I_PORT
+    except NameError:
+        I_PORT = {}
 
 
     for rail in V_PORT.keys():
@@ -818,7 +841,6 @@ def rail_lint():
         if rail not in V_LEVEL.keys():
             sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_LEVEL which specifies the voltage setting (in volts) for this rail.")
             return -1
-
 
     for rail in I_PORT.keys():
         if rail not in I_SEQUENCE:
@@ -1023,37 +1045,33 @@ def initialize_NIFPGA():
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_Rails():
-    global V_SEQUENCE, I_SEQUENCE, V_PORT, I_PORT
+    global V_CURR_LIMIT, I_VOLT_LIMIT
+    
+    
 
-    try:
-        V_SEQUENCE
-    except NameError:
-        sg.log.info("V_SEQUENCE not defined in Config. No Vsources will be initialized.")
-        V_SEQUENCE = None
-        V_PORT = {}
-
-    try:
-        I_SEQUENCE
-    except NameError:
-        sg.log.info("I_SEQUENCE not defined in Config. No Isources will be initialized.")
-        I_SEQUENCE = None
-        I_PORT = {}
-
+        
+    
 
     sg.log.debug("NI INSTR init")
     try:
 
-        if V_SEQUENCE is not None:
+        if V_SEQUENCE is not None and len(V_SEQUENCE) > 0:
+            try:
+                V_CURR_LIMIT
+            except NameError:
+                sg.log.warning("No current limits specified for sources in MyASIC_Config.py. Setting to default 100 mA.")
+                V_CURR_LIMIT = 0.1
             sg.log.debug("NI Vsource init")
             for Vsource in V_SEQUENCE:
                 #time.sleep(0.5)
-                sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={V_CURR_LIMIT[Vsource]:.4f})")
+                
                 
                 if type(V_CURR_LIMIT) == dict:
                     curr_limit = V_CURR_LIMIT[Vsource]
                 else:
                     curr_limit = V_CURR_LIMIT
-                
+                    
+                sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={curr_limit:.4f})")
                 V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
                 V_PORT[Vsource].set_output_on()
@@ -1063,7 +1081,13 @@ def initialize_Rails():
         
             
 
-        if I_SEQUENCE is not None:
+        if I_SEQUENCE is not None and len(I_SEQUENCE) > 0:
+            try:
+                I_VOLT_LIMIT
+            except NameError:
+                sg.log.warning("No voltage limits specified for sources in MyASIC_Config.py. Setting to default 1.0V.")
+                I_VOLT_LIMIT
+                
             sg.log.debug("NI Isource init")
             for Isource in I_SEQUENCE:
                 sg.log.blocking(f"Initializing Isource \"{Isource}\" @ {I_INSTR[Isource]}#{I_CHAN[Isource]} to {I_LEVEL[Isource]:.6f}")
