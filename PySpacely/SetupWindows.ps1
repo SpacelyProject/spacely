@@ -2,6 +2,7 @@
 # This script is a shortcut to configure the Spacely environment #
 ##################################################################
 
+
 # Go to the directory where this script is located
 $scriptpath = $MyInvocation.MyCommand.Path
 $dir = Split-Path $scriptpath
@@ -19,8 +20,14 @@ if (-Not (Test-Path env:VIRTUAL_ENV)) {
 	.\venv\Scripts\activate
 }	
 	
-echo "Installing dependencies..."
-python -m pip install -r requirements.txt
 
+# First, make sure pip is upgraded to the latest version.
+python -m pip install --upgrade pip
+
+echo "Installing general Python dependencies..."
+python -m pip install -r .\requirements\requirements-python.txt
+
+echo "Installing py-libs-common using HTTPS..."
+python -m pip install -r .\requirements\requirements-py-libs-common.txt
 
 echo "Now you should be able to run Spacely"
