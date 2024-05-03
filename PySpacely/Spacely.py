@@ -328,6 +328,12 @@ while True:
         case 'ashell':
             a = Analysis()
             a.ashell()
+        case 'carshell':
+            for instr in sg.INSTR.keys():
+                if type(sg.INSTR[instr]) == Caribou:
+                    sg.INSTR[instr].car_i2c_shell()
+                    break
+
         case 'run_pattern':
             glue_waves = filedialog.askopenfilenames()
             sg.pr.run_pattern(glue_waves,outfile_tag="result")
