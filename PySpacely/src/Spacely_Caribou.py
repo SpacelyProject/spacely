@@ -90,7 +90,18 @@ class Caribou(Source_Instrument):
         #Send a message to check that the interface is operational.
         self._client.keep_alive()
 
+        self.configure_car()
     
+    #Important config steps to make sure CaR board is set up to work.  
+    def configure_car(self):
+        self.log.debug("~ ~ Configuring CaR board ~ ~")
+
+        self.log.debug("[Step 1] Setting PCA9539 Dir to Output")
+        self.car_i2c_write(0,0x76,6,0)
+        self.car_i2c_write(0,0x76,7,0)
+
+        self.log.debug("~ ~ Done Configuring CaR board ~ ~")
+        
     #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
     def request(self, cmd, *args):
         try:
@@ -209,8 +220,10 @@ class Caribou(Source_Instrument):
                     user_rw = input("r/w?")
 
                     if user_rw == "r":
-                        i2c_data = ord(self.car_i2c_read(user_bus, user_comp.address, user_reg,1))
-                        print(f"HEX: {i2c_data:02x} \n BIN:{i2c_data:08b}")
+                        raw_read_data = self.car_i2c_read(user_bus, user_comp.address, user_reg,2)
+                        print(f"Raw read data: {raw_read_data}")
+                        i2c_data = int(raw_read_data)
+                        print(f"HEX: {i2c_data:04x} \n BIN:{i2c_data:16b}")
                         
                     elif user_rw == "w":
                         try:
