@@ -113,7 +113,7 @@ class Caribou(Source_Instrument):
 
     def get_memory(self, mem_name):
         """Return the contents of an FPGA Memory Register"""
-        return self._dev.get_memory(mem_name)
+        return int(self._dev.get_memory(mem_name))
 
     def set_memory(self, mem_name, value):
         """Set the contents of an FPGA Memory Register"""
