@@ -1587,36 +1587,7 @@ class Analysis():
 
         #Divide by (n-1) for a sample standard deviation. We're never gonna have a population stddev in ASIC design.
         return np.sqrt(sum_squared_diffs / (sum(frequencies)-1))
-    
-    
-    def exclude_outliers(self,x_key,y_key,source=None, bounds=[None,None]):
-        """This function removes outliers from a histogram distribution that fall outside [lower,upper] bounds."""
-        
-        if source == None:
-            if len(self.data_sources) == 1:
-                source = self.data_sources[0]
-            else:
-                print("ERR: Must specify source for cancel_linear")
-                return None
 
-        df = self.data[source]
-        
-        bins = df[x_key]
-        vals = df[y_key]
-        
-        removed_high_pts = 0
-        removed_low_pts = 0
-        
-        for i in range(len(bins)):
-            if bounds[0] is not None and bins[i] < bounds[0]:
-                removed_low_pts = removed_low_pts + vals[i]
-                vals[i] = 0
-            if bounds[1] is not None and bins[i] > bounds[1]:
-                removed_high_pts = removed_high_pts + vals[i]
-                vals[i] = 0
-        
-        df[y_key] = vals
-        sg.log.debug(f"Removed {removed_high_pts} points exceeding the upper bound and {removed_low_pts} points beneath the lower bound.")
 
 
     def cancel_linear(self, x_key, y_key, source=None, crop_pts = 0):
@@ -1731,87 +1702,152 @@ class Analysis():
 
 
 
-    def make_plots(self,x_key, y_key, plot_type, sources=None, bin_size=None, save_path=None, title=None, output_option=0):
+
+
+    def exclude_outliers(self, x_key, y_key, source=None, bounds=[None, None], output_option=0):
+        """This function removes outliers from a histogram distribution that fall outside [lower, upper] bounds."""
+        
+        if source is None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for exclude_outliers")
+                return None
+        
+        df = self.data[source]
+        
+        bins = df[x_key]
+        vals = df[y_key]
+        
+        removed_high_pts = 0
+        removed_low_pts = 0
+        
+        for i in range(len(bins)):
+            if bounds[0] is not None and bins[i] < bounds[0]:
+                removed_low_pts += vals[i]
+                vals[i] = 0
+            if bounds[1] is not None and bins[i] > bounds[1]:
+                removed_high_pts += vals[i]
+                vals[i] = 0
+        
+        df[y_key] = vals
+
+        sg.log.debug(f"Removed {removed_high_pts} points exceeding the upper bound and {removed_low_pts} points beneath the lower bound.")
+        
+        # Adding user prompt to proceed to plots
+        user_input = input("Outliers have been excluded from the data. Would you like to proceed to plot the remaining data points? (yes/no): ")
+        if user_input.strip().lower() == 'yes':
+            # Call the plotting function here:
+            plot_type = input("What plot do you want to plot? (Histogram/Scatter Plot): ")
+            if plot_type == "Histogram":
+                self.make_plots(x_key, y_key, plot_type, source)
+            elif plot_type == "Scatter Plot":
+                self.make_plots(x_key, y_key, plot_type, source)
+            else:
+                print(f"{plot_type} is not a valid plot type. Please enter either 'Histogram' or 'Scatter Plot'.")
+        
+        else:
+            print("Plotting has been cancelled by the user.")
+
+
+
+    def make_plots(self, x_key, y_key, plot_type, sources=None, bin_size=None, save_path=None, title=None, bounds=None):
         """
-        Plot a histogram of data from a dictionary.
+        Plot a histogram or scatter plot of data from a dictionary.
 
         Parameters:
-            values_key (str): Key in the dictionary for values.
-            frequency_key (str): Key in the dictionary for frequency counts.
-            sources (str, or list of str): names of data sources to be included in the histogram.
+            x_key (str): Key in the dictionary for x values.
+            y_key (str): Key in the dictionary for y values.
+            plot_type (str): Type of plot, either 'Histogram' or 'Scatter Plot'.
+            sources (str or list of str): Names of data sources to be included in the plot.
             bin_size (float, optional): Size of bins for histogram. Default is None.
             save_path (str, optional): Path to save the plot as a PNG file.
-            title (str, optional): Title
-            output_option(int): 1 = show, 2 = save, 3 = both
+            title (str, optional): Title for the plot.
+            bounds (list, optional): Bounds to exclude outlier points, [lower_bound, upper_bound].
         """
-
-        # If no source is specified, but there's only one source in data_sources, just use that.
-        if sources == None:
+        if sources is None:
             if len(self.data_sources) == 1:
                 sources = self.data_sources[0]
             else:
                 print("ERR: Must specify source for histogram")
                 return None
-                
-        if type(sources) == str:
+                    
+        if isinstance(sources, str):
             sources = [sources]
 
         sg.log.debug("Analysis: Creating plots...")
 
-        
         if plot_type == "Histogram":
             self._plot_histogram(x_key, y_key, sources, bin_size)
-            
         elif plot_type == "Scatter Plot":
             self._plot_scatter(x_key, y_key, sources)
+            
+            # Filter out outlier points before calculating regression line
+            data_dict = self.data[sources[0]]
+            x_vals = data_dict.get(x_key, [])
+            y_vals = data_dict.get(y_key, [])
+            
+            # Removing outlier points based on bounds
+            filtered_x = []
+            filtered_y = []
+            for i in range(len(x_vals)):
+                if bounds is not None and bounds[0] is not None and x_vals[i] < bounds[0]:
+                    continue
+                if bounds is not None and bounds[1] is not None and x_vals[i] > bounds[1]:
+                    continue
+                if x_vals[i] != 0 and y_vals[i]!=0:
+                    filtered_x.append(x_vals[i])
+                    filtered_y.append(y_vals[i])
+
+            # Calculate regression line for filtered points
+            if len(filtered_x) > 1:  # Ensure at least 2 points for regression
+                coeffs = np.polyfit(filtered_x, filtered_y, 1)
+                regression_line = np.polyval(coeffs, filtered_x)
+
+                # Calculate slope of the regression line
+                slope = coeffs[0]
+                plt.plot(filtered_x, regression_line, color='red', linestyle='--', label=f'Regression Line \n Gain: {slope: .2f}')
+            else:
+                slope = None
+                print("Insufficient data points for regression line.")
+
+            # Print the slope of the regression line
+            if slope is not None:
+                print(f"The slope of the regression line for the remaining data points is: {slope}")
+
+            plt.scatter(filtered_x, filtered_y, label='Filtered Data')
 
         else:
             print(f"{plot_type} is unknown, please select either 'Histogram' or 'Scatter Plot'")
-        
-        ## TITLE AND AXIS LABELS
-        
-        # Set labels and title
+
+            
+        # TITLE AND AXIS LABELS
         plt.xlabel(x_key)
         plt.ylabel(y_key)
 
-        #Default title generation
-        if title == None:
+        if title is None:
             if len(sources) == 1:
                 title = f'{sources[0]}: {plot_type} of {y_key} vs {x_key}'
             else:
                 title = f'{plot_type} of {y_key} vs {x_key}'
         plt.title(title)
-        
-        #Default save path generation
-        FILENAME_ILLEGAL_CHARS = [" ",".",":","?"]
-        
-        if save_path == None:
-            for c in FILENAME_ILLEGAL_CHARS:
-                title = title.replace(c,"_")
-            save_path = "./output/" + title.replace(".","_").replace(" ","_") + ".png"
 
-        # Show grid
+        FILENAME_ILLEGAL_CHARS = [" ", ".", ":", "?"]
+        if save_path is None:
+            for c in FILENAME_ILLEGAL_CHARS:
+                title = title.replace(c, "_")
+            save_path = f"./FPGA_Impact_Changed_Slots/{title.replace('.', '_').replace(' ', '_')}.png"
+
         plt.grid(True)
-        
         plt.legend()
-        
-        # Save plot as PNG if save_path is provided
-        #1. Showing the histogram
-        #2. Save the histogram
-        #3. Both show and save the histogram
-        if output_option == 1:
-            plt.show()
-        elif output_option == 2:
+
+        if save_path is not None:
             plt.savefig(save_path)
             print(f"Plot saved as {save_path}")
-        elif output_option == 3:
-            plt.savefig(save_path)
-            plt.show()
-            print(f"Plot saved as {save_path}")
-        else:
-            print(f"make_plots() Error: Output Option must be 1, 2 or 3")
-            
+
+        #plt.show()
         plt.clf()
+
 
     
     #Returns list of sources to perform the operation on.
@@ -1914,7 +1950,7 @@ class Analysis():
                         save_path = None
                         
                     else:
-                        save_path = "./output/"+user_filename
+                        save_path = "./FPGA_Impact_Changed_Slots/"+user_filename
                         
                 elif user_input == "outliers":
                     lower_bound = int(input("lower bound?"))
@@ -1966,7 +2002,7 @@ class Analysis():
                         save_path = None
                         
                     else:
-                        save_path = "./output/"+user_filename
+                        save_path = "./FPGA_Impact_Changed_Slots/"+user_filename
                 
 
                 elif user_input == "cancel_linear":
@@ -1976,12 +2012,12 @@ class Analysis():
                 # Actually run the requested functions
                     
                 if user_input == "mscatter":
-                    self.make_plots(x_key, y_key, "Scatter Plot", sources, save_path=save_path, title=title, output_option=output_option)
+                    self.make_plots(x_key, y_key, "Scatter Plot", sources, save_path=save_path, title=title)
                 else:
                     for s in sources:
                         print(f"Data Source: {s}")
                         if user_input == "scatter":
-                            self.make_plots(x_key, y_key, "Scatter Plot", s, save_path=save_path, title=title, output_option=output_option)
+                            self.make_plots(x_key, y_key, "Scatter Plot", s, save_path=save_path, title=title)
                         elif user_input == "cancel_linear":
                             self.cancel_linear(x_key, y_key,s,crop_pts)
 
