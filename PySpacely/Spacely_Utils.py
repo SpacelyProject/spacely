@@ -1435,14 +1435,22 @@ outliers -- Remove outliers from histo data by specifying upper/lower bound.
 
 class Analysis():
 
-    def __init__(self):
+    def __init__(self, name="DefaultAnalysis"):
 
         #Each value in self.data is a dictionary, which contains the
         #headers and table values from a single data file. 
         self.data = {}
         #self.data_sources is a list of the data sources which are represented in self.data (as strings)
         self.data_sources = []
+        self.name = name
 
+        self.name = name
+        self.base_path = os.sep.join(["output",name])
+        
+        
+        sg.log.notice(f"Creating Analysis {name} at {self.base_path}")
+        if not os.path.isdir(self.base_path):
+            os.makedirs(self.base_path)
 
 
     # Loads data into the analysis from a DataFile object or CSV path.
@@ -1702,10 +1710,78 @@ class Analysis():
 
 
 
+    def exclude_outliers_by_trendline(self, x_key, y_key, source=None, trend_x = [None, None], trend_bound=None):
+        """This function removes outliers from a scatterplot that are too far away from a candidate trendline"""
+    
+        if source is None:
+            if len(self.data_sources) == 1:
+                source = self.data_sources[0]
+            else:
+                print("ERR: Must specify source for exclude_outliers")
+                return None
+        
+        if trend_x[0] is None or trend_x[1] is None:
+            sg.log.debug("No trendline specified, cannot exclude outliers.")
+            return None
+        
+        df = self.data[source]
+        
+        x_vals = df[x_key]
+        y_vals = df[y_key]
+        
+        removed_outliers = 0
+        
+        trend_y = [np.interp(trend_x[0], x_vals, y_vals), np.interp(trend_x[1], x_vals, y_vals)]
+        #[y_vals[index(x_vals[trend_x[0]])], y_vals[index(x_vals[trend_x[1]])]]
+        
+        m = (trend_y[1] - trend_y[0])/(trend_x[1]-trend_x[0])
+        b = (trend_y[0]*trend_x[1] - trend_y[1]*trend_x[0]) / (trend_x[1]-trend_x[0])
+        
+        
+        #The normal distance from a line y = mx + b to a point x0, y0 is:
+        # | - m * x0 + y0 - b | / sqrt(m^2 + 1) 
+        #Alternatively, the vertical distance from a line y = mx+b to x0,y0 is:
+        # abs(y0 - mx0 - b)
+        # which might be a more appropriate measure if vertical & horizontal scales are very different.
+        #Let's just set a heuristic variable:
+        EXCLUDE_STRATEGY = "Vertical"
+        
+        #Default normal bound for exclusion is 1/5th the distance between (x0,y0) and (x1,y1)
+        if trend_bound is None:
+            if EXCLUDE_STRATEGY == "Normal":
+                trendline_len = np.sqrt((trend_x[1] - trend_x[0])**2 + (trend_y[1]-trend_y[0])**2)
+                trend_bound = 0.05 * trendline_len
+            elif EXCLUDE_STRATEGY == "Vertical":
+                trend_bound = 0.3 * abs(trend_y[1] - trend_y[0])
+              
+        sg.log.debug(f"trendline pts: ({trend_x[0]},{trend_y[0]}) ({trend_x[1]},{trend_y[1]}), strat={EXCLUDE_STRATEGY} b={trend_bound}")
+        
+        
+        
+        # Removing outlier points based on bounds
+        filtered_x = []
+        filtered_y = []
+        for i in range(len(x_vals)):
+            if EXCLUDE_STRATEGY == "Normal":
+                dist = abs(-1*m*x_vals[i] + y_vals[i] - b)  / np.sqrt(m*m + 1)
+            elif EXCLUDE_STRATEGY == "Vertical":
+                dist = abs(-1*m*x_vals[i] + y_vals[i] - b) 
+            #sg.log.debug(dist)
+            
+            if dist > trend_bound: 
+                removed_outliers += 1
+            else:
+                filtered_x.append(x_vals[i])
+                filtered_y.append(y_vals[i])
+            
+        
+        df[x_key] = filtered_x
+        df[y_key] = filtered_y
 
+        sg.log.debug(f"Removed {removed_outliers} entries w/ normal_dist > {trend_bound}")
 
-    def exclude_outliers(self, x_key, y_key, source=None, bounds=[None, None], output_option=0):
-        """This function removes outliers from a histogram distribution that fall outside [lower, upper] bounds."""
+    def exclude_outliers_by_x(self, x_key, y_key, source=None, bounds=[None, None]):
+        """This function removes outliers from a histogram or scatterplot that fall outside [lower, upper] x-bounds."""
         
         if source is None:
             if len(self.data_sources) == 1:
@@ -1716,42 +1792,37 @@ class Analysis():
         
         df = self.data[source]
         
-        bins = df[x_key]
-        vals = df[y_key]
+        x_vals = df[x_key]
+        y_vals = df[y_key]
         
         removed_high_pts = 0
         removed_low_pts = 0
         
-        for i in range(len(bins)):
-            if bounds[0] is not None and bins[i] < bounds[0]:
-                removed_low_pts += vals[i]
-                vals[i] = 0
-            if bounds[1] is not None and bins[i] > bounds[1]:
-                removed_high_pts += vals[i]
-                vals[i] = 0
+        # Removing outlier points based on bounds
+        filtered_x = []
+        filtered_y = []
+        for i in range(len(x_vals)):
+            if bounds is not None and bounds[0] is not None and x_vals[i] < bounds[0]:
+                removed_low_pts += 1
+                continue
+            if bounds is not None and bounds[1] is not None and x_vals[i] > bounds[1]:
+                removed_high_pts += 1
+                continue
+            if x_vals[i] != 0 and y_vals[i]!=0:
+                filtered_x.append(x_vals[i])
+                filtered_y.append(y_vals[i])
         
-        df[y_key] = vals
+        df[x_key] = filtered_x
+        df[y_key] = filtered_y
 
-        sg.log.debug(f"Removed {removed_high_pts} points exceeding the upper bound and {removed_low_pts} points beneath the lower bound.")
+        # Note, we refer to data entries here, not points. Because in a scatter plot a data entry (x,y) = 1 point @ (x,y). But in a histogram, a 
+        # data entry (x,y) = y points @ x. This is just a rough sanity check anyway, so we count entries for simplicity. 
+        sg.log.debug(f"Removed {removed_high_pts} entries exceeding the upper bound and {removed_low_pts} entries beneath the lower bound.")
         
-        # Adding user prompt to proceed to plots
-        user_input = input("Outliers have been excluded from the data. Would you like to proceed to plot the remaining data points? (yes/no): ")
-        if user_input.strip().lower() == 'yes':
-            # Call the plotting function here:
-            plot_type = input("What plot do you want to plot? (Histogram/Scatter Plot): ")
-            if plot_type == "Histogram":
-                self.make_plots(x_key, y_key, plot_type, source)
-            elif plot_type == "Scatter Plot":
-                self.make_plots(x_key, y_key, plot_type, source)
-            else:
-                print(f"{plot_type} is not a valid plot type. Please enter either 'Histogram' or 'Scatter Plot'.")
-        
-        else:
-            print("Plotting has been cancelled by the user.")
+       
 
 
-
-    def make_plots(self, x_key, y_key, plot_type, sources=None, bin_size=None, save_path=None, title=None, bounds=None):
+    def make_plots(self, x_key, y_key, plot_type, sources=None, bin_size=None, save_path=None, title=None, trendline=False):
         """
         Plot a histogram or scatter plot of data from a dictionary.
 
@@ -1787,35 +1858,25 @@ class Analysis():
             x_vals = data_dict.get(x_key, [])
             y_vals = data_dict.get(y_key, [])
             
-            # Removing outlier points based on bounds
-            filtered_x = []
-            filtered_y = []
-            for i in range(len(x_vals)):
-                if bounds is not None and bounds[0] is not None and x_vals[i] < bounds[0]:
-                    continue
-                if bounds is not None and bounds[1] is not None and x_vals[i] > bounds[1]:
-                    continue
-                if x_vals[i] != 0 and y_vals[i]!=0:
-                    filtered_x.append(x_vals[i])
-                    filtered_y.append(y_vals[i])
+            if trendline: 
 
-            # Calculate regression line for filtered points
-            if len(filtered_x) > 1:  # Ensure at least 2 points for regression
-                coeffs = np.polyfit(filtered_x, filtered_y, 1)
-                regression_line = np.polyval(coeffs, filtered_x)
+                # Calculate regression line for filtered points
+                if len(x_vals) > 1:  # Ensure at least 2 points for regression
+                    coeffs = np.polyfit(x_vals, y_vals, 1)
+                    regression_line = np.polyval(coeffs, x_vals)
 
-                # Calculate slope of the regression line
-                slope = coeffs[0]
-                plt.plot(filtered_x, regression_line, color='red', linestyle='--', label=f'Regression Line \n Gain: {slope: .2f}')
-            else:
-                slope = None
-                print("Insufficient data points for regression line.")
+                    # Calculate slope of the regression line
+                    slope = coeffs[0]
+                    plt.plot(x_vals, regression_line, color='red', linestyle='--', label=f'Regression Line \n Gain: {slope: .2f}')
+                else:
+                    slope = None
+                    print("Insufficient data points for regression line.")
 
-            # Print the slope of the regression line
-            if slope is not None:
-                print(f"The slope of the regression line for the remaining data points is: {slope}")
+                # Print the slope of the regression line
+                if slope is not None:
+                    print(f"The slope of the regression line for the remaining data points is: {slope}")
 
-            plt.scatter(filtered_x, filtered_y, label='Filtered Data')
+           
 
         else:
             print(f"{plot_type} is unknown, please select either 'Histogram' or 'Scatter Plot'")
@@ -1950,7 +2011,7 @@ class Analysis():
                         save_path = None
                         
                     else:
-                        save_path = "./FPGA_Impact_Changed_Slots/"+user_filename
+                        save_path = f"./output/{self.name}/{user_filename}"
                         
                 elif user_input == "outliers":
                     lower_bound = int(input("lower bound?"))
@@ -2002,7 +2063,7 @@ class Analysis():
                         save_path = None
                         
                     else:
-                        save_path = "./FPGA_Impact_Changed_Slots/"+user_filename
+                        save_path = f"./output/{self.name}/{user_filename}"
                 
 
                 elif user_input == "cancel_linear":
