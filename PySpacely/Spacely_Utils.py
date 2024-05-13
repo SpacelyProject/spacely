@@ -1445,7 +1445,7 @@ class Analysis():
         self.name = name
 
         self.name = name
-        self.base_path = os.sep.join(["output",name])
+        self.base_path = os.sep.join([".","output",name])
         
         
         sg.log.notice(f"Creating Analysis {name} at {self.base_path}")
@@ -1897,7 +1897,7 @@ class Analysis():
         if save_path is None:
             for c in FILENAME_ILLEGAL_CHARS:
                 title = title.replace(c, "_")
-            save_path = f"./FPGA_Impact_Changed_Slots/{title.replace('.', '_').replace(' ', '_')}.png"
+            save_path = f"{self.base_path}/{title.replace('.', '_').replace(' ', '_')}.png"
 
         plt.grid(True)
         plt.legend()
@@ -1977,6 +1977,23 @@ class Analysis():
                 
                 for df in df_to_load:
                     self.load_df(df)
+                    
+            elif user_input == "boundx":
+            
+                sources = self._ashell_get_source()
+                
+                print("Choose an x-key:")
+                xkey = self._ashell_get_key(sources[0])
+                
+                print("Choose wa y-key:")
+                ykey = self._ashell_get_key(sources[0])
+                
+                boundx_0 = float(input("Lower x bound?"))
+                boundx_1 = float(input("Upper x bound?"))
+                
+                for s in sources:
+                
+                    self.exclude_outliers_by_x(xkey,ykey,s,[boundx_0,boundx_1])
             
             ## Commands that deal with Freq-Type data
             elif user_input in ["mean", "std", "hist", "mhist", "outliers"]:
