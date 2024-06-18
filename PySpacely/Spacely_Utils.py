@@ -841,6 +841,9 @@ def rail_lint():
         if rail not in V_LEVEL.keys():
             sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_LEVEL which specifies the voltage setting (in volts) for this rail.")
             return -1
+        if rail not in V_PORT.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in V_PORT ({rail} : None). This 'None' will get filled by the reference to the port object later.")
+            return -1
 
     for rail in I_PORT.keys():
         if rail not in I_SEQUENCE:
@@ -859,6 +862,9 @@ def rail_lint():
             return -1
         if rail not in I_LEVEL.keys():
             sg.log.error(f"CONFIG ERROR: {rail} must have an entry in I_LEVEL which specifies the current setting (in amps) for this rail.")
+            return -1
+        if rail not in I_PORT.keys():
+            sg.log.error(f"CONFIG ERROR: {rail} must have an entry in I_PORT ({rail} : None). This 'None' will get filled by the reference to the port object later.")
             return -1
 
 

@@ -8,6 +8,57 @@ from fnal_libinstrument import Source_Instrument
 
 import Spacely_Globals as sg
 
+
+#V1.5 CaR Board I2C Tree (Useful for debugging)
+
+class INA226():
+    def __init__(self, address, ID, name=""):
+        self.part = "INA226"
+        self.address = address
+        self.ID = ID
+        self.name = name
+        self.registers = {0 : "Configuration Register",
+                          1 : "Shunt Voltage Register",
+                          2 : "Bus Voltage Register",
+                          3 : "Power Register",
+                          4 : "Current Register",
+                          5 : "Calibration Register",
+                          6 : "Mask/Enable Register",
+                          7 : "Alert Limit Register",
+                          0xFE : "Manufacturer ID Register",
+                          0xFF : "Die ID Register"}
+
+class DAC7678():
+    def __init__(self, address, ID, name=""):
+        self.part = "DAC7678"
+        self.address = address
+        self.ID = ID
+        self.name = name
+        self.registers = {}
+
+class PCA9539():
+    def __init__(self, address, ID, name=""):
+        self.part = "PCA9539"
+        self.address = address
+        self.ID = ID
+        self.name = name
+        self.registers = {0 : "Input Port 0",
+                          1 : "Input Port 1",
+                          2 : "Output Port 0",
+                          3 : "Output Port 1",
+                          4 : "Polarity Inversion Port 0",
+                          5 : "Polarity Inversion Port 1",
+                          6 : "Direction Port 0",
+                          7 : "Direction Port 1"}
+                          
+
+
+I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
+                   1 : [INA226(0x40,"U53","pwr_out_1"), INA226(0x41, "U52","pwr_out_2"), INA226(0x42, "U55","pwr_out_3"), INA226(0x43, "U54","pwr_out_4"),
+                        INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")]}
+
+
+        
 # Reasons why we run Spacely on Linux instead of on the ZCU102:
 # (1) We would have to get direct internet access on the ZCU102, which is annoying.
 # (2) If the ZCU102 crashes, Spacely goes down with it, and there may be no record of what caused it.
@@ -39,7 +90,18 @@ class Caribou(Source_Instrument):
         #Send a message to check that the interface is operational.
         self._client.keep_alive()
 
+        self.configure_car()
     
+    #Important config steps to make sure CaR board is set up to work.  
+    def configure_car(self):
+        self.log.debug("~ ~ Configuring CaR board ~ ~")
+
+        self.log.debug("[Step 1] Setting PCA9539 Dir to Output")
+        self.car_i2c_write(0,0x76,6,0)
+        self.car_i2c_write(0,0x76,7,0)
+
+        self.log.debug("~ ~ Done Configuring CaR board ~ ~")
+        
     #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
     def request(self, cmd, *args):
         try:
@@ -51,7 +113,7 @@ class Caribou(Source_Instrument):
 
     def get_memory(self, mem_name):
         """Return the contents of an FPGA Memory Register"""
-        return self._dev.get_memory(mem_name)
+        return int(self._dev.get_memory(mem_name))
 
     def set_memory(self, mem_name, value):
         """Set the contents of an FPGA Memory Register"""
@@ -79,38 +141,100 @@ class Caribou(Source_Instrument):
         return self._dev.set_current(name, value)
 
     def set_output_on(self, name):
-        return NotImplementedError
+        return self._dev.switch_on(name)
 
     def set_output_off(self, name):
-        return NotImplementedError
-    
-# CaribouDAC class corresponds to any Caribou PWR/BIAS rail.
-# Though this class is just a wrapper, it's important to have, as
-# it allows us to log custom entries in V_PORT or whatever.
-    
-#class CaribouDAC():
-#
-#    def __init__(self, logger, caribou, name):
-#        self.log = logger
-#        self.caribou = caribou
-#        self.name = name
-
-#
-#    def get_voltage(self):
-#        return self.caribou.get_voltage(self.name)
-#
-#    def set_voltage(self, voltage):
-#        return self.cariou.set_voltage(self.name, voltage)
-#
-#    def get_current(self):
-#        return self.caribou.get_current(self.name)
-#
-#    def set_current(self, current):
-#        return self.caribou.set_current(self.name, current)
+        return self._dev.switch_off(name)
     
 
+    def car_i2c_write(self, bus, comp_addr, mem_addr, data):
+        return self._dev._request("car_i2c_write",bus, comp_addr, mem_addr, data)
 
+    def car_i2c_read(self, bus, comp_addr, mem_addr, length):
+        return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length)
 
+    def car_i2c_shell(self):
+
+        # Loop 1: Bus Selection
+        while True:
+            print("I2C Bus Options:")
+            print("0. Si5345, Board ID, etc")
+            print("1. INA226 Monitors")
+            print("2. SEARAY")
+            print("3. Bias DACs")
+
+            user_bus = input("bus?")
+
+            if user_bus == "exit" or user_bus == "q":
+                return
+
+            try:
+                user_bus = int(user_bus)
+                if user_bus < 0 or user_bus > 3:
+                    print("Invalid bus choice!")
+                    continue
+            except TypeError:
+                print("Invalid bus choice!")
+                continue
+
+            # Loop 2: Component Selection
+            while True:
+                print("Component Options:")
+                for i in range(len(I2C_COMPONENTS[user_bus])):
+                    comp = I2C_COMPONENTS[user_bus][i]
+                    print(f"{i}. 0x{comp.address:02x} {comp.part} {comp.name}")
+
+                user_comp = input("component?")
+
+                if user_comp == "q":
+                    break
+
+                try:
+                    user_comp = I2C_COMPONENTS[user_bus][int(user_comp)]
+                except (IndexError, TypeError):
+                    print("Invalid Component Choice!")
+                    continue
+
+                # Loop 3: Memory Selection
+                print("Component Options:")
+                for i in user_comp.registers.keys():
+                    regname = user_comp.registers[i]
+                    print(f"{i} -- {regname}")
+                while True:
+                    
+
+                    user_reg = input("register?")
+
+                    if user_reg == 'q':
+                        break
+
+                    try:
+                        user_reg = int(user_reg)
+                        if user_reg not in user_comp.registers.keys():
+                            print("Invalid Reg Choice!")
+                            continue
+                    except TypeError:
+                        print("Invalid Reg Choice!")
+                        continue
+
+                    user_rw = input("r/w?")
+
+                    if user_rw == "r":
+                        raw_read_data = self.car_i2c_read(user_bus, user_comp.address, user_reg,2)
+                        print(f"Raw read data: {raw_read_data}")
+                        i2c_data = int(raw_read_data)
+                        print(f"HEX: {i2c_data:04x} \n BIN:{i2c_data:16b}")
+                        
+                    elif user_rw == "w":
+                        try:
+                            user_data = int(input("data?"))
+                            self.car_i2c_write(user_bus, user_comp.address, user_reg,user_data)
+                            #print(f"RETURN DATA: {i2c_data}")
+                        except ValueError:
+                            print("Enter numeric data!")
+
+                               
+        
 
 
 ##########################################################################################
@@ -197,21 +321,45 @@ def parse_mem_map(mem_map_lines):
 #Returns an integer formatted as a string-format hex.
 def print_hex(myInt):
     return f'{myInt:#08x}'
-            
+
+
+def gen_mem_map():
+    
+    mem_map_filename = filedialog.askopenfilename()
+
+    with open(mem_map_filename,'r') as read_file:
+        mem_map_lines = read_file.readlines()
+
+    mem_map = parse_mem_map(mem_map_lines)
+
+
+    print(mem_map_to_str(mem_map))
+
+    
+
 #Creates a C++ code representation of a memory map in dictionary form.
 def mem_map_to_str(mem_map):
 
-    s = "#define FPGA_REGS \\ \n { \\ \n"
+    s = "#define FPGA_REGS \\\n { \\\n"
 
     for field in mem_map.keys():
 
         register_address = print_hex(mem_map[field]["IP Base Addr"] + mem_map[field]["Register Offs"] - 0x400000000)
         mask = print_hex(mem_map[field]["Mask"])
-        read = mem_map[field]["Readable"]
-        write = mem_map[field]["Writeable"]
+
+        #Account for the fact that bools have lowercase in C++, uppercase in Python.
+        if mem_map[field]["Readable"]:
+            read = "true"
+        else:
+            read = "false"
+
+        if mem_map[field]["Writeable"]:
+            write = "true"
+        else:
+            write = "false"
 
         s = s + "  {\""+field+"\", {FPGA_MEM, register_t<size_t>("
-        s = s +f"{register_address}, {mask}, {read}, {write}, false)" + "}}, \\ \n"
+        s = s +f"{register_address}, {mask}, {read}, {write}, false)" + "}}, \\\n"
 
 
     s = s + "}\n"
