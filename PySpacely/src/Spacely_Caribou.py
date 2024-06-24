@@ -84,23 +84,24 @@ class Caribou(Source_Instrument):
             return 
 
         self.client_connected = True
+
+        #When set true, all memory read/writes will be logged to the console.
+        self.debug_memory = False
         
         self._dev = self._client.ensure_device(self._device_name)
 
         #Send a message to check that the interface is operational.
         self._client.keep_alive()
 
-        self.configure_car()
+        #self.configure_car()
     
-    #Important config steps to make sure CaR board is set up to work.  
-    def configure_car(self):
-        self.log.debug("~ ~ Configuring CaR board ~ ~")
+    #Initialization steps that will need to be taken if & only if CaR board is attached.  
+    def init_car(self):
+        self.log.debug("~ ~ CaR Board Initialization ~ ~")
 
         self.log.debug("[Step 1] Setting PCA9539 Dir to Output")
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
-
-        self.log.debug("~ ~ Done Configuring CaR board ~ ~")
         
     #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
     def request(self, cmd, *args):
@@ -113,10 +114,15 @@ class Caribou(Source_Instrument):
 
     def get_memory(self, mem_name):
         """Return the contents of an FPGA Memory Register"""
-        return int(self._dev.get_memory(mem_name))
+        return_val = int(self._dev.get_memory(mem_name))
+        if self.debug_memory:
+            self.log.debug(f"<AXI> Read {mem_name}: {return_val}")
+        return return_val
 
     def set_memory(self, mem_name, value):
         """Set the contents of an FPGA Memory Register"""
+        if self.debug_memory:
+            self.log.debug(f"<AXI> Set {mem_name} = {value}")
         return self._dev.set_memory(mem_name,value)
 
 
@@ -140,12 +146,28 @@ class Caribou(Source_Instrument):
             self.log.warning("Spacely-Caribou Warning: Voltage limits for I supplies not implemented.")
         return self._dev.set_current(name, value)
 
-    def set_output_on(self, name):
-        return self._dev.switch_on(name)
 
-    def set_output_off(self, name):
-        return self._dev.switch_off(name)
-    
+    def set_input_cmos_level(self, voltage):
+        return self._dev._request("setInputCMOSLevel",voltage)
+
+    def set_output_cmos_level(self,voltage):
+        return self._dev._request("setOutputCMOSLevel",voltage)
+
+    # NOTE: set_output_on() and set_output_off() take channels, not rail names, as arguments. Use V_CHAN[] or I_CHAN[]
+    def set_output_on(self, channel):
+        return self._dev.switch_on(channel)
+
+    def set_output_off(self, channel):
+        return self._dev.switch_off(channel)
+
+    def configureSI5345(self, config_num):
+        return self._dev._request("configureSI5345", config_num)
+
+    def disableSI5345(self):
+        return self._dev._request("disableSI5345")
+
+    def checkSI5345Locked(self):
+        return self._dev._request("requestSI5345Locked")
 
     def car_i2c_write(self, bus, comp_addr, mem_addr, data):
         return self._dev._request("car_i2c_write",bus, comp_addr, mem_addr, data)

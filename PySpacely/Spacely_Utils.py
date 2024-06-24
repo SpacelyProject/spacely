@@ -918,6 +918,19 @@ def initialize_INSTR(interactive: bool = False):
         
 def deinitialize_INSTR():
     for instr in INSTR.keys():
+
+        if INSTR[instr]["type"] == "Caribou":
+            #If there is a Caribou board in use, turn off any CaR board voltage rails.
+            sg.log.debug("Deinitializing Caribou...")
+            for rail in V_SEQUENCE:
+                if V_INSTR[rail] == "car":
+                    sg.log.debug(f"Turning off Caribou rail: {rail}")
+                    V_PORT[rail].set_output_off()
+            for rail in I_SEQUENCE:
+                if I_INSTR[rail] == "car":
+                    sg.log.debug(f"Turning off Caribou rail: {rail}")
+                    I_PORT[rail].set_output_off()
+
         
         if INSTR[instr]["type"] == "NIDCPower":
             try:
