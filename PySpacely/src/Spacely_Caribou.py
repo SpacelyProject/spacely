@@ -302,17 +302,16 @@ def parse_mem_map(mem_map_lines):
             sg.log.error(f"Parse error in Mask for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
         
-        
         try:
-            mem_map[tokens[0]]["Readable"] = bool(tokens[3])
+            mem_map[tokens[0]]["Readable"] = ( (tokens[3].lower() == "true") or (tokens[3] == "1") )
         except ValueError:
-            sg.log.error(f"Parse error in 'Readable' for mem field {tokens[0]} (should be an int)")
+            sg.log.error(f"Parse error in 'Readable' for mem field {tokens[0]} (should be an int or str)")
             return -1
 
         try:
-            mem_map[tokens[0]]["Writeable"] = bool(tokens[4])
+            mem_map[tokens[0]]["Writeable"] = ( (tokens[4].lower() == "true") or (tokens[4] == "1") )
         except ValueError:
-            sg.log.error(f"Parse error in 'Writeable' for mem field {tokens[0]} (should be an int)")
+            sg.log.error(f"Parse error in 'Writeable' for mem field {tokens[0]} (should be an int or str)")
             return -1
         
 
