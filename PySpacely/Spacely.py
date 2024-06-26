@@ -241,11 +241,17 @@ except FileNotFoundError as e:
     ROUTINES = []
         
 #Run On-startup routine
+#(1) Check if startup code exists.
 try:
+    onstartup
+    onstartup_exists = True
+except NameError:
+    onstartup_exists = False
+
+#(2) If it exists, run it.
+if onstartup_exists:
     onstartup()
     sg.log.debug(f"Executed onstartup() code from {TARGET_ROUTINES_PY}")
-except NameError:
-    pass
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:

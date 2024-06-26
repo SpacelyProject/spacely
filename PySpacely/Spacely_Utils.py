@@ -925,11 +925,17 @@ def deinitialize_INSTR():
             for rail in V_SEQUENCE:
                 if V_INSTR[rail] == "car":
                     sg.log.debug(f"Turning off Caribou rail: {rail}")
-                    V_PORT[rail].set_output_off()
+                    try:
+                        V_PORT[rail].set_output_off()
+                    except AttributeError:
+                        sg.log.warning(f"FAILED. Maybe {rail} was never initialized.")
             for rail in I_SEQUENCE:
                 if I_INSTR[rail] == "car":
                     sg.log.debug(f"Turning off Caribou rail: {rail}")
-                    I_PORT[rail].set_output_off()
+                    try:
+                        I_PORT[rail].set_output_off()
+                    except AttributeError:
+                        sg.log.warning(f"FAILED. Maybe {rail} was never initialized.")
 
         
         if INSTR[instr]["type"] == "NIDCPower":
