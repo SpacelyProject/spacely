@@ -1061,23 +1061,32 @@ def initialize_NIFPGA():
         setup_pr = False
         
     if setup_pr:
-        sg.log.debug("Initializing PatternRunner...")
+        sg.log.debug("Initializing global PatternRunner...")
         sg.pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
-        sg.log.debug("Initializing GlueConverter...")
-        sg.gc = GlueConverter(DEFAULT_IOSPEC)
+        #sg.log.debug("Initializing GlueConverter...")
+        #sg.gc = GlueConverter(DEFAULT_IOSPEC)
         time.sleep(2)
+
+
+def initialize_GlueConverter():
+    try:
+        DEFAULT_IOSPEC
+    except NameError:
+        #If there is no DEFAULT_IOSPEC, we can't do anything.
+        sg.log.debug("No DEFAULT_IOSPEC in config, sg.gc initialization skipped")
+        return
+
+    if sg.gc is None:
+        sg.log.debug("Initializing global GlueConverter...")
+        sg.gc = GlueConverter(DEFAULT_IOSPEC)
 
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_Rails():
     global V_CURR_LIMIT, I_VOLT_LIMIT
     
-    
 
-        
-    
-
-    sg.log.debug("NI INSTR init")
+    sg.log.debug("Initializing power/bias rails...")
     try:
 
         if V_SEQUENCE is not None and len(V_SEQUENCE) > 0:
@@ -1086,7 +1095,7 @@ def initialize_Rails():
             except NameError:
                 sg.log.warning("No current limits specified for sources in MyASIC_Config.py. Setting to default 100 mA.")
                 V_CURR_LIMIT = 0.1
-            sg.log.debug("NI Vsource init")
+            sg.log.debug("Vsource init")
             for Vsource in V_SEQUENCE:
                 #time.sleep(0.5)
                 
@@ -1102,7 +1111,7 @@ def initialize_Rails():
                 V_PORT[Vsource].set_output_on()
                 sg.log.block_res()
             
-            sg.log.debug("NI Vsource init done")
+            sg.log.debug("Vsource init done")
         
             
 
@@ -1113,7 +1122,7 @@ def initialize_Rails():
                 sg.log.warning("No voltage limits specified for sources in MyASIC_Config.py. Setting to default 1.0V.")
                 I_VOLT_LIMIT
                 
-            sg.log.debug("NI Isource init")
+            sg.log.debug("Isource init")
             for Isource in I_SEQUENCE:
                 sg.log.blocking(f"Initializing Isource \"{Isource}\" @ {I_INSTR[Isource]}#{I_CHAN[Isource]} to {I_LEVEL[Isource]:.6f}")
                 
@@ -1126,7 +1135,7 @@ def initialize_Rails():
                 I_PORT[Isource].set_current(I_LEVEL[Isource])
                 I_PORT[Isource].set_output_on()
                 sg.log.block_res()
-            sg.log.debug("NI Isource init done")
+            sg.log.debug("Isource init done")
         
             
     except Exception as e:
@@ -1138,7 +1147,7 @@ def initialize_Rails():
         raise
 
     sg.NI_CONNECTED = True
-    sg.log.notice("NI PXI initialized")
+    sg.log.notice("Power/bias rails initialized")
 
 
 #def cycle_NI():

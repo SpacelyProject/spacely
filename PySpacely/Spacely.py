@@ -168,6 +168,10 @@ if init_instr:
 else:
     sg.log.debug('INSTR init skipped')
 
+
+#Always try initializing the Glue Converter, it will fail if there is no DEFAULT_IOSPEC
+initialize_GlueConverter()
+    
 #Always initialize rails, if we've initialized the instruments that supply them.
 if init_instr:
     initialize_Rails()
