@@ -160,6 +160,9 @@ class Caribou(Source_Instrument):
     def set_output_off(self, channel):
         return self._dev.switch_off(channel)
 
+    def setUsrclkFreq(self, frequency):
+        return self._dev._request("setUsrclkFreq", frequency)
+    
     def configureSI5345(self, config_num):
         return self._dev._request("configureSI5345", config_num)
 
