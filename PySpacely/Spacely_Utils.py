@@ -1194,10 +1194,10 @@ def genpattern_from_waves_dict(waves_dict):
     #3) Convert ASCII file to Glue.
     gc = GlueConverter(DEFAULT_IOSPEC)
 
-    gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+    name = gc.ascii2Glue("genpattern.txt", 1, "genpattern")
 
 
-    return "genpattern_se_io.glue"
+    return name
 
 
 
