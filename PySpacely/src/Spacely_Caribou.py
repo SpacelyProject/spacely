@@ -41,12 +41,19 @@ class Exclusive_Resource:
         acquire_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         #Ensure the file exists
-        self.fp = open(self.lockfilename,'a')
-        self.fp.close()
+        #If Spacely has the file open, we won't be able to open w/ 'a' permission.
+        try:
+            self.fp = open(self.lockfilename,'a')
+            os.chmod(self.lockfilename,0o777)
+            self.fp.close()
+            
+        except PermissionError:
+            pass
 
         #We want to be able to write at the beginning, but if we fail to get the lock,
         #we also want to be able to read.
         self.fp = open(self.lockfilename,'r+')
+        
 
         try:
             fcntl.flock(self.fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
