@@ -2,11 +2,76 @@ import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
 import os
+import fcntl
 
 from PearyClient import PearyClient, Device, Failure
 from fnal_libinstrument import Source_Instrument
 
 import Spacely_Globals as sg
+
+
+
+# Spacely Exclusive Resources
+#
+# We use exclusive resources to lock access to system resources that two Spacely processes should not simultaneously access.
+# Each of these resources must have a unique "handle"
+# The first process to request the resource will:
+# (1) Acquire a lock on a file named after the handle.
+# (2) Write to that file information about the lock.
+# (3) When it's done, delete that file and release the lock.
+#
+# Other processes that try to request the resource in the middle will fail to acquire a lock on the file. 
+                
+class Exclusive_Resource:
+
+    def __init__(self, handle, description):
+        self.handle = handle
+        self.description = description
+        self.lockfilename = f"/tmp/{self.handle}.lck"
+
+        self.VERBOSE = True
+
+
+    def acquire(self):
+
+        if self.VERBOSE:
+            sg.log.debug(f"Attempting to acquire Resource {self.handle}...")
+        
+        acquire_user = os.getlogin()
+        acquire_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        #Ensure the file exists
+        self.fp = open(self.lockfilename,'a')
+        self.fp.close()
+
+        #We want to be able to write at the beginning, but if we fail to get the lock,
+        #we also want to be able to read.
+        self.fp = open(self.lockfilename,'r+')
+
+        try:
+            fcntl.flock(self.fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            self.fp.write(f"{self.description} was locked by user {acquire_user} at time {acquire_time}\n")
+            self.fp.flush()
+            os.fsync(self.fp)
+            #self.fp.close()
+
+            sg.log.info(f"Resource {self.handle} acquired!")
+
+        except BlockingIOError:
+            with open(self.lockfilename,"r") as read_file:
+                lockfile_text = read_file.read()
+            sg.log.error(f"FAILED TO ACQUIRE RESOURCE: {lockfile_text}")
+            return -1
+
+    def release(self):
+        if self.VERBOSE:
+            sg.log.debug(f"Releasing Resource {self.handle}...")
+            
+        os.remove(self.lockfilename)
+        fcntl.flock(self.fp.fileno(), fcntl.LOCK_UN)
+
+        
 
 
 #V1.5 CaR Board I2C Tree (Useful for debugging)
@@ -76,6 +141,13 @@ class Caribou(Source_Instrument):
         self.log = log
         self.client_connected = False
 
+        #Acquire an exclusive lock to Caribou system.
+        self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
+
+        if self.lock.acquire() == -1:
+            sg.log.error("Failed to initialize Caribou, exiting.")
+            exit()
+        
         try:
             self._client = PearyClient(host=self._host, port=self._port)
         except (ConnectionRefusedError, OSError) as e:
@@ -103,6 +175,14 @@ class Caribou(Source_Instrument):
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
         
+
+    def close(self):
+        try:
+            self._client._close()
+        except AttributeError:
+            sg.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
+        self.lock.release()
+
     #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
     def request(self, cmd, *args):
         try:

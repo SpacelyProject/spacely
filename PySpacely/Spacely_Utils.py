@@ -19,6 +19,7 @@ import csv
 import tkinter as tk
 from tkinter import filedialog
 import pyvisa
+import fcntl
 
 try:
     import matplotlib.pyplot as plt
@@ -919,6 +920,10 @@ def initialize_INSTR(interactive: bool = False):
 def deinitialize_INSTR():
     for instr in INSTR.keys():
 
+        if instr not in sg.INSTR.keys():
+            sg.log.debug(f"Skipping deinit for '{instr}' since it is not in sg.INSTR (probably never initialized).")
+            continue
+
         if INSTR[instr]["type"] == "Caribou":
             #If there is a Caribou board in use, turn off any CaR board voltage rails.
             sg.log.debug("Deinitializing Caribou...")
@@ -937,6 +942,9 @@ def deinitialize_INSTR():
                     except AttributeError:
                         sg.log.warning(f"FAILED. Maybe {rail} was never initialized.")
 
+
+            #Finally, release Caribou lock
+            sg.INSTR[instr].close()
         
         if INSTR[instr]["type"] == "NIDCPower":
             try:
@@ -2042,3 +2050,5 @@ class Analysis():
         
                 
     
+
+        
