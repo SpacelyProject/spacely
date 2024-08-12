@@ -27,7 +27,13 @@ class Exclusive_Resource:
     def __init__(self, handle, description):
         self.handle = handle
         self.description = description
-        self.lockfilename = f"/tmp/{self.handle}.lck"
+
+        #Store lockfiles in a sub-directory of /tmp/
+        #Change directory permissions to 777 so that we can not have issues deleting files.
+        LOCKFILE_DIR = "/tmp/spacely-lockfiles/"
+        os.makedirs(LOCKFILE_DIR, exist_ok=True)
+        os.chmod(LOCKFILE_DIR,0o777)
+        self.lockfilename = f"{LOCKFILE_DIR}{self.handle}.lck"
 
         self.VERBOSE = True
 

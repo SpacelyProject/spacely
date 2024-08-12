@@ -1200,9 +1200,9 @@ def genpattern_from_waves_dict(waves_dict):
             write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
             
     #3) Convert ASCII file to Glue.
-    gc = GlueConverter(DEFAULT_IOSPEC)
+    #gc = GlueConverter(DEFAULT_IOSPEC)
 
-    name = gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+    name = sg.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
 
 
     return name
