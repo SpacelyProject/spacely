@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
 import os
+from os import stat
+from pwd import getpwuid
 import fcntl
 
 from PearyClient import PearyClient, Device, Failure
@@ -31,8 +33,18 @@ class Exclusive_Resource:
         #Store lockfiles in a sub-directory of /tmp/
         #Change directory permissions to 777 so that we can not have issues deleting files.
         LOCKFILE_DIR = "/tmp/spacely-lockfiles/"
+
+        # (1) Try to make the directory
         os.makedirs(LOCKFILE_DIR, exist_ok=True)
-        os.chmod(LOCKFILE_DIR,0o777)
+
+        # (2) If we are the owner of the directory, then try changing its permissions.
+        # (if we're not the owner, not our problem.)
+        dir_owner = getpwuid(stat(LOCKFILE_DIR).st_uid).pw_name
+        if dir_owner == os.getlogin():
+            #sg.log.debug("We own /tmp/spacely-lockfiles, setting permission bits.")
+            os.chmod(LOCKFILE_DIR,0o777)
+
+        
         self.lockfilename = f"{LOCKFILE_DIR}{self.handle}.lck"
 
         self.VERBOSE = True
