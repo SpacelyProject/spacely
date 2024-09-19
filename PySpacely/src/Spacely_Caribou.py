@@ -3,8 +3,12 @@ from tkinter import filedialog
 from datetime import datetime
 import os
 from os import stat
-from pwd import getpwuid
-import fcntl
+
+WINDOWS_OS = ('nt' in os.name)
+
+if not WINDOWS_OS:
+    from pwd import getpwuid
+    import fcntl
 
 from PearyClient import PearyClient, Device, Failure
 from fnal_libinstrument import Source_Instrument
@@ -167,11 +171,14 @@ class Caribou(Source_Instrument):
         self.client_connected = False
 
         #Acquire an exclusive lock to Caribou system.
-        self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
+        if WINDOWS_OS:
+            sg.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
+        else:
+            self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
 
-        if self.lock.acquire() == -1:
-            sg.log.error("Failed to initialize Caribou, exiting.")
-            exit()
+            if self.lock.acquire() == -1:
+                sg.log.error("Failed to initialize Caribou, exiting.")
+                exit()
         
         try:
             self._client = PearyClient(host=self._host, port=self._port)
@@ -207,7 +214,9 @@ class Caribou(Source_Instrument):
             self._client._close()
         except AttributeError:
             sg.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
-        self.lock.release()
+        
+        if not WINDOWS_OS:
+            self.lock.release()
 
     #Wrapper for the PearyClient._request method that allows us to do Spacely-level error handling.
     def request(self, cmd, *args):

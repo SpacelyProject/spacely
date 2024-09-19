@@ -19,7 +19,6 @@ import csv
 import tkinter as tk
 from tkinter import filedialog
 import pyvisa
-import fcntl
 
 try:
     import matplotlib.pyplot as plt
