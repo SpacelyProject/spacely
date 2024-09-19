@@ -196,6 +196,7 @@ class Caribou(Source_Instrument):
     def init_car(self):
         self.log.debug("~ ~ CaR Board Initialization ~ ~")
 
+        #PCA9539 controls enable signals to power supplies.
         self.log.debug("[Step 1] Setting PCA9539 Dir to Output")
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)

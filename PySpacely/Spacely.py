@@ -24,6 +24,11 @@ import tkinter as tk
 from tkinter import filedialog
 import ast
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.completion import WordCompleter
+
 
 sys.path.append(os.path.abspath("./src"))
 
@@ -267,7 +272,17 @@ if cmd_args.r is not None:
     sg.log.info(f"This Routine took: {runtime}")
 
 
+
+# Setup for prompt_toolkit
+USE_PROMPT_TOOLKIT = True
+history = InMemoryHistory()
+completer = WordCompleter(get_Spacely_idioms(),sentence=True)
+session = PromptSession(history=history, enable_history_search=True, completer=completer)
+    
+
 print("# Spacely ready to take commands (see \"help\" for details)")
+
+
 
 #Command loop
 while True:
@@ -279,7 +294,10 @@ while True:
 
     
     try:
-        cmd_txt = input('> ')
+        if USE_PROMPT_TOOLKIT:
+            cmd_txt = session.prompt('> ')
+        else:
+            cmd_txt = input('> ')
     # DO NOT add "EOFError" here - it will break report_NI(1) and
     # anything that uses KeyboardInterrupt! Python has a broken exception
     # unwinding on Windows. If you do this, run report_NI(1), press Ctrl+C

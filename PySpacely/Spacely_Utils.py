@@ -2051,4 +2051,23 @@ class Analysis():
                 
     
 
+# Function to return a list of all Spacely idioms for autocomplete
+def get_Spacely_idioms():
+    basic_commands = ["exit", "help", "ni_mon", "cls"]
+    shells = ["ioshell", "ashell", "carshell", "gcshell", "fpgadbg"]
+
+    sg_INSTR = []
+
+    #All Spacely Global Instrument libraries objects and their associated functions.
+    for instr in sg.INSTR.keys():
+        sg_INSTR.append(f'sg.INSTR["{instr}"]')
+
+        class_name = type(sg.INSTR[instr]).__name__
         
+        class_func_names = [func for func in dir(class_name) if callable(getattr(class_name,func)) and not func.startswith("__")]
+
+        for func in class_func_names:
+            sg_INSTR.append(f'sg.INSTR["{instr}"].{func}')
+
+
+    return basic_commands + shells + sg_INSTR
