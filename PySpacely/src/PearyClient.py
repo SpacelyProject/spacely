@@ -79,9 +79,16 @@ class PearyClient(object):
         req_payload = [cmd,]
         req_payload.extend(str(_) for _ in args)
         req_payload = ' '.join(req_payload).encode('utf-8')
+        
         # encode message header
-        self._sequence_number += 1
+        # _sequence_number should wrap around so it fits in the struct.
+        if self._sequence_number >= 65534:
+            self._sequence_number = 0
+        else:
+            self._sequence_number += 1
+        
         req_header = HEADER.pack(self._sequence_number, STATUS_OK)
+        
         # encode message length for framing
         req_length = LENGTH.pack(len(req_header) + len(req_payload))
         # 2. send request
