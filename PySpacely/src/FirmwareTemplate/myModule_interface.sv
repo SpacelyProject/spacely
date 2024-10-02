@@ -149,5 +149,7 @@ axi4lite_interface_top #(
 
    ((MODULE))
 
+   ((PARAM_REG_ASSIGN))
+
   
 endmodule
