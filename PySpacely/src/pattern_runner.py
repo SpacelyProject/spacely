@@ -5,6 +5,109 @@ import os
 import time
 from threading import Thread
 
+
+#####################################################################
+##                CARIBOU PATTERN RUNNER                           ##
+#####################################################################
+
+
+class CaribouPatternRunner:
+    
+    def __init__(self, logger, gc, Caribou_inst):
+        self._log = logger
+        self.gc = gc
+        self.car = Caribou_inst
+    
+    def run_pattern(self, glue_wave, tsf=1):
+        """Runs a pattern from a Glue Wave on a Spacely-Caribou APG.
+           Returns the name of the sampled Glue Wave, or -1 on error.
+           """
+           
+        #Parse glue file names OR python objects
+        if type(glue_wave) == str:
+            glue_wave = self.gc.read_glue(glue_wave)
+        
+        #Give up on error.    
+        if glue_wave == -1:
+            self._log.error("GlueWave was -1, cannot run pattern.")
+            return
+        
+        ## (-1) Pick up APG name from glue_wave hardware definition.
+        apg_name = glue_wave.hardware[1]
+        
+        if glue_wave.hardware[2] != "write":
+            self._log.error(f"CaribouPatternRunner error: Attempted to write a GlueWave to APG {apg_name}, but GlueWave is configured to use the APG's '{glue_wave.hardware[2]}' interface (should be 'write')")
+            return -1
+
+        ## (0) Wait for idle, then clear the write buffer.
+        self.apg_wait_for_idle(apg_name)
+        self.car.set_memory(f"{apg_name}_clear",1)
+
+        ## (1) SET NUMBER OF SAMPLES
+        N = glue_wave.len
+
+        self.car.set_memory(f"{apg_name}_n_samples", N)
+
+        ## (2) WRITE PATTERN TO APG
+        for n in range(N):
+            #Implement time scaling.
+            for _ in range(tsf):
+                self.car.set_memory(f"{apg_name}_write_channel",glue_wave.vector[n])
+
+
+        ## (3) RUN AND WAIT FOR IDLE
+        self.car.set_memory(f"{apg_name}_run", 1)
+
+        time.sleep(0.1)
+        self.apg_wait_for_idle(apg_name)
+
+        ## (4) READ BACK SAMPLES
+        samples = []
+
+        for n in range(N):
+            samples.append(self.car.get_memory(f"{apg_name}_read_channel"))
+
+
+        APG_CLOCK_FREQUENCY = 10e6
+        strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
+            
+        read_glue = GlueWave(samples,strobe_ps,f"Caribou/{apg_name}/read")
+    
+        read_glue_file = f"Caribou_{apg_name}_read_samp.glue"
+
+        self.gc.write_glue(read_glue,read_glue_file)
+
+        return read_glue_file
+        
+        
+    def update_io_defaults(self, apg_name):
+        """Updates the field apg_write_defaults for the named APG to match self.gc.IO_Default"""
+        
+        io_default = 0
+        #For each ASIC input I/O, set the corresponding io_dir bit.
+        for io in self.gc.Input_IOs:
+            pos = self.gc.IO_pos[io]
+            default = self.gc.IO_default[io]
+            if default > 0:
+                io_default = io_default + (1 << pos)
+                
+        self.car.set_memory(f"{apg_name}_write_defaults",io_default)
+        
+        self._log.debug(f"Wrote {io_default} to {apg_name}_write_defaults")
+        
+        
+    def apg_wait_for_idle(self, apg_name):
+        while True:
+            status = self.car.get_memory(f"{apg_name}_status")
+
+            if status == 0:
+                break
+
+            time.sleep(0.1)
+
+#####################################################################
+##                NI FPGA PATTERN RUNNER                           ##
+#####################################################################
 ################## GlueFPGA Implementation Constants ################
 # When you read back waveforms from the FPGA, you will read back this many zeros first.
 #FPGA_READBACK_OFFSET = 3
@@ -55,11 +158,6 @@ GLUEFPGA_BITFILES = {"NI7976_NI6583_40MHz":GlueBitfile("NI7976","NI6583",3,40e6,
 NI_IO_CARD_VALID_FIFOS = {"NI6583" : ["lvds", "se_io"],
                           "NI6581" : ["ddca_P0", "ddca_P1", "ddca_P2", "ddcb_P0", "ddcb_P1", "ddcb_P2"]}
 
-
-
-#####################################################################
-
-
          
 
 #PatternRunner usage model:
@@ -85,10 +183,10 @@ NI_IO_CARD_VALID_FIFOS = {"NI6583" : ["lvds", "se_io"],
 
 
 
-class PatternRunner(ABC):
+class NIPatternRunner:
     _fpga: NiFpga = None
 
-    # Initialize PatternRunner() Object
+    # Initialize NIPatternRunner() Object
     # Args:
     #       logger = logger
     #       iospecfile = iospecfile
@@ -106,7 +204,7 @@ class PatternRunner(ABC):
         self.gc = GlueConverter(iospecfile)
         
         if not self.gc.loaded_iospec_file:
-            self._log.error("PatternRunner could not be set up due to failure parsing iospec file.")
+            self._log.error("NIPatternRunner could not be set up due to failure parsing iospec file.")
             return None
 
         if self.hardware_cfg_lint() == -1:
@@ -136,7 +234,7 @@ class PatternRunner(ABC):
         if self._update_io_dir() == -1:
             return
             
-        self._update_io_defaults()
+        self.update_io_defaults()
 
         if pattern is not None:
             self.update_pattern(pattern)
@@ -217,8 +315,11 @@ class PatternRunner(ABC):
                 self._interface[fpga_name].configure(GLUEFPGA_BITFILES[bitfile_name].FPGA_CONFIG_DICT)
                 
 
-    # _update_io_defaults() - Sets all IOs to their default state from iospec.
-    def _update_io_defaults(self):
+    # update_io_defaults() - Sets all IOs to their default state from iospec.
+    def update_io_defaults(self, hw_name=None):
+        
+        if hw_name is not None:
+            self._log.error("Error -- feature not yet implemented: NI Pattern Runner update io defaults for only one hw object.")
         
         #Make an io_default value for each FPGA resource we use
         hw_list = list(set(self.gc.IO_hardware.values()))
@@ -477,53 +578,21 @@ class PatternRunner(ABC):
 
         self._return_data[return_data_idx] = y[0]
 
-
-    def genpattern_from_waves_dict(self, waves_dict, time_scale_factor=1):
-
-        #2) Writing to an ASCII file.
-        with open("genpattern.txt",'w') as write_file:
-            for w in waves_dict.keys():
-                if time_scale_factor != 1:
-                    write_file.write(w+":"+"".join([str(x) for x in waves_dict[w] for _ in range(0,time_scale_factor)])+"\n")
-                else:
-                    write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
-                
-        #3) Convert ASCII file to Glue
-        return self.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
+    ### OBSOLETE! Use sg.gc.dict2Glue()
+    #def genpattern_from_waves_dict(self, waves_dict, time_scale_factor=1):
+    #
+    #    #2) Writing to an ASCII file.
+    #    with open("genpattern.txt",'w') as write_file:
+    #        for w in waves_dict.keys():
+    #            if time_scale_factor != 1:
+    #                write_file.write(w+":"+"".join([str(x) for x in waves_dict[w] for _ in range(0,time_scale_factor)])+"\n")
+    #            else:
+    #                write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
+    #            
+    #    #3) Convert ASCII file to Glue
+    #    return self.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
         
         
-        
-        
-   # A shell for manipulating IOs manually. 
-    def ioshell(self):
-        
-        while True:
-            #Print out current i/o defaults
-            for io in self.gc.Input_IOs:
-                hw = self.gc.IO_hardware[io]
-                pos = self.gc.IO_pos[io]
-                default = self.gc.IO_default[io]
-
-                print(f" {default} | {io:<13} | {hw:<10}:{pos:<2} |")
-            
-            while True:
-                which_io = input(">>>").strip()
-                
-                if which_io in self.gc.Input_IOs:
-                    self.gc.IO_default[which_io] = 1 - self.gc.IO_default[which_io]
-                    self._update_io_defaults()
-                    break
-                    
-                elif which_io == "exit":
-                    return
-                    
-                print(f"ERR: {which_io} not in gc.Input_IOs")
-                
-            
-                
-    
-        
-
 
 # ASSUMPTION: The intended pattern is a uniformly increasing set of integers.
 # rp = Returned pattern
@@ -578,33 +647,3 @@ def diagnose_fifo_timeout(rp):
         print("(INFO) No timeouts detected :D")
                 
             
-
-
-## UTILITY FUNCTIONS 
-
-
-
-
-##class GenericPatternRunner(PatternRunner):
-##    _default_regs_config = {
-##        "Write_to_Mem": False,
-##        "Read_from_Mem": False,
-##        "Run_Pattern": False,
-##        "Buffer_In_Size": 1024,
-##        "Buffer_Out_Size": 512,
-##        "Buffer_Pass_Size": 512,
-##        "FPGA_Loop_Dis": False
-##    }
-##
-##    def __init__(self, logger: liblog.Logger, fpga_resource: str, fpga_bitfile: str = None):
-##        if fpga_bitfile is None:
-##            src_path = os.path.dirname(os.path.realpath(__file__))
-##            fpga_bitfile = f"{src_path}/../resources/generic_pattern_runner.lvbitx"
-##        super().__init__(logger, fpga_resource, fpga_bitfile)
-##
-##    def initialize(self) -> None:
-##        super().initialize()
-##
-##        for name, val in self._default_regs_config:
-##            self._log.debug(f"Setting \"{name}\" register to default value of \"{val}\"")
-##            self._fpga.get_register(name).value = val

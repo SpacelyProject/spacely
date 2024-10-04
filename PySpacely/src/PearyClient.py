@@ -60,11 +60,12 @@ class PearyClient(object):
         """
         Close the connection.
         """
-        # is there a better way to allow double-close?
-        if self._socket.fileno() != -1:
-            # hard shutdown, no more sending or receiving
-            self._socket.shutdown(socket.SHUT_RDWR)
-            self._socket.close()
+        if hasattr(self,"_socket"):
+            # is there a better way to allow double-close?
+            if self._socket.fileno() != -1:
+                # hard shutdown, no more sending or receiving
+                self._socket.shutdown(socket.SHUT_RDWR)
+                self._socket.close()
 
     @property
     def peername(self):

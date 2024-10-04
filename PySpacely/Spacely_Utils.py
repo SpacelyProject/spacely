@@ -648,7 +648,7 @@ def RunFPGAPattern(fpga_slot, glue_bitfile, iospec, input_glue, output_file):
     #dbg = NiFpgaDebugger(sg.log, fpga)
     #dbg.configure(GLUEFPGA_DEFAULT_CFG)
 
-    tp = PatternRunner(sg.log,DEFAULT_IOSPEC)
+    tp = NIPatternRunner(sg.log,DEFAULT_IOSPEC)
     
 
 
@@ -907,6 +907,10 @@ def initialize_INSTR(interactive: bool = False):
 
         elif INSTR[instr]["type"] == "Caribou":
             sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+            if sg.pr is None:
+                sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR[instr])
+            else:
+                sg.log.warning("There is already a global PatternRunner initialized, declining to create a new CaribouPatternRunner.")
 
 
         #Support the assigning of aliases.
@@ -1068,8 +1072,8 @@ def initialize_NIFPGA():
         setup_pr = False
         
     if setup_pr:
-        sg.log.debug("Initializing global PatternRunner...")
-        sg.pr = PatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
+        sg.log.debug("Initializing global NIPatternRunner...")
+        sg.pr = NIPatternRunner(sg.log, DEFAULT_IOSPEC, DEFAULT_FPGA_BITFILE_MAP)
         #sg.log.debug("Initializing GlueConverter...")
         #sg.gc = GlueConverter(DEFAULT_IOSPEC)
         time.sleep(2)
@@ -1085,7 +1089,7 @@ def initialize_GlueConverter():
 
     if sg.gc is None:
         sg.log.debug("Initializing global GlueConverter...")
-        sg.gc = GlueConverter(DEFAULT_IOSPEC)
+        sg.gc = GlueConverter(DEFAULT_IOSPEC, sg.log)
 
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
@@ -1193,16 +1197,11 @@ def initialize_AWG(instr_cfg, io) -> AgilentAWG:
 # This function will generate a glue wave.
 def genpattern_from_waves_dict(waves_dict):
 
-    #2) Writing to an ASCII file.
-    with open("genpattern.txt",'w') as write_file:
-        for w in waves_dict.keys():
-            write_file.write(w+":"+"".join([str(x) for x in waves_dict[w]])+"\n")
-            
-    #3) Convert ASCII file to Glue.
-    #gc = GlueConverter(DEFAULT_IOSPEC)
+    sg.log.warning("You are using an obsolete Spacely_Utils method. Please switch to using sg.gc.dict2Glue()")
+    
+    glue_wave = sg.gc.dict2Glue(waves_dict, output_mode=3)
 
-    name = sg.gc.ascii2Glue("genpattern.txt", 1, "genpattern")
-
+    name = glue_wave.hardware_str.replace("/","_") + "_gen.glue"
 
     return name
 
@@ -2070,3 +2069,56 @@ def get_Spacely_idioms():
 
 
     return basic_commands + shells + sg_INSTR
+    
+    
+    
+# A shell for manipulating IOs manually. 
+def ioshell():
+    
+    while True:
+        
+        #Create a unique list of all the APG hw that needs to be updated.
+        apg_names = []
+        for entry in sg.gc.IO_hardware.values():
+            if "Caribou" in entry:
+                apg_name = entry.split("/")[-1]
+                if apg_name not in apg_names:
+                    apg_names.append(apg_name)
+        
+        
+        #Print out current i/o defaults
+        for io in sg.gc.Input_IOs:
+            hw = sg.gc.IO_hardware[io]
+            pos = sg.gc.IO_pos[io]
+            default = sg.gc.IO_default[io]
+
+            print(f" {default} | {io:<13} | {hw:<10}:{pos:<2} |")
+        
+        while True:
+            which_io = input(">>>").strip()
+            
+            if which_io in sg.gc.Input_IOs:
+                sg.gc.IO_default[which_io] = 1 - sg.gc.IO_default[which_io]
+                
+                #Update io defaults:
+                # - NI System
+                if isinstance(sg.pr,NIPatternRunner):
+                    sg.pr.update_io_defaults()
+                # - Caribou
+                else:
+                    for name in apg_names:
+                        sg.INSTR["car"].apg_update_defaults(name)
+                    
+                break
+            
+            elif which_io == "iospec":
+                file_path = filedialog.askopenfilename()
+                sg.gc.parse_iospec_file(file_path)
+                sg.gc.print_iospec()
+                print(file_path)
+                break
+            
+            elif which_io == "exit":
+                return
+                
+            print(f"ERR: {which_io} not in sg.gc.Input_IOs")

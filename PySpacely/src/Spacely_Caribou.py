@@ -152,6 +152,39 @@ I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
                         INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")]}
 
 
+class PearyClient_emu:
+    
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        
+    def _request(self,cmd,*args):
+        
+        req_payload = [cmd,]
+        req_payload.extend(str(_) for _ in args)
+        req_payload = ' '.join(req_payload).encode('utf-8')
+
+        sg.log.debug(f"peary_emu sending cmd: {req_payload}")
+        
+        return '0'.encode('utf-8')
+        
+    def keep_alive(self):
+        """
+        Send a keep-alive message to test the connection.
+        """
+        sg.log.debug(f"peary_emu: Sent a keep-alive message")
+        
+    def ensure_device(self, device_type):
+        sg.log.debug(f"peary_emu: Added device of type {device_type}")
+        return Device(self,0)
+
+#class Device_emu(object):
+#    
+#    def __init__(self, client):
+#        self._client = client
+#        
+#        
+#   def _request():
         
 # Reasons why we run Spacely on Linux instead of on the ZCU102:
 # (1) We would have to get direct internet access on the ZCU102, which is annoying.
@@ -163,12 +196,28 @@ I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
 class Caribou(Source_Instrument):
 
     def __init__(self, pearyd_host, pearyd_port, device_name, log):
+        """Initialize a new Caribou instrument.
+        
+           Arguments:
+           pearyd_host -- Hostname for the ZCU102 running peary, for instance "192.168.1.24"
+                          ** Set this argument to "EMULATE" in order to emulate Peary.
+           pearyd_port -- Port to connect to peary on, typically 1234
+           device_name -- Name of the Peary software device, typically "SpacelyCaribouBasic"
+           log -- Reference to a logger object, typically sg.log
+           """
 
         self._host = pearyd_host
         self._port = pearyd_port
         self._device_name = device_name
         self.log = log
         self.client_connected = False
+
+        if self._host == "EMULATE":
+            self.log.info("Due to settings in your Config file, Peary will be EMULATED in this session.")
+            self.emulate_peary = True
+        else:
+            self.emulate_peary = False
+
 
         #Acquire an exclusive lock to Caribou system.
         if WINDOWS_OS:
@@ -181,11 +230,15 @@ class Caribou(Source_Instrument):
                 exit()
         
         try:
-            self._client = PearyClient(host=self._host, port=self._port)
+            if self.emulate_peary:
+                self._client = PearyClient_emu(host=self._host, port = self._port)
+            else:
+                self._client = PearyClient(host=self._host, port=self._port)
         except (ConnectionRefusedError, OSError) as e:
             self.log.error(f"Could not connect to pearyd at {self._host}:{self._port}")
             self.log.error(f"Error message was: {e}")
-            return 
+            sg.log.error("Failed to initialize Caribou, exiting.")
+            exit() 
 
         self.client_connected = True
 
@@ -291,7 +344,7 @@ class Caribou(Source_Instrument):
         return self._dev._request("car_i2c_write",bus, comp_addr, mem_addr, data)
 
     def car_i2c_read(self, bus, comp_addr, mem_addr, length):
-        return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length)
+        return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length) 
 
     def car_i2c_shell(self):
 
