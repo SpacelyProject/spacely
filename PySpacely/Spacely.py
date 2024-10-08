@@ -353,7 +353,7 @@ while True:
         case 'ni_mon -a':
             report_NI(1, True)
         case 'ioshell':
-            sg.pr.ioshell()
+            ioshell()
         case 'ashell':
             a = Analysis()
             a.ashell()

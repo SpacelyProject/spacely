@@ -2081,7 +2081,7 @@ def ioshell():
         apg_names = []
         for entry in sg.gc.IO_hardware.values():
             if "Caribou" in entry:
-                apg_name = entry.split("/")[-1]
+                apg_name = entry.split("/")[-2]
                 if apg_name not in apg_names:
                     apg_names.append(apg_name)
         
@@ -2107,7 +2107,8 @@ def ioshell():
                 # - Caribou
                 else:
                     for name in apg_names:
-                        sg.INSTR["car"].apg_update_defaults(name)
+                        sg.pr.update_io_defaults(name)
+                        #sg.INSTR["car"].apg_update_defaults(name)
                     
                 break
             
