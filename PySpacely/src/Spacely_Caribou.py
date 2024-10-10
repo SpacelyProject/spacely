@@ -129,6 +129,15 @@ class DAC7678():
         self.ID = ID
         self.name = name
         self.registers = {}
+        
+        
+class ADS7828():
+    def __init__(self, address, ID, name=""):
+        self.part = "DAC7678"
+        self.address = address
+        self.ID = ID
+        self.name = name
+        self.registers = {132: "SE Channel 1"}
 
 class PCA9539():
     def __init__(self, address, ID, name=""):
@@ -149,7 +158,8 @@ class PCA9539():
 
 I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
                    1 : [INA226(0x40,"U53","pwr_out_1"), INA226(0x41, "U52","pwr_out_2"), INA226(0x42, "U55","pwr_out_3"), INA226(0x43, "U54","pwr_out_4"),
-                        INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")]}
+                        INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")],
+                   3 : [ADS7828(0x48,"U77","vol_in")]}
 
 
 class PearyClient_emu:
@@ -177,6 +187,8 @@ class PearyClient_emu:
     def ensure_device(self, device_type):
         sg.log.debug(f"peary_emu: Added device of type {device_type}")
         return Device(self,0)
+
+
 
 #class Device_emu(object):
 #    
@@ -244,6 +256,9 @@ class Caribou(Source_Instrument):
 
         #When set true, all memory read/writes will be logged to the console.
         self.debug_memory = False
+        
+        #List of AXI-addressable registers, to be used for running axi_shell
+        self.axi_registers = None
         
         self._dev = self._client.ensure_device(self._device_name)
 
@@ -345,7 +360,7 @@ class Caribou(Source_Instrument):
 
     def car_i2c_read(self, bus, comp_addr, mem_addr, length):
         return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length) 
-
+    
     def car_i2c_shell(self):
 
         # Loop 1: Bus Selection
@@ -354,7 +369,7 @@ class Caribou(Source_Instrument):
             print("0. Si5345, Board ID, etc")
             print("1. INA226 Monitors")
             print("2. SEARAY")
-            print("3. Bias DACs")
+            print("3. Bias DACs, slow ADCs")
 
             user_bus = input("bus?")
 
@@ -404,8 +419,8 @@ class Caribou(Source_Instrument):
                     try:
                         user_reg = int(user_reg)
                         if user_reg not in user_comp.registers.keys():
-                            print("Invalid Reg Choice!")
-                            continue
+                            print("(reg not in reg list)")
+                            #continue
                     except TypeError:
                         print("Invalid Reg Choice!")
                         continue
@@ -426,7 +441,48 @@ class Caribou(Source_Instrument):
                         except ValueError:
                             print("Enter numeric data!")
 
-                               
+
+
+    def axi_shell(self):
+        """Microshell to interact with the AXI registers and debug the design."""
+
+        if self.axi_registers is None:
+            self.log.error("Cannot run Caribou.axi_shell unless Caribou.axi_registers are defined.")
+            return
+                        
+        register_list = self.axi_registers
+
+        for x in register_list.keys():
+            print(x)
+            
+        fw_choice = input("Which fw module would you like to interact with?")
+        
+        AXI_REGISTERS = register_list[fw_choice]
+
+        while True:
+
+            # Print register contents
+            i = 0
+            for reg in AXI_REGISTERS:
+                reg_contents = self.get_memory(reg)
+                
+                print(f"{i}. {reg : <16} -- {reg_contents}")
+                i = i+1
+
+            write_reg_num = input("write which?").strip()
+
+            if write_reg_num == "":
+                continue
+
+            if write_reg_num == "q":
+                return
+
+            write_reg = AXI_REGISTERS[int(write_reg_num)]
+
+            write_val = int(input("val?"))
+
+            self.set_memory(write_reg, write_val)
+    
         
 ##########################################################################################
 # Helper Functions for Creating Firmware
