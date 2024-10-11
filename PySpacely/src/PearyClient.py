@@ -3,6 +3,23 @@
 import functools
 import socket
 import struct
+import signal
+
+
+class MaskKeyboardInterrupt:
+
+    def __enter__(self):
+        self.signal_received = False
+        self.old_handler = signal.signal(signal.SIGINT, self.handler)
+                
+    def handler(self, sig, frame):
+        self.signal_received = (sig, frame)
+        print('SIGINT received. Delaying KeyboardInterrupt.')
+    
+    def __exit__(self, type, value, traceback):
+        signal.signal(signal.SIGINT, self.old_handler)
+        if self.signal_received:
+            self.old_handler(*self.signal_received)
 
 # supported protocol version
 PROTOCOL_VERSION = b'1'
@@ -75,6 +92,13 @@ class PearyClient(object):
         """
         Send a command to the host and return the reply payload.
         """
+        with MaskKeyboardInterrupt():
+            return self._request_nointerrupt(cmd, *args)
+      
+    def _request_nointerrupt(self,cmd,*args):
+        """
+        Contains the critical code for _request() which shouldn't be interrupted.
+        """
         # 1. encode request
         # encode command and its arguments into message payload
         req_payload = [cmd,]
@@ -104,9 +128,10 @@ class PearyClient(object):
         rep_seq, rep_status = HEADER.unpack(rep_msg[:4])
         rep_payload = rep_msg[4:]
         if rep_status != STATUS_OK:
-            raise Failure(cmd, rep_status, rep_payload.decode('utf-8'))
+            raise Failure(cmd, rep_status, rep_payload)
         if rep_seq != self._sequence_number:
-            raise InvalidReply('Sequence number missmatch', req_seq, rep_seq)
+            raise InvalidReply('Sequence number missmatch', self._sequence_number, rep_seq)
+            
         return rep_payload
 
     def keep_alive(self):
