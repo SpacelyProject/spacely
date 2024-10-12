@@ -342,6 +342,11 @@ class Caribou(Source_Instrument):
 
     def set_output_off(self, channel):
         return self._dev.switch_off(channel)
+        
+    def disable_all_pwr_rails(self):
+        for idx in range(1,9):
+            rail_name = f"PWR_OUT_{idx}"
+            self.set_output_off(rail_name)
 
     def setUsrclkFreq(self, frequency):
         return self._dev._request("setUsrclkFreq", frequency)

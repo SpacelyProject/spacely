@@ -17,8 +17,14 @@ class CaribouPatternRunner:
         self._log = logger
         self.gc = gc
         self.car = Caribou_inst
+        
+        # Return mode for run_pattern():
+        # 1 - Return GlueWave object
+        # 2 - Write to file and return file name.
+        
+        self.default_return_mode = 1
     
-    def run_pattern(self, glue_wave, tsf=1):
+    def run_pattern(self, glue_wave, tsf=1, return_mode=None):
         """Runs a pattern from a Glue Wave on a Spacely-Caribou APG.
            Returns the name of the sampled Glue Wave, or -1 on error.
            """
@@ -73,11 +79,17 @@ class CaribouPatternRunner:
             
         read_glue = GlueWave(samples,strobe_ps,f"Caribou/{apg_name}/read")
     
-        read_glue_file = f"Caribou_{apg_name}_read_samp.glue"
+        if return_mode is None:
+            return_mode = self.default_return_mode
+    
+        if return_mode == 1:
+            return read_glue
+            
+        elif return_mode == 2:
+            read_glue_file = f"Caribou_{apg_name}_read_samp.glue"
+            self.gc.write_glue(read_glue,read_glue_file)
 
-        self.gc.write_glue(read_glue,read_glue_file)
-
-        return read_glue_file
+            return read_glue_file
         
         
     def update_io_defaults(self, apg_name):

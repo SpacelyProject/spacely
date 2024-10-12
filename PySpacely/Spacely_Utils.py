@@ -945,7 +945,8 @@ def deinitialize_INSTR():
                     except AttributeError:
                         sg.log.warning(f"FAILED. Maybe {rail} was never initialized.")
 
-
+            sg.log.debug("Just to be sure, disabling all PWR_OUT rails.")
+            sg.INSTR[instr].disable_all_pwr_rails()
             #Finally, release Caribou lock
             sg.INSTR[instr].close()
         
