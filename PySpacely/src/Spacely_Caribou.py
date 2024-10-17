@@ -11,6 +11,7 @@ if not WINDOWS_OS:
     import fcntl
 
 from PearyClient import PearyClient, Device, Failure
+from VirtualCaribou import VirtualCaribouClient
 from fnal_libinstrument import Source_Instrument
 
 import Spacely_Globals as sg
@@ -162,31 +163,7 @@ I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
                    3 : [ADS7828(0x48,"U77","vol_in")]}
 
 
-class PearyClient_emu:
-    
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        
-    def _request(self,cmd,*args):
-        
-        req_payload = [cmd,]
-        req_payload.extend(str(_) for _ in args)
-        req_payload = ' '.join(req_payload).encode('utf-8')
 
-        sg.log.debug(f"peary_emu sending cmd: {req_payload}")
-        
-        return '0'.encode('utf-8')
-        
-    def keep_alive(self):
-        """
-        Send a keep-alive message to test the connection.
-        """
-        sg.log.debug(f"peary_emu: Sent a keep-alive message")
-        
-    def ensure_device(self, device_type):
-        sg.log.debug(f"peary_emu: Added device of type {device_type}")
-        return Device(self,0)
 
 
 
@@ -223,6 +200,7 @@ class Caribou(Source_Instrument):
         self._device_name = device_name
         self.log = log
         self.client_connected = False
+        self.client_connected = False
 
         if self._host == "EMULATE":
             self.log.info("Due to settings in your Config file, Peary will be EMULATED in this session.")
@@ -233,23 +211,23 @@ class Caribou(Source_Instrument):
 
         #Acquire an exclusive lock to Caribou system.
         if WINDOWS_OS:
-            sg.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
+            self.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
         else:
             self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
 
             if self.lock.acquire() == -1:
-                sg.log.error("Failed to initialize Caribou, exiting.")
+                self.log.error("Failed to initialize Caribou, exiting.")
                 exit()
         
         try:
             if self.emulate_peary:
-                self._client = PearyClient_emu(host=self._host, port = self._port)
+                self._client = VirtualCaribouClient(host=self._host, port = self._port, logger=self.log)
             else:
                 self._client = PearyClient(host=self._host, port=self._port)
         except (ConnectionRefusedError, OSError) as e:
             self.log.error(f"Could not connect to pearyd at {self._host}:{self._port}")
             self.log.error(f"Error message was: {e}")
-            sg.log.error("Failed to initialize Caribou, exiting.")
+            self.log.error("Failed to initialize Caribou, exiting.")
             exit() 
 
         self.client_connected = True
@@ -276,12 +254,21 @@ class Caribou(Source_Instrument):
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
         
-
+    def load_virtual_fw(self, regmap):
+        """Loads virtual firmware onto a VirtualCaribou instance, if used."""
+        
+        if not self.emulate_peary:
+            self.log.error("SpacelyCaribou.load_virtual_fw() can only be called when using VirtualCaribou!")
+            return -1 
+            
+        self._client.load_firmware(regmap)
+    
+    
     def close(self):
         try:
             self._client._close()
         except AttributeError:
-            sg.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
+            self.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
         
         if not WINDOWS_OS:
             self.lock.release()
@@ -603,6 +590,11 @@ def parse_firmware_description(fw_des_lines):
 
     return (parameters, ports, registers)
         
+
+def gen_virtual_fw():
+    """Generates a Python object that serves as a virtualization of the firmware."""
+    pass
+
 
 def gen_fw(fw_name=None,fw_des_filename=None):
     """Generates XX_top.v, XX_interface.sv, and README.md files for a fw block in Spacely-Caribou format"""
@@ -973,7 +965,7 @@ def parse_mem_map(mem_map_lines):
         try:
              mem_map[tokens[0]]["Register Offs"] = int(tokens[1],0)
         except ValueError:
-            sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
+            sg.sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
 
         try:
