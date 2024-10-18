@@ -135,6 +135,10 @@ rail_lint_result = rail_lint()
 
 if num_instr == -1 or rail_lint_result == -1:
     exit()
+    
+    
+#Always try initializing the Glue Converter, it will fail if there is no DEFAULT_IOSPEC
+initialize_GlueConverter()
 
 #Arduino HAL
 init_hal = cmd_args.hal is not None
@@ -173,9 +177,6 @@ if init_instr:
 else:
     sg.log.debug('INSTR init skipped')
 
-
-#Always try initializing the Glue Converter, it will fail if there is no DEFAULT_IOSPEC
-initialize_GlueConverter()
     
 #Always initialize rails, if we've initialized the instruments that supply them.
 if init_instr:
@@ -352,7 +353,7 @@ while True:
         case 'ni_mon -a':
             report_NI(1, True)
         case 'ioshell':
-            sg.pr.ioshell()
+            ioshell()
         case 'ashell':
             a = Analysis()
             a.ashell()

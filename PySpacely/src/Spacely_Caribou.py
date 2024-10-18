@@ -11,6 +11,7 @@ if not WINDOWS_OS:
     import fcntl
 
 from PearyClient import PearyClient, Device, Failure
+from VirtualCaribou import VirtualCaribouClient
 from fnal_libinstrument import Source_Instrument
 
 import Spacely_Globals as sg
@@ -129,6 +130,15 @@ class DAC7678():
         self.ID = ID
         self.name = name
         self.registers = {}
+        
+        
+class ADS7828():
+    def __init__(self, address, ID, name=""):
+        self.part = "DAC7678"
+        self.address = address
+        self.ID = ID
+        self.name = name
+        self.registers = {132: "SE Channel 1"}
 
 class PCA9539():
     def __init__(self, address, ID, name=""):
@@ -149,9 +159,21 @@ class PCA9539():
 
 I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
                    1 : [INA226(0x40,"U53","pwr_out_1"), INA226(0x41, "U52","pwr_out_2"), INA226(0x42, "U55","pwr_out_3"), INA226(0x43, "U54","pwr_out_4"),
-                        INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")]}
+                        INA226(0x44,"U57","pwr_out_5"), INA226(0x45, "U56","pwr_out_6"), INA226(0x46, "U59","pwr_out_7"), INA226(0x4a, "U58","pwr_out_8")],
+                   3 : [ADS7828(0x48,"U77","vol_in")]}
 
 
+
+
+
+
+#class Device_emu(object):
+#    
+#    def __init__(self, client):
+#        self._client = client
+#        
+#        
+#   def _request():
         
 # Reasons why we run Spacely on Linux instead of on the ZCU102:
 # (1) We would have to get direct internet access on the ZCU102, which is annoying.
@@ -163,34 +185,58 @@ I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
 class Caribou(Source_Instrument):
 
     def __init__(self, pearyd_host, pearyd_port, device_name, log):
+        """Initialize a new Caribou instrument.
+        
+           Arguments:
+           pearyd_host -- Hostname for the ZCU102 running peary, for instance "192.168.1.24"
+                          ** Set this argument to "EMULATE" in order to emulate Peary.
+           pearyd_port -- Port to connect to peary on, typically 1234
+           device_name -- Name of the Peary software device, typically "SpacelyCaribouBasic"
+           log -- Reference to a logger object, typically sg.log
+           """
 
         self._host = pearyd_host
         self._port = pearyd_port
         self._device_name = device_name
         self.log = log
         self.client_connected = False
+        self.client_connected = False
+
+        if self._host == "EMULATE":
+            self.log.info("Due to settings in your Config file, Peary will be EMULATED in this session.")
+            self.emulate_peary = True
+        else:
+            self.emulate_peary = False
+
 
         #Acquire an exclusive lock to Caribou system.
         if WINDOWS_OS:
-            sg.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
+            self.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
         else:
             self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
 
             if self.lock.acquire() == -1:
-                sg.log.error("Failed to initialize Caribou, exiting.")
+                self.log.error("Failed to initialize Caribou, exiting.")
                 exit()
         
         try:
-            self._client = PearyClient(host=self._host, port=self._port)
+            if self.emulate_peary:
+                self._client = VirtualCaribouClient(host=self._host, port = self._port, logger=self.log)
+            else:
+                self._client = PearyClient(host=self._host, port=self._port)
         except (ConnectionRefusedError, OSError) as e:
             self.log.error(f"Could not connect to pearyd at {self._host}:{self._port}")
             self.log.error(f"Error message was: {e}")
-            return 
+            self.log.error("Failed to initialize Caribou, exiting.")
+            exit() 
 
         self.client_connected = True
 
         #When set true, all memory read/writes will be logged to the console.
         self.debug_memory = False
+        
+        #List of AXI-addressable registers, to be used for running axi_shell
+        self.axi_registers = None
         
         self._dev = self._client.ensure_device(self._device_name)
 
@@ -208,12 +254,21 @@ class Caribou(Source_Instrument):
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
         
-
+    def load_virtual_fw(self, regmap):
+        """Loads virtual firmware onto a VirtualCaribou instance, if used."""
+        
+        if not self.emulate_peary:
+            self.log.error("SpacelyCaribou.load_virtual_fw() can only be called when using VirtualCaribou!")
+            return -1 
+            
+        self._client.load_firmware(regmap)
+    
+    
     def close(self):
         try:
             self._client._close()
         except AttributeError:
-            sg.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
+            self.log.warning("<SpacelyCaribou> Attempted to close client port, but no client.")
         
         if not WINDOWS_OS:
             self.lock.release()
@@ -274,6 +329,11 @@ class Caribou(Source_Instrument):
 
     def set_output_off(self, channel):
         return self._dev.switch_off(channel)
+        
+    def disable_all_pwr_rails(self):
+        for idx in range(1,9):
+            rail_name = f"PWR_OUT_{idx}"
+            self.set_output_off(rail_name)
 
     def setUsrclkFreq(self, frequency):
         return self._dev._request("setUsrclkFreq", frequency)
@@ -291,8 +351,8 @@ class Caribou(Source_Instrument):
         return self._dev._request("car_i2c_write",bus, comp_addr, mem_addr, data)
 
     def car_i2c_read(self, bus, comp_addr, mem_addr, length):
-        return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length)
-
+        return self._dev._request("car_i2c_read",bus,comp_addr,mem_addr,length) 
+    
     def car_i2c_shell(self):
 
         # Loop 1: Bus Selection
@@ -301,7 +361,7 @@ class Caribou(Source_Instrument):
             print("0. Si5345, Board ID, etc")
             print("1. INA226 Monitors")
             print("2. SEARAY")
-            print("3. Bias DACs")
+            print("3. Bias DACs, slow ADCs")
 
             user_bus = input("bus?")
 
@@ -351,8 +411,8 @@ class Caribou(Source_Instrument):
                     try:
                         user_reg = int(user_reg)
                         if user_reg not in user_comp.registers.keys():
-                            print("Invalid Reg Choice!")
-                            continue
+                            print("(reg not in reg list)")
+                            #continue
                     except TypeError:
                         print("Invalid Reg Choice!")
                         continue
@@ -373,7 +433,48 @@ class Caribou(Source_Instrument):
                         except ValueError:
                             print("Enter numeric data!")
 
-                               
+
+
+    def axi_shell(self):
+        """Microshell to interact with the AXI registers and debug the design."""
+
+        if self.axi_registers is None:
+            self.log.error("Cannot run Caribou.axi_shell unless Caribou.axi_registers are defined.")
+            return
+                        
+        register_list = self.axi_registers
+
+        for x in register_list.keys():
+            print(x)
+            
+        fw_choice = input("Which fw module would you like to interact with?")
+        
+        AXI_REGISTERS = register_list[fw_choice]
+
+        while True:
+
+            # Print register contents
+            i = 0
+            for reg in AXI_REGISTERS:
+                reg_contents = self.get_memory(reg)
+                
+                print(f"{i}. {reg : <16} -- {reg_contents}")
+                i = i+1
+
+            write_reg_num = input("write which?").strip()
+
+            if write_reg_num == "":
+                continue
+
+            if write_reg_num == "q":
+                return
+
+            write_reg = AXI_REGISTERS[int(write_reg_num)]
+
+            write_val = int(input("val?"))
+
+            self.set_memory(write_reg, write_val)
+    
         
 ##########################################################################################
 # Helper Functions for Creating Firmware
@@ -489,6 +590,11 @@ def parse_firmware_description(fw_des_lines):
 
     return (parameters, ports, registers)
         
+
+def gen_virtual_fw():
+    """Generates a Python object that serves as a virtualization of the firmware."""
+    pass
+
 
 def gen_fw(fw_name=None,fw_des_filename=None):
     """Generates XX_top.v, XX_interface.sv, and README.md files for a fw block in Spacely-Caribou format"""
@@ -859,7 +965,7 @@ def parse_mem_map(mem_map_lines):
         try:
              mem_map[tokens[0]]["Register Offs"] = int(tokens[1],0)
         except ValueError:
-            sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
+            sg.sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
 
         try:
