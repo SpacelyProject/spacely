@@ -254,14 +254,22 @@ class Caribou(Source_Instrument):
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
         
-    def load_virtual_fw(self, regmap):
-        """Loads virtual firmware onto a VirtualCaribou instance, if used."""
+
+    def set_axi_registers(self, regmap):
+        """Sets AXI registers for use by axi_shell and (if enabled) VirtualCaribou"""
+        self.axi_registers = regmap
         
-        if not self.emulate_peary:
-            self.log.error("SpacelyCaribou.load_virtual_fw() can only be called when using VirtualCaribou!")
-            return -1 
-            
-        self._client.load_firmware(regmap)
+        if self.emulate_peary:
+            self._client.load_firmware(regmap)
+
+    #def load_virtual_fw(self, regmap):
+    #    """Loads virtual firmware onto a VirtualCaribou instance, if used."""
+    #    
+    #    if not self.emulate_peary:
+    #        self.log.error("SpacelyCaribou.load_virtual_fw() can only be called when using VirtualCaribou!")
+    #        return -1 
+    #        
+    #    self._client.load_firmware(regmap)
     
     
     def close(self):

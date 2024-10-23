@@ -78,13 +78,21 @@ class VirtualCaribou:
     
     def load_firmware(self, regmap):
         """Load firmware onto the VirtualCaribou Device"""
+
+        if type(regmap) == list:
         
-        for item in regmap:
-            #Strings represent top-level registers
-            if type(item) == str:
-                self.reg[item] = 0
-                self.reg_block[item] = None
-                  
+            for item in regmap:
+                #Strings represent top-level registers
+                if type(item) == str:
+                    self.reg[item] = 0
+                    self.reg_block[item] = None
+
+        elif type(regmap) == dict:
+            for reglist in regmap.values():
+                for r in reglist:
+                    if type(r) == str:
+                        self.reg[r] = 0
+                        self.reg_block[r] = None
         
     def peary_cmd(self, payload):
         payload_fields = payload.decode().split()

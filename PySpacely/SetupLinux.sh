@@ -28,6 +28,6 @@ echo "Installing general Python requirements..."
 pip install -r ./requirements/requirements-python.txt
 
 echo "Installing py-libs-common via HTTPS..."
-python -m pip install -r ./requirements/requirements-py-libs-common.txt
+python -m pip install --upgrade --force-reinstall -r ./requirements/requirements-py-libs-common.txt 
 
 echo "Setup complete."

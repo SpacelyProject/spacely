@@ -19,6 +19,7 @@ class CaribouPatternRunner:
         self.car = Caribou_inst
         
         # Return mode for run_pattern():
+        # 0 - Don't return anything (i.e. no need to read back samples)
         # 1 - Return GlueWave object
         # 2 - Write to file and return file name.
         
@@ -28,11 +29,13 @@ class CaribouPatternRunner:
         """Runs a pattern from a Glue Wave on a Spacely-Caribou APG.
            Returns the name of the sampled Glue Wave, or -1 on error.
            """
-           
+
+        
         #Parse glue file names OR python objects
         if type(glue_wave) == str:
             glue_wave = self.gc.read_glue(glue_wave)
-        
+
+            
         #Give up on error.    
         if glue_wave == -1:
             self._log.error("GlueWave was -1, cannot run pattern.")
@@ -64,25 +67,32 @@ class CaribouPatternRunner:
         ## (3) RUN AND WAIT FOR IDLE
         self.car.set_memory(f"{apg_name}_run", 1)
 
-        time.sleep(0.1)
+        time.sleep(0.01)
         self.apg_wait_for_idle(apg_name)
 
-        ## (4) READ BACK SAMPLES
-        samples = []
-
-        for n in range(N):
-            samples.append(self.car.get_memory(f"{apg_name}_read_channel"))
-
-
-        APG_CLOCK_FREQUENCY = 10e6
-        strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
-            
-        read_glue = GlueWave(samples,strobe_ps,f"Caribou/{apg_name}/read")
-    
         if return_mode is None:
             return_mode = self.default_return_mode
-    
-        if return_mode == 1:
+
+        ## (4) READ BACK SAMPLES
+        if return_mode > 0:
+            samples = []
+
+            for n in range(N):
+                samples.append(self.car.get_memory(f"{apg_name}_read_channel"))
+
+
+            APG_CLOCK_FREQUENCY = 10e6
+            strobe_ps = 1/APG_CLOCK_FREQUENCY * 1e12
+            
+            read_glue = GlueWave(samples,strobe_ps,f"Caribou/{apg_name}/read")
+
+        else:
+             self.car.set_memory(f"{apg_name}_clear",1)
+
+        if return_mode == 0:
+            return None
+            
+        elif return_mode == 1:
             return read_glue
             
         elif return_mode == 2:
