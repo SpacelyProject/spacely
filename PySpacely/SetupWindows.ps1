@@ -28,6 +28,6 @@ echo "Installing general Python dependencies..."
 python -m pip install -r .\requirements\requirements-python.txt
 
 echo "Installing py-libs-common using HTTPS..."
-python -m pip install -r .\requirements\requirements-py-libs-common.txt
+python -m pip install --upgrade --force-reinstall -r .\requirements\requirements-py-libs-common.txt
 
 echo "Now you should be able to run Spacely"
