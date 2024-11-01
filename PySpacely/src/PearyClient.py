@@ -116,15 +116,32 @@ class PearyClient(object):
         
         # encode message length for framing
         req_length = LENGTH.pack(len(req_header) + len(req_payload))
+
+        #previous code
+        
         # 2. send request
-        self._socket.send(req_length)
-        self._socket.send(req_header)
-        self._socket.send(req_payload)
+        # self._socket.send(req_length)
+        # self._socket.send(req_header)
+        # self._socket.send(req_payload)
+        self._socket.send(req_length + req_header +req_payload)
+
         # 3. wait for reply and unpack in opposite order
-        rep_length, = LENGTH.unpack(self._socket.recv(4))
-        if rep_length < 4:
+
+        #previous code
+        
+        # rep_length, = LENGTH.unpack(self._socket.recv(4))
+        # if rep_length < 4:
+        #     raise InvalidReply('Length too small')
+        # rep_msg = self._socket.recv(rep_length)
+
+        #modified code
+        rep_packet = self._socket.recv(4096)
+        rep_length, = LENGTH.unpack(rep_packet[:4])
+        if rep_length <4:
             raise InvalidReply('Length too small')
-        rep_msg = self._socket.recv(rep_length)
+        rep_msg = rep_packet[4:]
+
+        #original code
         rep_seq, rep_status = HEADER.unpack(rep_msg[:4])
         rep_payload = rep_msg[4:]
         if rep_status != STATUS_OK:
