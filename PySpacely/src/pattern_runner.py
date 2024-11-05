@@ -25,7 +25,7 @@ class CaribouPatternRunner:
         
         self.default_return_mode = 1
     
-    def run_pattern(self, glue_wave, tsf=1, return_mode=None):
+    def run_pattern(self, glue_wave, tsf=1, return_mode=None, read_only=False):
         """Runs a pattern from a Glue Wave on a Spacely-Caribou APG.
            Returns the name of the sampled Glue Wave, or -1 on error.
            """
@@ -35,11 +35,11 @@ class CaribouPatternRunner:
         if type(glue_wave) == str:
             glue_wave = self.gc.read_glue(glue_wave)
 
-            
         #Give up on error.    
         if glue_wave == -1:
             self._log.error("GlueWave was -1, cannot run pattern.")
             return
+
         
         ## (-1) Pick up APG name from glue_wave hardware definition.
         apg_name = glue_wave.hardware[1]
@@ -58,10 +58,12 @@ class CaribouPatternRunner:
         self.car.set_memory(f"{apg_name}_n_samples", N)
 
         ## (2) WRITE PATTERN TO APG
-        for n in range(N):
-            #Implement time scaling.
-            for _ in range(tsf):
-                self.car.set_memory(f"{apg_name}_write_channel",glue_wave.vector[n])
+        #read_only argument allows us to skip writes.
+        if not read_only:
+            for n in range(N):
+                #Implement time scaling.
+                for _ in range(tsf):
+                    self.car.set_memory(f"{apg_name}_write_channel",glue_wave.vector[n])
 
 
         ## (3) RUN AND WAIT FOR IDLE
