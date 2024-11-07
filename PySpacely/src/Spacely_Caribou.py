@@ -349,6 +349,9 @@ class Caribou(Source_Instrument):
     def configureSI5345(self, config_num):
         return self._dev._request("configureSI5345", config_num)
 
+    def stream_memory(self, mem_name,N):
+        return self._dev._request("streamMemoryToFile",mem_name,N)
+    
     def disableSI5345(self):
         return self._dev._request("disableSI5345")
 
