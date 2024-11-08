@@ -747,9 +747,9 @@ instr_type_required_fields = {"NIDCPower" : ["slot"],
                               "Supply"       : ["io"],
                               "Caribou"    : ["host","port","device"]}
 
-# Exception: If we use cocotb, then we just need a mem_map.
+# Exception: If we use cocotb, then we don't need all these fields...
 if USE_COCOTB:
-    instr_type_required_fields["Caribou"] = ["mem_map"]
+    instr_type_required_fields["Caribou"] = []
 
    
 #Fields that must be present to use a given type of io.   
@@ -913,7 +913,7 @@ def initialize_INSTR(interactive: bool = False):
         elif INSTR[instr]["type"] == "Caribou":
 
             if USE_COCOTB:
-                sg.INSTR[instr] = CaribouTwin(HDL_TOP_LEVEL, INSTR[instr]["mem_map"])
+                sg.INSTR[instr] = CaribouTwin()
             else:
                 sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
 
