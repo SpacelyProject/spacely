@@ -9,8 +9,12 @@ PROGRESS = True
 #The following variables may be redefined by target config files:
 USE_ARDUINO = False
 USE_NI = False
+USE_COCOTB = False
+SIMULATOR = None
+HDL_TOP_LEVEL = None
+HDL_SOURCES = None
 
-TARGET = "SPROCKET3A"
+TARGET = "ExampleASIC"
 
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
 TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  

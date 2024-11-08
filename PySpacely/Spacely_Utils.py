@@ -33,6 +33,7 @@ sys.path.append(os.path.abspath("./src"))
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
 from Spacely_Caribou import *
+from Spacely_Cocotb import *
 
 
 
@@ -745,7 +746,11 @@ instr_type_required_fields = {"NIDCPower" : ["slot"],
                               "AWG"          : ["io"],
                               "Supply"       : ["io"],
                               "Caribou"    : ["host","port","device"]}
-                         
+
+# Exception: If we use cocotb, then we just need a mem_map.
+if USE_COCOTB:
+    instr_type_required_fields["Caribou"] = ["mem_map"]
+
    
 #Fields that must be present to use a given type of io.   
 io_required_fields = {"VISA" : ["resource"],
@@ -906,7 +911,13 @@ def initialize_INSTR(interactive: bool = False):
             sg.log.block_res()
 
         elif INSTR[instr]["type"] == "Caribou":
-            sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+
+            if USE_COCOTB:
+                sg.INSTR[instr] = CaribouTwin(HDL_TOP_LEVEL, INSTR[instr]["mem_map"])
+            else:
+                sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+
+            
             if sg.pr is None:
                 sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR[instr])
             else:

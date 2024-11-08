@@ -928,6 +928,15 @@ def hex_mask(N1):
 #Given the raw lines extracted from mem_map.txt, this function checks for correctness.
 #If correct, a nested dict is returned with info for every mem field.
 #Otherwise, -1 is returned.
+#
+# Structure of the dictionary:
+#
+#   mem_map["reg_name"] = {"IP Base Addr" : 0x400000000
+#                          "Register Offs": (int)
+#                          "Mask"         : (int)
+#                          "Readable"     : (bool)
+#                          "Writeable"    : (bool)}
+#
 def parse_mem_map(mem_map_lines):
 
     mem_map = {}

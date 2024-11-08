@@ -47,6 +47,7 @@ import fnal_log_wizard as liblog
 from Master_Config import *
 import Spacely_Globals as sg
 from Spacely_Utils import *
+from Spacely_Cocotb import run_routine_cocotb
 
 
 
@@ -419,8 +420,13 @@ while True:
                     routine_idx = int(cmd_txt[2:].strip())
 
                     if routine_idx >= 0 and routine_idx < len(ROUTINES):
-                        sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
-                        eval(f"{ROUTINES[routine_idx].name}()")
+                        
+                        if USE_COCOTB:
+                            sg.log.debug(f"Evaluating {ROUTINES[routine_idx].name} as a Cocotb Test")
+                            run_routine_cocotb(ROUTINES[routine_idx].name)
+                        else:
+                            sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
+                            eval(f"{ROUTINES[routine_idx].name}()")
                         runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
                         sg.log.info(f"This Routine took: {runtime}")
                     else:
