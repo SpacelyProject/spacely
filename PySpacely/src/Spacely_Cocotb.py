@@ -18,6 +18,54 @@ DEFAULT_MEM_MAP_FILE = os.path.join("spacely-asic-config",TARGET,"hdl","mem_map.
 DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",TARGET,"hdl","hdl_sources.txt")
 DEFAULT_DIGITAL_TWIN_TOP_FILE = os.path.join("spacely-asic-config",TARGET,"hdl","CaribouDigitalTwinTop.sv")
 
+
+COCOTB_ENTRY_FN ="""
+from cocotb.clock import Clock
+
+@cocotb.test()
+async def cocotb_entry_fn(dut):
+
+    #Fix CWD
+    # Get the directory of the current source file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Set the working directory to the directory of the source file
+    os.chdir(current_dir)
+
+
+    # Set up those globals which are needed for Cocotb.
+    log_term_out = liblog.HandleOutputStrategy.create_with_stderr()
+    sg.log = liblog.AnsiTerminalLogger( # by default log to terminal and use ANSI
+    log_term_out,
+    max_level=liblog.levels.LOG_DEBUG if VERBOSE else liblog.levels.LOG_INFO,
+    ansi=True)
+
+    for inst in INSTR:
+        if INSTR[inst]["type"] == "Caribou":
+            sg.INSTR[inst] = CaribouTwin(dut=dut)
+
+    #Start the AXI clock.
+    cocotb.start_soon(Clock(dut.AXI_ACLK, 10, units="ns").start())
+
+    dut.AXI_ARESETN.value = 0
+    await Timer(20, units="ns")
+    dut.AXI_ARESETN.value = 1
+
+    #Run the requested routine.
+    await {routine_name}(dut)
+
+"""
+
+DB_DUMP_STATEMENT = """initial begin
+      
+      $dumpfile("DB.vcd");
+      $dumpvars(0,CaribouDigitalTwinTop);
+   end"""
+
+
+class SpacelyCocotbException(Exception):
+    pass
+
 # The goal: Make it so that you can run your routines on the ASIC RTL using Cocotb.
 # The steps:
 # (1) Produce a copy of your testbench with cocotb asynchronous style syntax.
@@ -86,7 +134,9 @@ def run_routine_cocotb(routine_name):
         )
 
     # (2) Run the test
-    runner.test(hdl_toplevel=HDL_TOP_MODULE, test_module=cocotb_test_file.replace(".py",""))
+    runner.test(hdl_toplevel=HDL_TOP_MODULE,
+                verbose=False,
+                test_module=cocotb_test_file.replace(".py",""))
 
 
 
@@ -121,9 +171,9 @@ def create_cocotb_test(routine_name):
 
 
     ## (3) Make syntax modifications to this routine only.
-    
+    entry_fn = COCOTB_ENTRY_FN.replace("{routine_name}",routine_name)
     this_routine_txt = this_routine_txt.replace(f"def {routine_name}(",
-                                        f"@cocotb.test()\nasync def {routine_name}(")
+                                        entry_fn+f"\nasync def {routine_name}(")
 
     this_routine_txt = this_routine_txt.replace("awaitTimer","await Timer")
 
@@ -156,49 +206,50 @@ def create_cocotb_test(routine_name):
 ##############################
 
 #AXI signal definitions which should be added at the top, for Cocotb to connect to.
+#!! NOTE !! the signal names need to be in lowercase for Cocotb to recognize them. 
 AXI_SIGNALS_TOP = """
-    input wire [10 : 0]                       M{n}_AXI_AWADDR,
-    input wire [2 : 0] 			      M{n}_AXI_AWPROT,
-    input wire 				      M{n}_AXI_AWVALID,
-    output wire 			      M{n}_AXI_AWREADY,
-    input wire [31 : 0]                       M{n}_AXI_WDATA,
-    input wire [3 : 0]                        M{n}_AXI_WSTRB,
-    input wire 				      M{n}_AXI_WVALID,
-    output wire 			      M{n}_AXI_WREADY,
-    output wire [1 : 0] 		      M{n}_AXI_BRESP,
-    output wire 			      M{n}_AXI_BVALID,
-    input wire 				      M{n}_AXI_BREADY,
-    input wire [10 : 0]                       M{n}_AXI_ARADDR,
-    input wire [2 : 0] 			      M{n}_AXI_ARPROT,
-    input wire 				      M{n}_AXI_ARVALID,
-    output wire 			      M{n}_AXI_ARREADY,
-    output wire [31 : 0]                      M{n}_AXI_RDATA,
-    output wire [1 : 0] 		      M{n}_AXI_RRESP,
-    output wire 			      M{n}_AXI_RVALID,
-    input wire 				      M{n}_AXI_RREADY"""
+    input wire [10 : 0]                       M{n}_AXI_awaddr,
+    input wire [2 : 0] 			      M{n}_AXI_awprot,
+    input wire 				      M{n}_AXI_awvalid,
+    output wire 			      M{n}_AXI_awready,
+    input wire [31 : 0]                       M{n}_AXI_wdata,
+    input wire [3 : 0]                        M{n}_AXI_wstrb,
+    input wire 				      M{n}_AXI_wvalid,
+    output wire 			      M{n}_AXI_wready,
+    output wire [1 : 0] 		      M{n}_AXI_bresp,
+    output wire 			      M{n}_AXI_bvalid,
+    input wire 				      M{n}_AXI_bready,
+    input wire [10 : 0]                       M{n}_AXI_araddr,
+    input wire [2 : 0] 			      M{n}_AXI_arprot,
+    input wire 				      M{n}_AXI_arvalid,
+    output wire 			      M{n}_AXI_arready,
+    output wire [31 : 0]                      M{n}_AXI_rdata,
+    output wire [1 : 0] 		      M{n}_AXI_rresp,
+    output wire 			      M{n}_AXI_rvalid,
+    input wire 				      M{n}_AXI_rready"""
 
 #AXI signal connections which should be added to each module.
 AXI_SIGNALS_MOD = """.S_AXI_ACLK(AXI_ACLK),
-        .S_AXI_ARADDR(M{n}_AXI_ARADDR[10:0]),
+        .S_AXI_ARADDR(M{n}_AXI_araddr[10:0]),
         .S_AXI_ARESETN(AXI_ARESETN),
-        .S_AXI_ARPROT(M{n}_AXI_ARPROT),
-        .S_AXI_ARREADY(M{n}_AXI_ARREADY),
-        .S_AXI_ARVALID(M{n}_AXI_ARVALID),
-        .S_AXI_AWADDR(M{n}_AXI_AWADDR[10:0]),
-        .S_AXI_AWPROT(M{n}_AXI_AWPROT),
-        .S_AXI_AWREADY(M{n}_AXI_AWREADY),
-        .S_AXI_AWVALID(M{n}_AXI_AWVALID),
-        .S_AXI_BREADY(M{n}_AXI_BREADY),
-        .S_AXI_BRESP(M{n}_AXI_BRESP),
-        .S_AXI_BVALID(M{n}_AXI_BVALID),
-        .S_AXI_RDATA(M{n}_AXI_RDATA),
-        .S_AXI_RREADY(M{n}_AXI_RREADY),
-        .S_AXI_RRESP(M{n}_AXI_RRESP),
-        .S_AXI_RVALID(M{n}_AXI_RVALID),
-        .S_AXI_WDATA(M{n}_AXI_WDATA),
-        .S_AXI_WREADY(M{n}_AXI_WREADY),
-        .S_AXI_WSTRB(M{n}_AXI_WSTRB),
-        .S_AXI_WVALID(M{n}_AXI_WVALID)"""
+        .S_AXI_ARPROT(M{n}_AXI_arprot),
+        .S_AXI_ARREADY(M{n}_AXI_arready),
+        .S_AXI_ARVALID(M{n}_AXI_arvalid),
+        .S_AXI_AWADDR(M{n}_AXI_awaddr[10:0]),
+        .S_AXI_AWPROT(M{n}_AXI_awprot),
+        .S_AXI_AWREADY(M{n}_AXI_awready),
+        .S_AXI_AWVALID(M{n}_AXI_awvalid),
+        .S_AXI_BREADY(M{n}_AXI_bready),
+        .S_AXI_BRESP(M{n}_AXI_bresp),
+        .S_AXI_BVALID(M{n}_AXI_bvalid),
+        .S_AXI_RDATA(M{n}_AXI_rdata),
+        .S_AXI_RREADY(M{n}_AXI_rready),
+        .S_AXI_RRESP(M{n}_AXI_rresp),
+        .S_AXI_RVALID(M{n}_AXI_rvalid),
+        .S_AXI_WDATA(M{n}_AXI_wdata),
+        .S_AXI_WREADY(M{n}_AXI_wready),
+        .S_AXI_WSTRB(M{n}_AXI_wstrb),
+        .S_AXI_WVALID(M{n}_AXI_wvalid)"""
 
 
 
@@ -213,10 +264,6 @@ class CaribouTwin(Source_Instrument):
         mem_map_file -- mem_map.txt file associated with the Caribou FW. 
 
         """
-
-        self._setup_digital_twin_hdl()
-        self._parse_mem_map(mem_map_file)
-
         # The CaribouTwin has an individual AXI interface for each block.
 
         # axi_block_addr keeps track of which block address applies to each
@@ -231,11 +278,27 @@ class CaribouTwin(Source_Instrument):
         # Dictionaries of voltages and currents to implement the get/set interface.
         self.voltages = {}
         self.currents = {}
+
+        #Dictionary that will map memory fields to addresses / AXI interfaces.
+        self.mem_map = {}
+
+        self._setup_digital_twin_hdl()
+        self._parse_mem_map(mem_map_file)
         
         if dut is not None:
             self.connect_dut(dut)
 
+        self._print_data()
 
+
+    def _print_data(self):
+        """Print the data structures stored in this object, for debug purposes."""
+        print("AXI BLOCK ADDRESSES")
+        print(self.axi_block_addr)
+        print("AXI INTERFACES")
+        print(self.axi)
+        print("MEMORY MAPS")
+        print(self.mem_map)
 
     def _parse_mem_map(self, mem_map_file):
         """Get mem_map information from file, and use it to map each field to an Axi Interface."""
@@ -300,10 +363,14 @@ class CaribouTwin(Source_Instrument):
         """Edit the user's hdl_top to insert AXI interfaces.""" 
         sg.log.debug("Setting up digital twin HDL.")
 
+        print("DBG:"+os.getcwd(),flush=True)
+
         with open(DEFAULT_DIGITAL_TWIN_TOP_FILE,'r') as read_file:
             hdl_txt = read_file.read()
 
         hdl_txt = self._add_axi_interfaces(hdl_txt)
+
+        hdl_txt = hdl_txt.replace("endmodule",DB_DUMP_STATEMENT+"\nendmodule")
 
         with open(AUTOGEN_DIGITAL_TWIN_FILENAME,'w') as write_file:
             write_file.write(hdl_txt)
@@ -375,16 +442,38 @@ class CaribouTwin(Source_Instrument):
             sg.log.error("AXI Interfaces must be created in HDL_TOP before running connect_dut()")
 
         for i in axi_interfaces:
-            self.axi.append(AxiLiteMaster(AxiLiteBus.from_prefix(f"M{i}_AXI"),dut.AXI_ACLK, dut.AXI_ARESETN))
+            self.axi.append(AxiLiteMaster(AxiLiteBus.from_prefix(dut, f"M{i}_AXI"),
+                                          dut.AXI_ACLK,
+                                          dut.AXI_ARESETN,
+                                          reset_active_level=False))
+            
 
         
 
 
     async def set_memory(self, mem_name, value):
-        await self.axi.write_dword()
+        try:
+            iface_num = self.mem_map[mem_name]['TwinInterface']
+            base_addr = self.mem_map[mem_name]['IP Base Addr']
+            reg_offs  = self.mem_map[mem_name]['Register Offs']
+            addr = base_addr + reg_offs
+        except KeyError:
+            raise SpacelyCocotbException(f"Unrecognized AXI register {mem_name}")
+        
+        await self.axi[iface_num].write_dword(reg_offs,value, byteorder='little')
 
     async def get_memory(self, mem_name):
-        pass
+        try:
+            iface_num = self.mem_map[mem_name]['TwinInterface']
+            base_addr = self.mem_map[mem_name]['IP Base Addr']
+            reg_offs  = self.mem_map[mem_name]['Register Offs']
+            addr = base_addr + reg_offs
+        except KeyError:
+            raise SpacelyCocotbException(f"Unrecognized AXI register {mem_name}")
+        
+        x = await self.axi[iface_num].read_dword(reg_offs)
+
+        return x
 
 
 
