@@ -33,7 +33,9 @@ try:
     # where {module_name} is dynamically determined at runtime. We do this twice, once for 
     # ASIC_Config.py and once for ASIC_Routines.py.
     modules_to_try = [TARGET_CONFIG_MOD, TARGET_ROUTINES_MOD]
-    if os.path.exists(TARGET_SUBROUTINES_PY):
+
+    #If we are running with the Cocotb flow, we may start out in /sim_build/, necessitating the ".."
+    if os.path.exists(TARGET_SUBROUTINES_PY) or os.path.exists(os.path.join("..",TARGET_SUBROUTINES_PY)):
         print(f"{TARGET} has a subroutines file, loading...")
         #Be sure load subroutines before routines.
         modules_to_try = [TARGET_CONFIG_MOD, TARGET_SUBROUTINES_MOD, TARGET_ROUTINES_MOD]

@@ -212,7 +212,7 @@ try:
         node = ast.parse(file.read())
         functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
 
-    ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
+    sg.ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
 
     #Write back routine # annotations to file. 
     with open(TARGET_ROUTINES_PY,"r") as read_file:
@@ -225,8 +225,8 @@ try:
         #For each line that looks like a routine,
         if routines_py_lines[i].startswith("def ROUTINE"):
             #Find which # routine is defined there.
-            for j in range(len(ROUTINES)):
-                if ROUTINES[j].name+"(" in routines_py_lines[i]:
+            for j in range(len(sg.ROUTINES)):
+                if sg.ROUTINES[j].name+"(" in routines_py_lines[i]:
                     annotation = f"#<<Registered w/ Spacely as ROUTINE {j}, call as ~r{j}>>\n"
 
                     new_routines_py_lines.append(annotation)
@@ -249,7 +249,6 @@ try:
 except FileNotFoundError as e:
     sg.log.warning("ASIC_Routines.py file could not be found, no routines were loaded.")
     print(e)
-    ROUTINES = []
         
 #Run On-startup routine
 #(1) Check if startup code exists.
@@ -266,12 +265,8 @@ if onstartup_exists:
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:
-    start_timestamp = datetime.now()
-    routine_idx = int(cmd_args.r)
-    sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
-    eval(f"{ROUTINES[routine_idx].name}()")
-    runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
-    sg.log.info(f"This Routine took: {runtime}")
+    exec_routine_by_idx(cmd_args.r)
+    
 
 
 
@@ -387,15 +382,15 @@ while True:
                 
         case 'lr':
             try:
-                for r in range(len(ROUTINES)):
-                    routine_name = ROUTINES[r].name.replace("ROUTINE","").replace("_"," ")
-                    routine_docs = eval(f"{ROUTINES[r].name}.__doc__")
+                for r in range(len(sg.ROUTINES)):
+                    routine_name = sg.ROUTINES[r].name.replace("ROUTINE","").replace("_"," ")
+                    routine_docs = eval(f"{sg.ROUTINES[r].name}.__doc__")
                     print(f"{r:<2} {routine_name: <33} -- {routine_docs}")
             except FileNotFoundError:
                 sg.log.error(f"Could not find asic_config\\{TARGET}\\{TARGET}_Routines.py")
             
             print(f"(To add a new routine to this list, define a function in {TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
-            if len(ROUTINES) == 0:
+            if len(sg.ROUTINES) == 0:
                 print("No routines to show!")
                     
                     
@@ -416,21 +411,8 @@ while True:
 
                 case '~':
                     #Routines should be called as "~r0"
-                    start_timestamp = datetime.now()
                     routine_idx = int(cmd_txt[2:].strip())
-
-                    if routine_idx >= 0 and routine_idx < len(ROUTINES):
-                        
-                        if USE_COCOTB:
-                            sg.log.debug(f"Evaluating {ROUTINES[routine_idx].name} as a Cocotb Test")
-                            run_routine_cocotb(ROUTINES[routine_idx].name)
-                        else:
-                            sg.log.debug(f"Evaluating: {ROUTINES[routine_idx].name}()")
-                            eval(f"{ROUTINES[routine_idx].name}()")
-                        runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
-                        sg.log.info(f"This Routine took: {runtime}")
-                    else:
-                        sg.log.error(f"Invalid routine # {routine_idx} (out of range)")
+                    exec_routine_by_idx(routine_idx)
 
                 case '#':
                     sg.log.notice(cmd_txt[1:].strip())

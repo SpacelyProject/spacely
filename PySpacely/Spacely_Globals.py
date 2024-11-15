@@ -9,8 +9,7 @@
 #emulation commands to the Arduino instead.
 port = None
 INSTR = {}
-#AWG = None
-#scope = None
+ROUTINES = []
 
 #Global pattern runner and glue converter instances.
 pr = None

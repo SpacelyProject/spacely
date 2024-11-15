@@ -982,10 +982,15 @@ def parse_mem_map(mem_map_lines):
 
         mem_map[tokens[0]]["IP Base Addr"] = ip_base_address
 
+        # Each line should have five entries: the field name, and then Offs/Mask/Read/Write
+        if len(tokens) < 5:
+            sg.log.error(f"Parse error for mem field {tokens[0]}: Some of the required fields are missing.")
+            return -1
+
         try:
              mem_map[tokens[0]]["Register Offs"] = int(tokens[1],0)
         except ValueError:
-            sg.sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
+            sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
 
         try:

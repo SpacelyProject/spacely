@@ -912,8 +912,11 @@ def initialize_INSTR(interactive: bool = False):
 
         elif INSTR[instr]["type"] == "Caribou":
 
+            #If we are using the Cocotb flow, no need to set up the Caribou instrument -- it will anyway be
+            #set up within the cocotb_entry_fn for the specific test we are going to run.
             if USE_COCOTB:
-                sg.INSTR[instr] = CaribouTwin()
+                sg.log.debug("Skipping initialization for Caribou, since USE_COCOTB is set.")
+                continue
             else:
                 sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
 
@@ -2135,3 +2138,21 @@ def ioshell():
                 return
                 
             print(f"ERR: {which_io} not in sg.gc.Input_IOs")
+
+
+def exec_routine_by_idx(routine_idx):
+    start_timestamp = datetime.now()
+    
+    if routine_idx >= 0 and routine_idx < len(sg.ROUTINES):
+        
+        if USE_COCOTB:
+            sg.log.debug(f"Evaluating {sg.ROUTINES[routine_idx].name} as a Cocotb Test")
+            run_routine_cocotb(sg.ROUTINES[routine_idx].name)
+        else:
+            sg.log.debug(f"Evaluating: {sg.ROUTINES[routine_idx].name}()")
+            eval(f"{sg.ROUTINES[routine_idx].name}()")
+
+        runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
+        sg.log.info(f"This Routine took: {runtime}")
+    else:
+        sg.log.error(f"Invalid routine # {routine_idx} (out of range)")
