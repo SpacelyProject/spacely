@@ -12,7 +12,8 @@ USE_NI = False
 USE_COCOTB = False
 SIMULATOR = None
 HDL_TOP_LEVEL = None
-HDL_SOURCES = None
+TWIN_MODE=None
+COCOTB_BUILD_ARGS = None
 
 TARGET = "ExampleASIC"
 

@@ -265,7 +265,7 @@ if onstartup_exists:
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:
-    exec_routine_by_idx(cmd_args.r)
+    exec_routine_by_idx(cmd_args.r,eval(f"{sg.ROUTINES[cmd_args.r].name}"))
     
 
 
@@ -412,7 +412,7 @@ while True:
                 case '~':
                     #Routines should be called as "~r0"
                     routine_idx = int(cmd_txt[2:].strip())
-                    exec_routine_by_idx(routine_idx)
+                    exec_routine_by_idx(routine_idx,eval(f"{sg.ROUTINES[routine_idx].name}"))
 
                 case '#':
                     sg.log.notice(cmd_txt[1:].strip())

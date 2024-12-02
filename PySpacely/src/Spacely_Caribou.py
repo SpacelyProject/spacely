@@ -957,7 +957,7 @@ def parse_mem_map(mem_map_lines):
 
         #Base Address Line
         if line.startswith("*BASE"):
-            base_address_token = line.split()[-1]
+            base_address_token = line.split()[1]
 
             try:
                 ip_base_address = int(base_address_token,0)

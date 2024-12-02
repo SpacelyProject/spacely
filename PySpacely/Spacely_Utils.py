@@ -2140,7 +2140,11 @@ def ioshell():
             print(f"ERR: {which_io} not in sg.gc.Input_IOs")
 
 
-def exec_routine_by_idx(routine_idx):
+def exec_routine_by_idx(routine_idx, routine_ref=None):
+    """Function to execute a routine from Routines.py file, using either the normal or Cocotb flows.
+       For Cocotb, you only need to supply routine_idx, while for the normal flow, you need
+       routine_ref to allow this function to call into the global scope.
+       """
     start_timestamp = datetime.now()
     
     if routine_idx >= 0 and routine_idx < len(sg.ROUTINES):
@@ -2150,7 +2154,7 @@ def exec_routine_by_idx(routine_idx):
             run_routine_cocotb(sg.ROUTINES[routine_idx].name)
         else:
             sg.log.debug(f"Evaluating: {sg.ROUTINES[routine_idx].name}()")
-            eval(f"{sg.ROUTINES[routine_idx].name}()")
+            routine_ref()
 
         runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
         sg.log.info(f"This Routine took: {runtime}")
