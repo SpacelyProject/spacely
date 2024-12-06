@@ -19,6 +19,11 @@ def add_hdl_path(filename):
     else:
         return os.path.join(os.getcwd(),"spacely-asic-config",TARGET,"hdl",filename)
 
+
+## Interal switch which instructs vanessa whether to output logs or not.
+vanessa_verbose = False
+
+    
 COCOTB_ROUTINES_FILENAME = "_temp_cocotb_routines.py"
 AUTOGEN_DIGITAL_TWIN_FILENAME = "_temp_digital_twin_hdl_top.sv"
 AUTOGEN_FIRMWARE_TWIN_FILENAME = "_temp_digital_twin_fw_top.v"
@@ -226,8 +231,13 @@ def run_routine_cocotb(routine_name):
     sg.log.debug(">> (A.5) Running the test...")
 
     # (2) Run the test
+
+    # NOTE: COCOTB_LOG_LEVEL >= INFO is required to get result messages from cocotb.regression, which can tell you why your
+    # test failed if it did, so it's kind of important to have at least this much logging.
+    
     runner.test(hdl_toplevel=HDL_TOP_MODULE,
                 verbose=False,
+                extra_env={"COCOTB_LOG_LEVEL":"INFO"},
                 test_module=cocotb_test_file.replace(".py",""))
 
 
@@ -734,7 +744,7 @@ class CaribouTwin(Source_Instrument):
 
 
 
-vanessa_verbose = True
+
     
 def vlog(print_str):
     global vanessa_verbose
