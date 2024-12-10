@@ -1,6 +1,7 @@
 # SPACELY MASTER CONFIGURATION #
 import importlib
 import os
+import glob
 
 MASTER_CONFIG_TXT_DEFAULT_TEXT = """
 //This file was created automatically by Spacely!
@@ -17,7 +18,11 @@ TWIN_MODE=None
 COCOTB_BUILD_ARGS = None
 TARGET = "???"
 """
-MASTER_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Master_Config.txt")
+
+# Ensure that Spacely always starts executing from the spacely/PySpacely directory.
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+MASTER_CONFIG_PATH = "Master_Config.txt"
 
 ## 1) Check if Master_Config.txt exists. If not, create it.
 if not os.path.exists(MASTER_CONFIG_PATH):
@@ -55,8 +60,8 @@ if TARGET == "???":
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
 TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
 
-TARGET_SUBROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Subroutines"
-TARGET_SUBROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines.py")
+# TARGET_SUBROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Subroutines"
+# TARGET_SUBROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines.py")
 
 TARGET_CONFIG_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Config"
 TARGET_CONFIG_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
@@ -68,14 +73,15 @@ try:
     # Deep Python Magic which is basically equivalent to doing "from {module_name} import *"
     # where {module_name} is dynamically determined at runtime. We do this twice, once for 
     # ASIC_Config.py and once for ASIC_Routines.py.
-    modules_to_try = [TARGET_CONFIG_MOD, TARGET_ROUTINES_MOD]
 
-    #If we are running with the Cocotb flow, we may start out in /sim_build/, necessitating the ".."
-    if os.path.exists(TARGET_SUBROUTINES_PY) or os.path.exists(os.path.join("..",TARGET_SUBROUTINES_PY)):
-        print(f"{TARGET} has a subroutines file, loading...")
-        #Be sure load subroutines before routines.
-        modules_to_try = [TARGET_CONFIG_MOD, TARGET_SUBROUTINES_MOD, TARGET_ROUTINES_MOD]
-        
+    # Use glob to find all submodules that have a particular name format.
+    subroutines = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines*.py")
+    TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
+    TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in TARGET_SUBROUTINES_PY]
+    modules_to_try = [TARGET_CONFIG_MOD] + TARGET_SUBROUTINES_MOD + [TARGET_ROUTINES_MOD]
+    print(f"{TARGET} has the following modules: ")
+    for module in modules_to_try:
+        print(f"  - {module}")
 
     for module_name in modules_to_try:
 
