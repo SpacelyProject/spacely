@@ -37,8 +37,8 @@ try:
     
     # find all submodules
     subroutines = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines*.py")
-    subroutines = glob.glob(subroutines)
-    subroutine_modules = [i.replace("/",".").strip(".py") for i in subroutines]
+    subroutines = list(sorted(glob.glob(subroutines)))
+    subroutine_modules = [i.replace("/",".")[:-3] for i in subroutines]
     modules_to_try = [TARGET_CONFIG_MOD] + subroutine_modules + [TARGET_ROUTINES_MOD]
     print(f"{TARGET} has the following modules: ", modules_to_try)
 
