@@ -36,7 +36,8 @@ try:
     #     modules_to_try = [TARGET_CONFIG_MOD, TARGET_SUBROUTINES_MOD, TARGET_ROUTINES_MOD]
     
     # find all submodules
-    subroutines = glob.glob("spacely-asic-config/CMSPIX28Spacely/CMSPIX28Spacely_Subroutines*.py")
+    subroutines = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines*.py")
+    subroutines = glob.glob(subroutines)
     subroutine_modules = [i.replace("/",".").strip(".py") for i in subroutines]
     modules_to_try = [TARGET_CONFIG_MOD] + subroutine_modules + [TARGET_ROUTINES_MOD]
     print(f"{TARGET} has the following modules: ", modules_to_try)
