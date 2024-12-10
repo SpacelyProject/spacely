@@ -4,6 +4,7 @@ import re
 import cocotb
 from cocotb.runner import get_runner
 from cocotbext.axi import AxiLiteBus, AxiLiteMaster
+from cocotb.triggers import ClockCycles
 
 from Master_Config import *
 import Spacely_Globals as sg
@@ -716,6 +717,12 @@ class CaribouTwin(Source_Instrument):
         return x
 
 
+    async def dly_min_axi_clk_async(self,clk_cycles):
+        await ClockCycles(self.dut.AXI_ACLK,clk_cycles)
+    
+    def dly_min_axi_clk(self, clk_cycles):
+        """Ensure a delay of a minimum number of AXI clock cycles."""
+        cocotb.function(self.dly_min_axi_clk_async)(clk_cycles)
 
     def set_voltage(self, channel, nominal_voltage, current_limit):
         self.voltages[channel] = nominal_voltage

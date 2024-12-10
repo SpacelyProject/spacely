@@ -303,6 +303,13 @@ class Caribou(Source_Instrument):
             self.log.debug(f"<AXI> Set {mem_name} = {value}")
         return self._dev.set_memory(mem_name,value)
 
+    def dly_min_axi_clk(self, clk_cycles):
+        """Ensure a delay of a minimum number of AXI clock cycles."""
+
+        # In Spacely-Caribou, AXI clk speed is 100 MHz.
+        # This expression won't be accurate for a small number of clock
+        # cycles, but it doesn't need to be b/c the overhead is so large.
+        time.sleep(10e-9*clk_cycles)
 
     def get_voltage(self, name):
         """Get the voltage of a named DAC channel."""
