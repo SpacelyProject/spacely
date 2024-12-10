@@ -1,0 +1,2 @@
+Qequal: 10
+DACclr: 10
