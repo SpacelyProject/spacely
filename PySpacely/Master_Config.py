@@ -15,7 +15,7 @@ HDL_TOP_LEVEL = None
 TWIN_MODE=None
 COCOTB_BUILD_ARGS = None
 
-TARGET = "SPROCKET3"
+TARGET = "ExampleASIC"
 
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
 TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
