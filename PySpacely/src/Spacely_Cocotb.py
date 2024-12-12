@@ -108,7 +108,13 @@ DB_DUMP_STATEMENT = """initial begin
       
       $dumpfile("DB.vcd");
       $dumpvars(0,{HDL_TOP_MODULE});
-   end""".replace("{HDL_TOP_MODULE}",HDL_TOP_MODULE)
+   end"""
+try:
+    DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("{HDL_TOP_MODULE}",HDL_TOP_MODULE)
+except TypeError:
+    #There will be a type error if HDL_TOP_MODULE is not defined. This is fine,
+    #we'll catch it later if anyone tries to actually run Cocotb LOL. 
+    pass
 
 
 class SpacelyCocotbException(Exception):
