@@ -2,6 +2,7 @@ import os
 import re
 
 import cocotb
+import logging
 from cocotb.runner import get_runner
 from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 from cocotb.triggers import ClockCycles
@@ -683,6 +684,9 @@ class CaribouTwin(Source_Instrument):
                                           dut.AXI_ACLK,
                                           dut.AXI_ARESETN,
                                           reset_active_level=False))
+
+            self.axi[-1].write_if.log.setLevel(logging.WARNING)
+            self.axi[-1].read_if.log.setLevel(logging.WARNING)
             
 
     ######################################
