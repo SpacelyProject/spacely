@@ -270,8 +270,11 @@ def create_cocotb_test(routine_name):
     with open(TARGET_ROUTINES_PY,'r') as read_file:
         routines_txt = read_file.read()
 
-    with open(TARGET_SUBROUTINES_PY,'r') as read_file:
-        subroutines_txt = read_file.read()
+    #Remember that TARGET_SUBROUTINES_PY is a list.
+    subroutines_txt = ""
+    for subroutine_file in TARGET_SUBROUTINES_PY:
+        with open(subroutine_file,'r') as read_file:
+            subroutines_txt = subroutines_txt + "\n\n" + read_file.read()
 
     ## (2) Find the specific routine we are tasked to run.
 
