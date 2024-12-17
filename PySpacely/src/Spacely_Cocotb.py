@@ -296,7 +296,7 @@ def create_cocotb_test(routine_name):
 
     ## (4) Update the routines txt
 
-    routines_txt = AUTOGEN_COCOTB_WARNING_PYTHON + subroutines_txt + routines_txt.replace(routines_txt[start_idx:end_idx],this_routine_txt) 
+    routines_txt = AUTOGEN_COCOTB_WARNING_PYTHON + subroutines_txt + "\n\n" + routines_txt.replace(routines_txt[start_idx:end_idx],this_routine_txt) 
 
     #routines_txt = routines_txt.replace("\nfrom","##")
     #routines_txt = routines_txt.replace("\nimport","##")
