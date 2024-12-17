@@ -1,3 +1,0 @@
-6,5,4,5,4@@,5,4@@@,5,6@
-//STROBE_PICOSECONDS:100000.0
-//HARDWARE:Caribou/spi_apg/write
