@@ -2,11 +2,11 @@
 import importlib
 import os
 
-#Global software settings
+MASTER_CONFIG_TXT_DEFAULT_TEXT = """
+//This file was created automatically by Spacely!
+//Change the values below to the desired values for your application.
 VERBOSE = True
 PROGRESS = True
-
-#The following variables may be redefined by target config files:
 USE_ARDUINO = False
 USE_NI = False
 USE_COCOTB = False
@@ -15,8 +15,42 @@ HDL_TOP_MODULE = None
 FW_TOP_MODULE = None
 TWIN_MODE=None
 COCOTB_BUILD_ARGS = None
+TARGET = "???"
+"""
+MASTER_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Master_Config.txt")
 
-TARGET = "ExampleASIC"
+## 1) Check if Master_Config.txt exists. If not, create it.
+if not os.path.exists(MASTER_CONFIG_PATH):
+    print("No Master_Config.txt found. Creating it with default settings!")
+    with open(MASTER_CONFIG_PATH,'w') as write_file:
+        write_file.write(MASTER_CONFIG_TXT_DEFAULT_TEXT)
+
+## 2) Read lines from Master_Config.txt and parse to a dictionary.
+with open(MASTER_CONFIG_PATH) as read_file:
+    config_lines = read_file.readlines()
+
+config_dict = {}
+for line in config_lines:
+    if not line.startswith("//") and "=" in line:
+        line_toks = [x.strip() for x in line.split("=")]
+        config_dict[line_toks[0]] = eval(line_toks[1])
+
+## 3) Define global variables from this dictionary.
+VERBOSE = config_dict["VERBOSE"]
+PROGRESS = config_dict["PROGRESS"]
+USE_ARDUINO = config_dict["USE_ARDUINO"]
+USE_NI = config_dict["USE_NI"]
+USE_COCOTB = config_dict["USE_COCOTB"]
+SIMULATOR = config_dict["SIMULATOR"]
+HDL_TOP_MODULE = config_dict["HDL_TOP_MODULE"]
+FW_TOP_MODULE = config_dict["FW_TOP_MODULE"]
+TWIN_MODE = config_dict["TWIN_MODE"]
+COCOTB_BUILD_ARGS = config_dict["COCOTB_BUILD_ARGS"]
+TARGET = config_dict["TARGET"]
+
+if TARGET == "???":
+    print("ERROR: You need to specify the name of the ASIC you wish to target in Master_Config.txt")
+    quit()
 
 TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
 TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
