@@ -23,7 +23,7 @@ def add_hdl_path(filename):
 
 
 ## Interal switch which instructs vanessa whether to output logs or not.
-vanessa_verbose = False
+vanessa_verbose = True
 
     
 COCOTB_ROUTINES_FILENAME = "_temp_cocotb_routines.py"
@@ -979,16 +979,18 @@ def vanessa(vivado_netlist_file, axi_block_addr, axi_block_num):
                     reset_connection = get_signal_connection(netlist_lines[j],".S_AXI_ARESETN")
                     vlog(f"  AXI ARESETN is connected to {reset_connection}")
 
-                if ".S_AXI_ARADDR" in netlist_lines[j]:
-                    araddr_connection = get_signal_connection(netlist_lines[j],".S_AXI_ARADDR")
-                    vlog(f"  AXI ARADDR is connected to {araddr_connection}")
-                    if araddr_connection.endswith("ARADDR"):
-                        axi_prefix = araddr_connection.replace("ARADDR","")
+                if ".S_AXI_ARVALID" in netlist_lines[j]:
+                    arvalid_connection = get_signal_connection(netlist_lines[j],".S_AXI_ARVALID")
+                    vlog(f"  AXI ARVALID is connected to {arvalid_connection}")
+                    if arvalid_connection.endswith("ARVALID"):
+                        axi_prefix = arvalid_connection.replace("ARVALID","")
                         vlog(f"  Inferring that AXI prefix is: {axi_prefix}")
                     else:
                         vlog("!!Error!! Couldn't infer an AXI prefix from this connection :(")
         
             if axi_prefix is None or aclk_connection is None or reset_connection is None:
+                #If we fail to make a connection, that's a big enough deal to escalate to Spacely.
+                sg.log.warning("Warning: Spacely-Cocotb failed to make an AXI connection to a block, set vanessa_verbose=True for details.")
                 vlog("Error! There is an incomplete AXI connection to this block, couldn't figure out what to do with it.")
                 vlog(f"    -> aclk_connection is {aclk_connection}")
                 vlog(f"    -> reset_connection is {reset_connection}")
