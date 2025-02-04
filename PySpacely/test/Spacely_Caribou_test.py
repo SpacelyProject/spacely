@@ -42,7 +42,7 @@ def test_get_voltage(car):
     
 def test_firmware_readback(car):
     test_val = random.randint(1,100)
-    car.load_virtual_fw(TEST_FIRMWARE)
+    car.set_axi_registers(TEST_FIRMWARE)
     car.set_memory("reg1", test_val)
     readback_val = car.get_memory("reg1")
     assert readback_val == test_val

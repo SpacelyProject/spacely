@@ -31,9 +31,10 @@ import Spacely_Globals as sg
                 
 class Exclusive_Resource:
 
-    def __init__(self, handle, description):
+    def __init__(self, handle, description, _logger):
         self.handle = handle
         self.description = description
+        self.log = _logger
 
         #Store lockfiles in a sub-directory of /tmp/
         #Change directory permissions to 777 so that we can not have issues deleting files.
@@ -58,7 +59,7 @@ class Exclusive_Resource:
     def acquire(self):
 
         if self.VERBOSE:
-            sg.log.debug(f"Attempting to acquire Resource {self.handle}...")
+            self.log.debug(f"Attempting to acquire Resource {self.handle}...")
         
         acquire_user = os.getlogin()
         acquire_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -86,17 +87,17 @@ class Exclusive_Resource:
             os.fsync(self.fp)
             #self.fp.close()
 
-            sg.log.info(f"Resource {self.handle} acquired!")
+            self.log.info(f"Resource {self.handle} acquired!")
 
         except BlockingIOError:
             with open(self.lockfilename,"r") as read_file:
                 lockfile_text = read_file.read()
-            sg.log.error(f"FAILED TO ACQUIRE RESOURCE: {lockfile_text}")
+            self.log.error(f"FAILED TO ACQUIRE RESOURCE: {lockfile_text}")
             return -1
 
     def release(self):
         if self.VERBOSE:
-            sg.log.debug(f"Releasing Resource {self.handle}...")
+            self.log.debug(f"Releasing Resource {self.handle}...")
             
         os.remove(self.lockfilename)
         fcntl.flock(self.fp.fileno(), fcntl.LOCK_UN)
@@ -213,7 +214,7 @@ class Caribou(Source_Instrument):
         if WINDOWS_OS:
             self.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
         else:
-            self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
+            self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}", self.log)
 
             if self.lock.acquire() == -1:
                 self.log.error("Failed to initialize Caribou, exiting.")
