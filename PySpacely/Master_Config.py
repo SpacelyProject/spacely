@@ -3,6 +3,8 @@ import importlib
 import os
 import glob
 
+import Spacely_Globals as sg
+
 MASTER_CONFIG_TXT_DEFAULT_TEXT = """
 //This file was created automatically by Spacely!
 //Change the values below to the desired values for your application.
@@ -41,33 +43,30 @@ for line in config_lines:
         config_dict[line_toks[0]] = eval(line_toks[1])
 
 ## 3) Define global variables from this dictionary.
-VERBOSE = config_dict["VERBOSE"]
-PROGRESS = config_dict["PROGRESS"]
-USE_ARDUINO = config_dict["USE_ARDUINO"]
-USE_NI = config_dict["USE_NI"]
-USE_COCOTB = config_dict["USE_COCOTB"]
-SIMULATOR = config_dict["SIMULATOR"]
-HDL_TOP_MODULE = config_dict["HDL_TOP_MODULE"]
-FW_TOP_MODULE = config_dict["FW_TOP_MODULE"]
-TWIN_MODE = config_dict["TWIN_MODE"]
-COCOTB_BUILD_ARGS = config_dict["COCOTB_BUILD_ARGS"]
-TARGET = config_dict["TARGET"]
+sg.VERBOSE = config_dict["VERBOSE"]
+sg.PROGRESS = config_dict["PROGRESS"]
+sg.USE_ARDUINO = config_dict["USE_ARDUINO"]
+sg.USE_NI = config_dict["USE_NI"]
+sg.USE_COCOTB = config_dict["USE_COCOTB"]
+sg.SIMULATOR = config_dict["SIMULATOR"]
+sg.HDL_TOP_MODULE = config_dict["HDL_TOP_MODULE"]
+sg.FW_TOP_MODULE = config_dict["FW_TOP_MODULE"]
+sg.TWIN_MODE = config_dict["TWIN_MODE"]
+sg.COCOTB_BUILD_ARGS = config_dict["COCOTB_BUILD_ARGS"]
+sg.TARGET = config_dict["TARGET"]
 
-if TARGET == "???":
+if sg.TARGET == "???":
     print("ERROR: You need to specify the name of the ASIC you wish to target in Master_Config.txt")
     quit()
 
-TARGET_ROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Routines"
-TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
+sg.TARGET_ROUTINES_MOD = f"spacely-asic-config.{sg.TARGET}.{sg.TARGET}_Routines"
+sg.TARGET_ROUTINES_PY = os.path.join("spacely-asic-config",sg.TARGET,f"{sg.TARGET}_Routines.py")  
 
-# TARGET_SUBROUTINES_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Subroutines"
-# TARGET_SUBROUTINES_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines.py")
-
-TARGET_CONFIG_MOD = f"spacely-asic-config.{TARGET}.{TARGET}_Config"
-TARGET_CONFIG_PY = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Routines.py")  
+sg.TARGET_CONFIG_MOD = f"spacely-asic-config.{sg.TARGET}.{sg.TARGET}_Config"
+sg.TARGET_CONFIG_PY = os.path.join("spacely-asic-config",sg.TARGET,f"{sg.TARGET}_Routines.py")  
 
 
-print(" * * * TARGETING \""+TARGET+"\" ASIC * * *")
+print(" * * * TARGETING \""+sg.TARGET+"\" ASIC * * *")
 
 try:
     # Deep Python Magic which is basically equivalent to doing "from {module_name} import *"
@@ -75,11 +74,11 @@ try:
     # ASIC_Config.py and once for ASIC_Routines.py.
 
     # Use glob to find all submodules that have a particular name format.
-    subroutines = os.path.join("spacely-asic-config",TARGET,f"{TARGET}_Subroutines*.py")
-    TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
-    TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in TARGET_SUBROUTINES_PY]
-    modules_to_try = [TARGET_CONFIG_MOD] + TARGET_SUBROUTINES_MOD + [TARGET_ROUTINES_MOD]
-    print(f"{TARGET} has the following modules: ")
+    subroutines = os.path.join("spacely-asic-config",sg.TARGET,f"{sg.TARGET}_Subroutines*.py")
+    sg.TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
+    sg.TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in sg.TARGET_SUBROUTINES_PY]
+    modules_to_try = [sg.TARGET_CONFIG_MOD] + sg.TARGET_SUBROUTINES_MOD + [sg.TARGET_ROUTINES_MOD]
+    print(f"{sg.TARGET} has the following modules: ")
     for module in modules_to_try:
         print(f"  - {module}")
 
@@ -94,6 +93,8 @@ try:
         
         #print("(DBG) Importing the following functions/variables to global scope:"+str(all_names))
 
+        #This line allows any file that imports Master_Config to access functions and variables
+        #from the MyASIC_Routines and MyASIC_Config files. 
         globals().update({name: getattr(module, name) for name in all_names})
 
 

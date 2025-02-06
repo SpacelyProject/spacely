@@ -19,42 +19,61 @@ def add_hdl_path(filename):
         #Assume this is already an absolute path
         return filename
     else:
-        return os.path.join(os.getcwd(),"spacely-asic-config",TARGET,"hdl",filename)
+        return os.path.join(os.getcwd(),"spacely-asic-config",sg.TARGET,"hdl",filename)
 
 
 ## Interal switch which instructs vanessa whether to output logs or not.
 vanessa_verbose = True
 
+
+
+
+def calculate_global_filenames():
+    """Based on TARGET and TOP_MODULE global variables, generate the filenames in the global namespace which define where
+       various necessary files will be found or stored. This is done in a function to make it easier to update the names
+       after changing these global variables if you care to.
+       """
+    global COCOTB_ROUTINES_FILENAME, AUTOGEN_DIGITAL_TWIN_FILENAME, AUTOGEN_FIRMWARE_TWIN_FILENAME 
+    global  DEFAULT_MEM_MAP_FILE, DEFAULT_SOURCES_FILE, DEFAULT_HDL_TOP_FILE, DEFAULT_HDL_TOP_FILE_FULL_PATH
+    global  DEFAULT_FW_TOP_FILE, DEFAULT_FW_TOP_FILE_FULL_PATH, COCOTB_ENTRY_FN, DB_DUMP_STATEMENT
+    global DEFAULT_HDL_TOP_FILE_SV, DEFAULT_HDL_TOP_FILE_V, DEFAULT_FW_TOP_FILE_SV, DEFAULT_FW_TOP_FILE_V
+
+    print(f"DEBUG: Calculating Global filenames; target is {sg.TARGET}")
     
-COCOTB_ROUTINES_FILENAME = "_temp_cocotb_routines.py"
-AUTOGEN_DIGITAL_TWIN_FILENAME = "_temp_digital_twin_hdl_top.sv"
-AUTOGEN_FIRMWARE_TWIN_FILENAME = "_temp_digital_twin_fw_top.v"
+    COCOTB_ROUTINES_FILENAME = "_temp_cocotb_routines.py"
+    AUTOGEN_DIGITAL_TWIN_FILENAME = "_temp_digital_twin_hdl_top.sv"
+    AUTOGEN_FIRMWARE_TWIN_FILENAME = "_temp_digital_twin_fw_top.v"
 
-DEFAULT_MEM_MAP_FILE = os.path.join("spacely-asic-config",TARGET,"hdl","mem_map.txt")
-DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",TARGET,"hdl","hdl_sources.txt")
-DEFAULT_HDL_TOP_FILE_SV = os.path.join("spacely-asic-config",TARGET,"hdl",f"{HDL_TOP_MODULE}.sv")
-DEFAULT_HDL_TOP_FILE_V = os.path.join("spacely-asic-config",TARGET,"hdl",f"{HDL_TOP_MODULE}.v")
-DEFAULT_FW_TOP_FILE_SV = os.path.join("spacely-asic-config",TARGET,"hdl",f"{FW_TOP_MODULE}.sv")
-DEFAULT_FW_TOP_FILE_V = os.path.join("spacely-asic-config",TARGET,"hdl",f"{FW_TOP_MODULE}.v")
+    DEFAULT_MEM_MAP_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl","mem_map.txt")
+    DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl","hdl_sources.txt")
+    DEFAULT_HDL_TOP_FILE_SV = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.HDL_TOP_MODULE}.sv")
+    DEFAULT_HDL_TOP_FILE_V = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.HDL_TOP_MODULE}.v")
+    DEFAULT_FW_TOP_FILE_SV = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.FW_TOP_MODULE}.sv")
+    DEFAULT_FW_TOP_FILE_V = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.FW_TOP_MODULE}.v")
 
-if os.path.exists(DEFAULT_HDL_TOP_FILE_SV):
-    DEFAULT_HDL_TOP_FILE = DEFAULT_HDL_TOP_FILE_SV
-else:
-    DEFAULT_HDL_TOP_FILE = DEFAULT_HDL_TOP_FILE_V
+    if os.path.exists(DEFAULT_HDL_TOP_FILE_SV):
+        DEFAULT_HDL_TOP_FILE = DEFAULT_HDL_TOP_FILE_SV
+    else:
+        DEFAULT_HDL_TOP_FILE = DEFAULT_HDL_TOP_FILE_V
 
-DEFAULT_HDL_TOP_FILE_FULL_PATH = add_hdl_path(DEFAULT_HDL_TOP_FILE.split(os.sep)[-1])
+    DEFAULT_HDL_TOP_FILE_FULL_PATH = add_hdl_path(DEFAULT_HDL_TOP_FILE.split(os.sep)[-1])
 
-if os.path.exists(DEFAULT_FW_TOP_FILE_SV):
-    DEFAULT_FW_TOP_FILE = DEFAULT_FW_TOP_FILE_SV
-else:
-    DEFAULT_FW_TOP_FILE = DEFAULT_FW_TOP_FILE_V
+    if os.path.exists(DEFAULT_FW_TOP_FILE_SV):
+        DEFAULT_FW_TOP_FILE = DEFAULT_FW_TOP_FILE_SV
+    else:
+        DEFAULT_FW_TOP_FILE = DEFAULT_FW_TOP_FILE_V
 
-DEFAULT_FW_TOP_FILE_FULL_PATH = add_hdl_path(DEFAULT_FW_TOP_FILE.split(os.sep)[-1])
+    DEFAULT_FW_TOP_FILE_FULL_PATH = add_hdl_path(DEFAULT_FW_TOP_FILE.split(os.sep)[-1])
 
-COCOTB_ENTRY_FN ="""
+    COCOTB_ENTRY_FN ="""
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 import cocotb
+import os
+
+import Spacely_Globals as sg
+from Master_Config import *
+from Spacely_Utils import *
 
 @cocotb.test()
 async def cocotb_entry_fn(dut):
@@ -66,58 +85,61 @@ async def cocotb_entry_fn(dut):
     # Set the working directory to the directory of the source file
     os.chdir(current_dir)
 
+    # Retrieve text variables set before we entered this test.
+    sg.load_pickle()
 
     # Set up those globals which are needed for Cocotb.
     log_term_out = liblog.HandleOutputStrategy.create_with_stderr()
     sg.log = liblog.AnsiTerminalLogger( # by default log to terminal and use ANSI
     log_term_out,
-    max_level=liblog.levels.LOG_DEBUG if VERBOSE else liblog.levels.LOG_INFO,
+    max_level=liblog.levels.LOG_DEBUG if sg.VERBOSE else liblog.levels.LOG_INFO,
     ansi=True)
 
     sg.log.debug(">> (B.1) Entered cocotb environment, sg.log set up.")
     
     initialize_GlueConverter()
 
-    CaribouTwin_init = False
+    #CaribouTwin_init = False
 
-    for inst in INSTR:
-        if INSTR[inst]["type"] == "Caribou":
-            sg.log.debug(">> (B.2) Initializing CariboutTwin")
-            sg.INSTR[inst] = CaribouTwin(dut=dut)
-            sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR[inst])
-            CaribouTwin_init = True
-            break
+    if sg.TWIN_MODE > 0:
+        sg.log.debug(">> (B.2) Initializing CaribouTwin")
+        sg.INSTR["car"] = CaribouTwin(dut=dut)
+        sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR["car"])
+        
+        #Start the AXI clock.
+        sg.log.debug(">> (B.3) Starting AXI Clk")
+        cocotb.start_soon(Clock(dut.AXI_ACLK, 10, units="ns").start())
 
+        dut.AXI_ARESETN.value = 0
+        await Timer(20, units="ns")
+        dut.AXI_ARESETN.value = 1
 
-    #Start the AXI clock.
-    sg.log.debug(">> (B.3) Starting AXI Clk")
-    cocotb.start_soon(Clock(dut.AXI_ACLK, 10, units="ns").start())
-
-    dut.AXI_ARESETN.value = 0
-    await Timer(20, units="ns")
-    dut.AXI_ARESETN.value = 1
-
-    for _ in range(10):
-        await RisingEdge(dut.AXI_ACLK)
+        for _ in range(10):
+            await RisingEdge(dut.AXI_ACLK)
 
     #Run the requested routine.
-    await cocotb.external({routine_name})({routine_args})
+    {routine_call}
 
 """
 
-DB_DUMP_STATEMENT = """initial begin
+    DB_DUMP_STATEMENT = """initial begin
       
       $dumpfile("DB.vcd");
-      $dumpvars(0,{HDL_TOP_MODULE});
+      $dumpvars(0,{sg.HDL_TOP_MODULE});
    end"""
-try:
-    DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("{HDL_TOP_MODULE}",HDL_TOP_MODULE)
-except TypeError:
-    #There will be a type error if HDL_TOP_MODULE is not defined. This is fine,
-    #we'll catch it later if anyone tries to actually run Cocotb LOL. 
-    pass
+    try:
+        DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("{sg.HDL_TOP_MODULE}",sg.HDL_TOP_MODULE)
+    except TypeError:
+        #There will be a type error if sg.HDL_TOP_MODULE is not defined. This is fine,
+        #we'll catch it later if anyone tries to actually run Cocotb LOL. 
+        pass
 
 
+
+#Run this function once on building the file.
+calculate_global_filenames()
+
+    
 class SpacelyCocotbException(Exception):
     pass
 
@@ -128,20 +150,19 @@ class SpacelyCocotbException(Exception):
 # (3) Run the routine. 
 
 def run_routine_cocotb(routine_name):
-    global SIMULATOR, HDL_TOP_MODULE, TWIN_MODE, FW_TOP_MODULE, COCOTB_BUILD_ARGS
 
     ## (0) Check that global variables are set.
     
-    if SIMULATOR is None:
-        sg.log.error("You must define the variable SIMULATOR in your Config.py file to run Cocotb.")
+    if sg.SIMULATOR is None:
+        sg.log.error("You must define the variable sg.SIMULATOR in your Config.py file to run Cocotb.")
         return -1
         
-    if HDL_TOP_MODULE is None:
-        sg.log.error("You must define the variable HDL_TOP_MODULE in your Config.py file to run Cocotb.")
+    if sg.HDL_TOP_MODULE is None:
+        sg.log.error("You must define the variable sg.HDL_TOP_MODULE in your Config.py file to run Cocotb.")
         return -1
 
-    if TWIN_MODE is None:
-        sg.log.warning("Warning, using TWIN_MODE=0 as a default.")
+    if sg.TWIN_MODE is None:
+        sg.log.warning("Warning, using sg.TWIN_MODE=0 as a default.")
         TWIN_MODE = 0
 
     sg.log.debug(">> Preparing to run a Simulation w/ Cocotb")
@@ -174,7 +195,7 @@ def run_routine_cocotb(routine_name):
 
 
     except FileNotFoundError:
-        sg.log.error(f"Please list your HDL source files in {default_source_file}.")
+        sg.log.error(f"Please list your HDL source files in {DEFAULT_SOURCES_FILE}.")
         return -1
 
     hdl_sources_with_path = [add_hdl_path(x) for x in source_lines]
@@ -182,13 +203,13 @@ def run_routine_cocotb(routine_name):
     ## (2) If this is a Caribou Digital Twin run, then make sure the source file with the CaribouDigitalTwin in it is
     ##     replaced by the auto-generated top-level.
 
-    if TWIN_MODE > 0:
+    if sg.TWIN_MODE > 0:
 
         sg.log.debug(">> (A.2) Creating Digital Twin HDL")
 
         # Check that HDL_TOP_MODULE can be found, and remove it from the hdl_sources.
         if not os.path.exists(DEFAULT_HDL_TOP_FILE):
-            sg.log.error(f"When using TWIN_MODE = 1 or 2, your HDL top module {HDL_TOP_MODULE} must be in {DEFAULT_HDL_TOP_FILE_SV} or {DEFAULT_HDL_TOP_FILE_V}")
+            sg.log.error(f"When using sg.TWIN_MODE = {sg.TWIN_MODE}, your HDL top module {sg.HDL_TOP_MODULE} must be in {DEFAULT_HDL_TOP_FILE_SV} or {DEFAULT_HDL_TOP_FILE_V}")
             return -1
 
         if DEFAULT_HDL_TOP_FILE_FULL_PATH in hdl_sources_with_path:
@@ -197,10 +218,10 @@ def run_routine_cocotb(routine_name):
         hdl_sources_with_path.append(AUTOGEN_DIGITAL_TWIN_FILENAME)
 
         ### TWIN_MODE = 2 Only: Preprocess FW top level from Vivado
-        if TWIN_MODE == 2:
+        if sg.TWIN_MODE == 2:
 
             if not os.path.exists(DEFAULT_HDL_TOP_FILE):
-                sg.log.error(f"When using TWIN_MODE = 2, your FW top module {FW_TOP_MODULE} must be in {DEFAULT_FW_TOP_FILE_SV} or {DEFAULT_FW_TOP_FILE_V}")
+                sg.log.error(f"When using sg.TWIN_MODE = 2, your FW top module {sg.FW_TOP_MODULE} must be in {DEFAULT_FW_TOP_FILE_SV} or {DEFAULT_FW_TOP_FILE_V}")
                 return -1
 
             if DEFAULT_FW_TOP_FILE_FULL_PATH in hdl_sources_with_path:
@@ -224,15 +245,15 @@ def run_routine_cocotb(routine_name):
     
     # (1) Set up the runner
     sg.log.debug(">> (A.4) Initializing simulator...")
-    runner = get_runner(SIMULATOR)
+    runner = get_runner(sg.SIMULATOR)
 
    
     
     runner.build(
         sources = hdl_sources_with_path,
-        hdl_toplevel = HDL_TOP_MODULE,
+        hdl_toplevel = sg.HDL_TOP_MODULE,
         clean=True,
-        build_args = COCOTB_BUILD_ARGS, 
+        build_args = sg.COCOTB_BUILD_ARGS, 
         timescale = ('1n','1p')
         )
 
@@ -242,13 +263,16 @@ def run_routine_cocotb(routine_name):
 
     # NOTE: COCOTB_LOG_LEVEL >= INFO is required to get result messages from cocotb.regression, which can tell you why your
     # test failed if it did, so it's kind of important to have at least this much logging.
+    #COCOTB Log Levels: TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+    sg.save_pickle()
     
-    runner.test(hdl_toplevel=HDL_TOP_MODULE,
+    runner.test(hdl_toplevel=sg.HDL_TOP_MODULE,
                 verbose=False,
                 extra_env={"COCOTB_LOG_LEVEL":"INFO"},
                 test_module=cocotb_test_file.replace(".py",""))
 
-
+    sg.clear_pickle()
 
 AUTOGEN_COCOTB_WARNING_PYTHON="""#  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #  ! WARNING! This file was automatically generated by  !
@@ -267,34 +291,60 @@ def create_cocotb_test(routine_name):
 
     ## (1) Read the original routines file.
     
-    with open(TARGET_ROUTINES_PY,'r') as read_file:
+    with open(sg.TARGET_ROUTINES_PY,'r') as read_file:
         routines_txt = read_file.read()
 
     #Remember that TARGET_SUBROUTINES_PY is a list.
     subroutines_txt = ""
-    for subroutine_file in TARGET_SUBROUTINES_PY:
+    for subroutine_file in sg.TARGET_SUBROUTINES_PY:
         with open(subroutine_file,'r') as read_file:
             subroutines_txt = subroutines_txt + "\n\n" + read_file.read()
 
     ## (2) Find the specific routine we are tasked to run.
-
+    USER_ROUTINE_IS_ASYNC = False
+    
     start_idx = routines_txt.find(f"\ndef {routine_name}")
-    end_idx   = routines_txt.find("\ndef ",start_idx+1)
+    if start_idx == -1:
+        start_idx = routines_txt.find(f"\nasync def {routine_name}")
 
+        if start_idx == -1:
+            sg.log.error("Could not find the requested routine in create_cocotb_test.")
+            return -1
+        else:
+            USER_ROUTINE_IS_ASYNC = True
+
+    #Start searching for the end_idx after the start_idx
+    idx = start_idx +1
+    while True:
+        #Each iteration of the loop, find the next newline.
+        idx = routines_txt.find("\n",idx+1)
+        #If we get to the end of the file, just return -1
+        if idx == -1 or idx + 1 > len(routines_txt):
+            end_idx = -1
+            break
+        #Otherwise check if the next character is non-whitespace and if so, return this index.
+        if routines_txt[idx+1] not in ' \t': 
+            end_idx = idx
+            break
+
+    print(f"DEBUG: start_idx {start_idx} end_idx {end_idx} routine_name {routine_name}")
     this_routine_txt = routines_txt[start_idx:end_idx]
 
 
     ## (3) Add the entry function.
-    entry_fn = COCOTB_ENTRY_FN.replace("{routine_name}",routine_name)
 
-    #If the Routine requests dut as a parameter, we'll supply it.
     if f"def {routine_name}(dut" in this_routine_txt:
-        entry_fn = entry_fn.replace("{routine_args}","dut")
+        routine_args = "dut"
     else:
-        entry_fn = entry_fn.replace("{routine_args}","")
+        routine_args = ""
     
-    this_routine_txt = this_routine_txt.replace(f"def {routine_name}(",
-                                        entry_fn+f"\ndef {routine_name}(")
+    if USER_ROUTINE_IS_ASYNC:
+        entry_fn = COCOTB_ENTRY_FN.replace("{routine_call}",f"await {routine_name}({routine_args})")
+    else:
+        entry_fn = COCOTB_ENTRY_FN.replace("{routine_call}",f"await cocotb.external({routine_name})({routine_args})")
+    
+    
+    this_routine_txt = entry_fn + "\n" + this_routine_txt
 
 
     ## (4) Update the routines txt
@@ -457,7 +507,6 @@ def implement_digital_twin_axi_interfaces(hdl_txt):
     """Given a string representing a .sv file, it will instantiate 
     AXI interfaces at all the blocks which are supposed to have them.
     """
-    global HDL_TOP_MODULE
 
     # Initialize counter and dictionary for mappings
     counter = 0
@@ -514,12 +563,12 @@ def implement_digital_twin_axi_interfaces(hdl_txt):
     hdl_txt = pattern_passthru.sub(replacer_passthru, hdl_txt)
 
     # Add AXI signals to the interface of the top module.
-    new_module_txt = f"{HDL_TOP_MODULE} (input logic AXI_ACLK,\n input logic AXI_ARESETN"
+    new_module_txt = f"{sg.HDL_TOP_MODULE} (input logic AXI_ACLK,\n input logic AXI_ARESETN"
     
     for i in range(counter):
         new_module_txt += ",\n"+AXI_SIGNALS_TOP.replace("{n}",str(i))
 
-    hdl_txt = re.sub(fr'{HDL_TOP_MODULE}\s*\(', new_module_txt, hdl_txt)
+    hdl_txt = re.sub(fr'{sg.HDL_TOP_MODULE}\s*\(', new_module_txt, hdl_txt)
 
 
     new_header_txt = AUTOGEN_COCOTB_WARNING_SV
@@ -568,6 +617,7 @@ class CaribouTwin(Source_Instrument):
         #Dictionary that will map memory fields to addresses / AXI interfaces.
         self.mem_map = {}
 
+        self.debug_memory = False
   
         sg.log.debug(">>  Setting up AXI Interfaces based on mem_map.txt")
         self._setup_axi(mem_map_file)
@@ -698,6 +748,8 @@ class CaribouTwin(Source_Instrument):
 
 
     def set_memory(self, mem_name, value):
+        if self.debug_memory:
+            sg.log.debug(f"<AXI> Write {mem_name}: {value}")
         try:
             iface_num = self.mem_map[mem_name]['TwinInterface']
             base_addr = self.mem_map[mem_name]['IP Base Addr']
@@ -727,6 +779,9 @@ class CaribouTwin(Source_Instrument):
         except IndexError:
             sg.log.error(f"CaribouTwin: Tried to access axi interface #{iface_num}, but it doesn't exist. Only {len(self.axi)} axi interfaces have been initialized.")
             x = -1
+
+        if self.debug_memory:
+            sg.log.debug(f"<AXI> Read {mem_name}: {x}")
         return x
 
 

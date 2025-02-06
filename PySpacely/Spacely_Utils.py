@@ -419,7 +419,7 @@ def Vin_histogram(Vtest_mV: int, points: int) -> dict[int, int]:
 
     config_AWG_as_DC(Vtest_mV)
 
-    if TARGET == "SPROCKET1":
+    if sg.TARGET == "SPROCKET1":
         #r = command(sg.port, "convNx:"+str(points), printresponse=False, timeout_s=10)
         r = command_ng(sg.log, sg.port, f"convNx:{points}")
 
@@ -748,7 +748,7 @@ instr_type_required_fields = {"NIDCPower" : ["slot"],
                               "Caribou"    : ["host","port","device"]}
 
 # Exception: If we use cocotb, then we don't need all these fields...
-if USE_COCOTB:
+if sg.USE_COCOTB:
     instr_type_required_fields["Caribou"] = []
 
    
@@ -795,7 +795,7 @@ def INSTR_lint():
     
     num_instr = len(INSTR.keys())
     if num_instr > 0:
-        sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
+        sg.log.info(f"{sg.TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
     return num_instr
 
 
@@ -914,8 +914,8 @@ def initialize_INSTR(interactive: bool = False):
 
             #If we are using the Cocotb flow, no need to set up the Caribou instrument -- it will anyway be
             #set up within the cocotb_entry_fn for the specific test we are going to run.
-            if USE_COCOTB:
-                sg.log.debug("Skipping initialization for Caribou, since USE_COCOTB is set.")
+            if sg.USE_COCOTB:
+                sg.log.debug("Skipping initialization for Caribou, since sg.USE_COCOTB is set.")
                 continue
             else:
                 sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
@@ -2149,7 +2149,7 @@ def exec_routine_by_idx(routine_idx, routine_ref=None):
     
     if routine_idx >= 0 and routine_idx < len(sg.ROUTINES):
         
-        if USE_COCOTB:
+        if sg.USE_COCOTB:
             sg.log.debug(f"Evaluating {sg.ROUTINES[routine_idx].name} as a Cocotb Test")
             run_routine_cocotb(sg.ROUTINES[routine_idx].name)
         else:
