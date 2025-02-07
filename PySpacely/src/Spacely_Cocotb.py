@@ -37,15 +37,16 @@ def calculate_global_filenames():
     global  DEFAULT_MEM_MAP_FILE, DEFAULT_SOURCES_FILE, DEFAULT_HDL_TOP_FILE, DEFAULT_HDL_TOP_FILE_FULL_PATH
     global  DEFAULT_FW_TOP_FILE, DEFAULT_FW_TOP_FILE_FULL_PATH, COCOTB_ENTRY_FN, DB_DUMP_STATEMENT
     global DEFAULT_HDL_TOP_FILE_SV, DEFAULT_HDL_TOP_FILE_V, DEFAULT_FW_TOP_FILE_SV, DEFAULT_FW_TOP_FILE_V
-
-    print(f"DEBUG: Calculating Global filenames; target is {sg.TARGET}")
     
     COCOTB_ROUTINES_FILENAME = "_temp_cocotb_routines.py"
     AUTOGEN_DIGITAL_TWIN_FILENAME = "_temp_digital_twin_hdl_top.sv"
     AUTOGEN_FIRMWARE_TWIN_FILENAME = "_temp_digital_twin_fw_top.v"
 
     DEFAULT_MEM_MAP_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl","mem_map.txt")
-    DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl","hdl_sources.txt")
+    if sg.HDL_SOURCES == None:
+        DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl","hdl_sources.txt")
+    else:
+        DEFAULT_SOURCES_FILE = os.path.join("spacely-asic-config",sg.TARGET,"hdl",sg.HDL_SOURCES)
     DEFAULT_HDL_TOP_FILE_SV = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.HDL_TOP_MODULE}.sv")
     DEFAULT_HDL_TOP_FILE_V = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.HDL_TOP_MODULE}.v")
     DEFAULT_FW_TOP_FILE_SV = os.path.join("spacely-asic-config",sg.TARGET,"hdl",f"{sg.FW_TOP_MODULE}.sv")
@@ -143,6 +144,52 @@ calculate_global_filenames()
 class SpacelyCocotbException(Exception):
     pass
 
+
+# Returns:
+# - hdl_source_macros: A dictionary of macros
+# - source_lines: A list of lines defining the actual paths to files we want to include.
+def parse_sources_file(filename):
+
+    hdl_source_macros = {}
+    source_lines = []
+    
+    try:
+        with open(filename,'r') as r:
+            source_lines_raw = [x.strip() for x in r.readlines()]
+            
+
+        for line in source_lines_raw:
+            # a - Filter empty and commented lines.
+            if not line or line.startswith("//"):
+                continue
+
+            # b - Recursively parse subfiles.
+            if line.startswith("SOURCES "):
+                line_toks = line.split()
+                subfile_path = os.path.join("spacely-asic-config",sg.TARGET,"hdl",line_toks[1])
+                if subfile_path != filename: #Ignore simple recursive calls
+                    subfile_macros, subfile_source_lines = parse_sources_file(subfile_path)
+                    source_lines.extend(subfile_source_lines)
+                    hdl_source_macros.update(subfile_macros)
+                    
+            # c - Define Macros 
+            elif line.startswith("DEF "):
+                line_toks = line.split()
+                hdl_source_macros[line_toks[1]] = line_toks[2]
+                continue
+            else:
+                # d - For actual lines with paths, replace macros, then append to source_lines[]
+                for key in hdl_source_macros.keys():
+                    line = line.replace("$"+key, hdl_source_macros[key])
+                source_lines.append(line)
+
+
+    except FileNotFoundError:
+        sg.log.error(f"Expected to find a list of HDL source files in {DEFAULT_SOURCES_FILE}, but this file was not found.")
+
+    return hdl_source_macros, source_lines
+
+
 # The goal: Make it so that you can run your routines on the ASIC RTL using Cocotb.
 # The steps:
 # (1) Produce a copy of your testbench with cocotb asynchronous style syntax.
@@ -172,31 +219,9 @@ def run_routine_cocotb(routine_name):
 
     hdl_source_macros = {}
     source_lines = []
+
+    hdl_source_macros, source_lines = parse_sources_file(DEFAULT_SOURCES_FILE)
     
-    try:
-        with open(DEFAULT_SOURCES_FILE,'r') as r:
-            source_lines_raw = [x.strip() for x in r.readlines()]
-            
-
-        for line in source_lines_raw:
-            # a - Filter empty and commented lines.
-            if not line or line.startswith("//"):
-                continue
-            # b - Define Macros 
-            if line.startswith("DEF "):
-                line_toks = line.split()
-                hdl_source_macros[line_toks[1]] = line_toks[2]
-                continue
-            else:
-                # c - For actual lines with path, replace macros, then append to source_lines[]
-                for key in hdl_source_macros.keys():
-                    line = line.replace("$"+key, hdl_source_macros[key])
-                source_lines.append(line)
-
-
-    except FileNotFoundError:
-        sg.log.error(f"Please list your HDL source files in {DEFAULT_SOURCES_FILE}.")
-        return -1
 
     hdl_sources_with_path = [add_hdl_path(x) for x in source_lines]
 
@@ -327,7 +352,7 @@ def create_cocotb_test(routine_name):
             end_idx = idx
             break
 
-    print(f"DEBUG: start_idx {start_idx} end_idx {end_idx} routine_name {routine_name}")
+    
     this_routine_txt = routines_txt[start_idx:end_idx]
 
 

@@ -56,14 +56,16 @@ async def ROUTINE_test_cadder_mode0(dut):
 
 
 
-def ROUTINE_test_cadder_mode1():
-    """Test cadder block include a digital twin of test firmware (twin mode 1)"""
+def ROUTINE_test_cadder_mode1_2():
+    """Test cadder block include a digital twin of test firmware (twin mode 1 or 2)"""
 
+    sg.INSTR["car"].debug_memory = True
+    
     # We expect the output to be offset by 2 cycles from the input: one cycle for the AWG to
     # assert the input value, and one cycle for the cadder to clock that value. 
     LOOPBACK_OFFSET_CYC = 2
     
-    sg.INSTR["car"].set_memory("divider_cycles",10)
+    sg.INSTR["car"].set_memory("divider_cycles",5)
     sg.INSTR["car"].set_memory("divider_rstn",0)
     sg.INSTR["car"].set_memory("divider_rstn",1)
 
@@ -84,13 +86,16 @@ def ROUTINE_test_cadder_mode1():
         if status == 0:
             break
         else:
-            sg.INSTR["car"].dly_min_axi_clk(10)
+            sg.log.debug("<test> Waiting for APG idle")
+            sg.INSTR["car"].dly_min_axi_clk(50)
 
 
     result_vector = []
+    sg.log.debug("<test> Starting to read back results.")
     for n in range(256 + LOOPBACK_OFFSET_CYC):
         result_vector.append(sg.INSTR["car"].get_memory("read_channel"))
 
+    sg.log.debug("<test> Finished reading back results.")
     for i in range(256):
         input_A = input_vector[i] & 0xf
         input_B = input_vector[i] >> 4

@@ -15,7 +15,6 @@ module cadder #(CARRY_ERROR=0) (
    logic [3:0] 					   Z_4b;
 
    assign Z_4b = A + B;
-   
 
    always @(posedge clk) begin
       if(CARRY_ERROR)
@@ -24,5 +23,4 @@ module cadder #(CARRY_ERROR=0) (
 	Z <= A + B;
    end
    
-
 endmodule // cadder

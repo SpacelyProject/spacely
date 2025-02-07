@@ -75,7 +75,7 @@ cmd_args = argp.parse_args()
 log_term_out = liblog.HandleOutputStrategy.create_with_stderr()
 sg.log = liblog.AnsiTerminalLogger( # by default log to terminal and use ANSI
     log_term_out,
-    max_level=liblog.levels.LOG_DEBUG if VERBOSE else liblog.levels.LOG_INFO,
+    max_level=liblog.levels.LOG_DEBUG if sg.VERBOSE else liblog.levels.LOG_INFO,
     ansi=cmd_args.ansi
 )
 
@@ -120,7 +120,7 @@ print("+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+*+\n")
 
 
 
-if USE_ARDUINO and EMULATE_ASIC:
+if sg.USE_ARDUINO and sg.EMULATE_ASIC:
     print("**ASIC will be EMULATED by ARDUINO**")
 
 assume_defaults = cmd_args.defaults
@@ -143,7 +143,7 @@ initialize_GlueConverter()
 
 #Arduino HAL
 init_hal = cmd_args.hal is not None
-if not init_hal and not skip_all and USE_ARDUINO == True: # only ask if cmd arg wasn't specified
+if not init_hal and not skip_all and sg.USE_ARDUINO == True: # only ask if cmd arg wasn't specified
     cmd_txt = input("DEFAULT: Connect to Arduino. 'n' to Skip>>>")
     init_hal = False if cmd_txt == 'n' else True # init by default
 if init_hal:
@@ -152,12 +152,12 @@ else:
     sg.log.debug('HAL init skipped')
 
 #NI Chassis
-init_ni = (cmd_args.ni is not None) or (assume_defaults and USE_NI)
-if not init_ni and not skip_all and USE_NI == True:
+init_ni = (cmd_args.ni is not None) or (assume_defaults and sg.USE_NI)
+if not init_ni and not skip_all and sg.USE_NI == True:
     cmd_txt = input("DEFAULT: Set up NIFPGA 'n' to Skip>>>")
     init_ni = False if cmd_txt == 'n' else True
 if init_ni:
-    if USE_ARDUINO and EMULATE_ASIC:
+    if sg.USE_ARDUINO and sg.EMULATE_ASIC:
         sg.log.error('ASIC emulation enabled - NI sources should NOT be initialized!')
     else:
         initialize_NIFPGA()
@@ -170,7 +170,7 @@ if not init_instr and not skip_all and num_instr > 0:
     cmd_txt = input(f"DEFAULT: Initialize {num_instr} Test Instruments. 'n' to Skip>>>")
     init_instr = False if cmd_txt == 'n' else True
 if init_instr:
-    if USE_ARDUINO and EMULATE_ASIC:
+    if sg.USE_ARDUINO and sg.EMULATE_ASIC:
         sg.log.error('ASIC emulation enabled - instruments should NOT be initialized!')
     else:
         initialize_INSTR(interactive=not assume_defaults)
@@ -208,14 +208,14 @@ except NameError:
 
 try:
     #Get routines from file.
-    with open(TARGET_ROUTINES_PY) as file:
+    with open(sg.TARGET_ROUTINES_PY) as file:
         node = ast.parse(file.read())
         functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
 
     sg.ROUTINES = [f for f in functions if f.name.startswith("ROUTINE")]
 
     #Write back routine # annotations to file. 
-    with open(TARGET_ROUTINES_PY,"r") as read_file:
+    with open(sg.TARGET_ROUTINES_PY,"r") as read_file:
         routines_py_lines = read_file.readlines()
 
     annotation_update_needed = False
@@ -241,8 +241,8 @@ try:
             new_routines_py_lines.append(routines_py_lines[i])
 
     if annotation_update_needed:
-        sg.log.debug(f"Updating annotations in {TARGET_ROUTINES_PY}...")
-        with open(TARGET_ROUTINES_PY,"w") as write_file:
+        sg.log.debug(f"Updating annotations in {sg.TARGET_ROUTINES_PY}...")
+        with open(sg.TARGET_ROUTINES_PY,"w") as write_file:
             for i in range(len(new_routines_py_lines)):
                 write_file.write(new_routines_py_lines[i])
 
@@ -261,7 +261,7 @@ except NameError:
 #(2) If it exists, run it.
 if onstartup_exists:
     onstartup()
-    sg.log.debug(f"Executed onstartup() code from {TARGET_ROUTINES_PY}")
+    sg.log.debug(f"Executed onstartup() code from {sg.TARGET_ROUTINES_PY}")
 
 #Auto-run command, if defined.
 if cmd_args.r is not None:
@@ -387,9 +387,9 @@ while True:
                     routine_docs = eval(f"{sg.ROUTINES[r].name}.__doc__")
                     print(f"{r:<2} {routine_name: <33} -- {routine_docs}")
             except FileNotFoundError:
-                sg.log.error(f"Could not find asic_config\\{TARGET}\\{TARGET}_Routines.py")
+                sg.log.error(f"Could not find asic_config\\{sg.TARGET}\\{sg.TARGET}_Routines.py")
             
-            print(f"(To add a new routine to this list, define a function in {TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
+            print(f"(To add a new routine to this list, define a function in {sg.TARGET_ROUTINES_PY} and give it a name starting with the word \"ROUTINE\".)")
             if len(sg.ROUTINES) == 0:
                 print("No routines to show!")
                     

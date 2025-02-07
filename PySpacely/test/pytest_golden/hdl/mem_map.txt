@@ -2,11 +2,11 @@
 
 
 
-*BASE 0x400000000 //logic_clk_div_top_0
+*BASE 0x400001000 //logic_clk_div_top_0
 divider_cycles,0x0,0xffffffff,True,True
 divider_rstn,0x4,0x1,True,True
 
-*BASE 0x400001000 //test_apg
+*BASE 0x400000000 //Arbitrary_Pattern_Ge_0
 run,0x0,0x1,False,True
 clear,0x4,0x1,False,True
 write_channel,0x8,0xffffffff,True,True
