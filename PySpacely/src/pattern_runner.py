@@ -118,7 +118,20 @@ class CaribouPatternRunner:
         self.car.set_memory(f"{apg_name}_write_defaults",io_default)
         
         self._log.debug(f"Wrote {io_default} to {apg_name}_write_defaults")
-        
+
+    def set_io_default(self, io_name, value):
+        """Set the io default value for one named io, and send that value to hardware."""
+
+        if io_name not in self.gc.Input_IOs:
+            self._log.error(f"{io_name} is not a defined ASIC input.")
+            return -1
+
+        # Get the middle part of the hw str representation, which should be the apg name.
+        this_io_apg = self.gc.IO_hardware[io_name].split("/")[1]
+
+        self.gc.IO_default[io_name] = value
+
+        self.update_io_defaults(this_io_apg)
         
     def apg_wait_for_idle(self, apg_name):
         while True:

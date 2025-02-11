@@ -31,9 +31,10 @@ import Spacely_Globals as sg
                 
 class Exclusive_Resource:
 
-    def __init__(self, handle, description):
+    def __init__(self, handle, description, _logger):
         self.handle = handle
         self.description = description
+        self.log = _logger
 
         #Store lockfiles in a sub-directory of /tmp/
         #Change directory permissions to 777 so that we can not have issues deleting files.
@@ -58,7 +59,7 @@ class Exclusive_Resource:
     def acquire(self):
 
         if self.VERBOSE:
-            sg.log.debug(f"Attempting to acquire Resource {self.handle}...")
+            self.log.debug(f"Attempting to acquire Resource {self.handle}...")
         
         acquire_user = os.getlogin()
         acquire_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -86,17 +87,17 @@ class Exclusive_Resource:
             os.fsync(self.fp)
             #self.fp.close()
 
-            sg.log.info(f"Resource {self.handle} acquired!")
+            self.log.info(f"Resource {self.handle} acquired!")
 
         except BlockingIOError:
             with open(self.lockfilename,"r") as read_file:
                 lockfile_text = read_file.read()
-            sg.log.error(f"FAILED TO ACQUIRE RESOURCE: {lockfile_text}")
+            self.log.error(f"FAILED TO ACQUIRE RESOURCE: {lockfile_text}")
             return -1
 
     def release(self):
         if self.VERBOSE:
-            sg.log.debug(f"Releasing Resource {self.handle}...")
+            self.log.debug(f"Releasing Resource {self.handle}...")
             
         os.remove(self.lockfilename)
         fcntl.flock(self.fp.fileno(), fcntl.LOCK_UN)
@@ -213,7 +214,7 @@ class Caribou(Source_Instrument):
         if WINDOWS_OS:
             self.log.info("INFO: Exclusive locks on Spacely-Caribou are not implemented for Windows, please be careful if multiple users are using the same system.")
         else:
-            self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}")
+            self.lock = Exclusive_Resource(f"Caribou_{pearyd_host}", f"Caribou system at IP address {pearyd_host}", self.log)
 
             if self.lock.acquire() == -1:
                 self.log.error("Failed to initialize Caribou, exiting.")
@@ -303,6 +304,13 @@ class Caribou(Source_Instrument):
             self.log.debug(f"<AXI> Set {mem_name} = {value}")
         return self._dev.set_memory(mem_name,value)
 
+    def dly_min_axi_clk(self, clk_cycles):
+        """Ensure a delay of a minimum number of AXI clock cycles."""
+
+        # In Spacely-Caribou, AXI clk speed is 100 MHz.
+        # This expression won't be accurate for a small number of clock
+        # cycles, but it doesn't need to be b/c the overhead is so large.
+        time.sleep(10e-9*clk_cycles)
 
     def get_voltage(self, name):
         """Get the voltage of a named DAC channel."""
@@ -928,6 +936,15 @@ def hex_mask(N1):
 #Given the raw lines extracted from mem_map.txt, this function checks for correctness.
 #If correct, a nested dict is returned with info for every mem field.
 #Otherwise, -1 is returned.
+#
+# Structure of the dictionary:
+#
+#   mem_map["reg_name"] = {"IP Base Addr" : 0x400000000
+#                          "Register Offs": (int)
+#                          "Mask"         : (int)
+#                          "Readable"     : (bool)
+#                          "Writeable"    : (bool)}
+#
 def parse_mem_map(mem_map_lines):
 
     mem_map = {}
@@ -948,7 +965,7 @@ def parse_mem_map(mem_map_lines):
 
         #Base Address Line
         if line.startswith("*BASE"):
-            base_address_token = line.split()[-1]
+            base_address_token = line.split()[1]
 
             try:
                 ip_base_address = int(base_address_token,0)
@@ -973,10 +990,15 @@ def parse_mem_map(mem_map_lines):
 
         mem_map[tokens[0]]["IP Base Addr"] = ip_base_address
 
+        # Each line should have five entries: the field name, and then Offs/Mask/Read/Write
+        if len(tokens) < 5:
+            sg.log.error(f"Parse error for mem field {tokens[0]}: Some of the required fields are missing.")
+            return -1
+
         try:
              mem_map[tokens[0]]["Register Offs"] = int(tokens[1],0)
         except ValueError:
-            sg.sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
+            sg.log.error(f"Parse error in Register Offs for mem field {tokens[0]} (should be an int in hex or dec)")
             return -1
 
         try:

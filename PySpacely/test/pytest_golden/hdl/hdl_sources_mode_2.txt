@@ -1,0 +1,12 @@
+// -- Top-level file for Digital Twin Simulation -- 
+cadder_twin_mode2.sv
+
+cadder_timescale.sv
+
+SOURCES hdl_sources_unisim.txt
+
+// -- Unisim Simulation Models --
+$UNISIM/verilog/src/glbl.v
+$UNISIM/verilog/src/unisims/*.v
+
+
