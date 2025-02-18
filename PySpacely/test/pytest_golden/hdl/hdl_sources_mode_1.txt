@@ -1,0 +1,22 @@
+// -- Top-level files for Digital Twin Simulation --
+cadder_twin_mode1.sv
+
+cadder.sv
+
+SOURCES hdl_sources_common_blocks.txt
+
+
+// -- Common Blocks used in MODE 1 --
+$COMMON_BLOCKS/Arbitrary_Pattern_Generator/src/Arbitrary_Pattern_Generator.sv
+$COMMON_BLOCKS/Arbitrary_Pattern_Generator/Arbitrary_Pattern_Generator_interface.sv
+$COMMON_BLOCKS/Arbitrary_Pattern_Generator/Arbitrary_Pattern_Generator_top.v
+
+$COMMON_BLOCKS/axi4lite_interface/axi4lite_slave_interface.sv
+$COMMON_BLOCKS/axi4lite_interface/axi4lite_interface_top.sv
+$COMMON_BLOCKS/axi4lite_interface/mem_regs.sv
+
+$COMMON_BLOCKS/logic_clk_div/logic_clk_div_interface.sv
+$COMMON_BLOCKS/logic_clk_div/logic_clk_div_top.v
+$COMMON_BLOCKS/logic_clk_div/src/logic_clk_div.sv
+
+$COMMON_BLOCKS/Xilinx_Blocks/Xilinx-CDC-Structure-Sim-Models.sv

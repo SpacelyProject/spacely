@@ -1,0 +1,6 @@
+// -- Macros --
+// NOTE: To carry out digital twin simulation, you MUST define these macros.
+// UNISIM - should point to the Xilinx Unisim models library, found at
+//          https://github.com/Xilinx/XilinxUnisimLibrary
+DEF UNISIM ???
+

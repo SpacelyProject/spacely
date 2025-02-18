@@ -1,0 +1,26 @@
+// Memory map for cadder test firmware
+
+
+
+*BASE 0x400001000 //logic_clk_div_top_0
+divider_cycles,0x0,0xffffffff,True,True
+divider_rstn,0x4,0x1,True,True
+
+*BASE 0x400000000 //Arbitrary_Pattern_Ge_0
+run,0x0,0x1,False,True
+clear,0x4,0x1,False,True
+write_channel,0x8,0xffffffff,True,True
+read_channel,0xc,0xffffffff,True,False
+write_defaults,0x10,0xffffffff,True,True
+async_read_channel,0x14,0xffffffff,True,False
+sample_count,0x18,0xffffffff,True,False
+n_samples,0x1c,0xffffffff,True,True
+control,0x20,0xff,True,True
+write_buffer_len,0x24,0xffffffff,True,False
+next_read_sample,0x28,0xffffffff,True,False
+wave_ptr,0x2c,0xffffffff,True,False
+status,0x30,0x7,True,False
+dbg_error,0x34,0xffffffff,True,False
+param_NUM_SIG,0x38,0xffffffff,True,False
+param_NUM_SAMP,0x3c,0xffffffff,True,False
+

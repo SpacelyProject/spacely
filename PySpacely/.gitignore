@@ -1,5 +1,10 @@
 logs/
 output/
 venv/
+sim_build/
+.simvision/
+DB.dsn
+DB.trn
+_temp_*
 genpattern.txt
 *~

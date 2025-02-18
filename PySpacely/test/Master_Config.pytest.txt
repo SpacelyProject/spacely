@@ -1,0 +1,12 @@
+
+VERBOSE = True
+PROGRESS = True
+USE_ARDUINO = False
+USE_NI = False
+USE_COCOTB = False
+SIMULATOR = None
+HDL_TOP_MODULE = None
+FW_TOP_MODULE = None
+TWIN_MODE=None
+COCOTB_BUILD_ARGS = None
+TARGET = "pytest_golden"

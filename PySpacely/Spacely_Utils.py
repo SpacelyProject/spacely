@@ -33,6 +33,7 @@ sys.path.append(os.path.abspath("./src"))
 from hal_serial import * #todo: this shouldn't import all symbols but just the ArudinoHAL class
 from pattern_runner import *
 from Spacely_Caribou import *
+from Spacely_Cocotb import *
 
 
 
@@ -418,7 +419,7 @@ def Vin_histogram(Vtest_mV: int, points: int) -> dict[int, int]:
 
     config_AWG_as_DC(Vtest_mV)
 
-    if TARGET == "SPROCKET1":
+    if sg.TARGET == "SPROCKET1":
         #r = command(sg.port, "convNx:"+str(points), printresponse=False, timeout_s=10)
         r = command_ng(sg.log, sg.port, f"convNx:{points}")
 
@@ -745,7 +746,11 @@ instr_type_required_fields = {"NIDCPower" : ["slot"],
                               "AWG"          : ["io"],
                               "Supply"       : ["io"],
                               "Caribou"    : ["host","port","device"]}
-                         
+
+# Exception: If we use cocotb, then we don't need all these fields...
+if sg.USE_COCOTB:
+    instr_type_required_fields["Caribou"] = []
+
    
 #Fields that must be present to use a given type of io.   
 io_required_fields = {"VISA" : ["resource"],
@@ -790,7 +795,7 @@ def INSTR_lint():
     
     num_instr = len(INSTR.keys())
     if num_instr > 0:
-        sg.log.info(f"{TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
+        sg.log.info(f"{sg.TARGET_CONFIG_PY} specifies {num_instr} instruments that need to be initialized: {list(INSTR.keys())}")
     return num_instr
 
 
@@ -906,7 +911,16 @@ def initialize_INSTR(interactive: bool = False):
             sg.log.block_res()
 
         elif INSTR[instr]["type"] == "Caribou":
-            sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+
+            #If we are using the Cocotb flow, no need to set up the Caribou instrument -- it will anyway be
+            #set up within the cocotb_entry_fn for the specific test we are going to run.
+            if sg.USE_COCOTB:
+                sg.log.debug("Skipping initialization for Caribou, since sg.USE_COCOTB is set.")
+                continue
+            else:
+                sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
+
+            
             if sg.pr is None:
                 sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR[instr])
             else:
@@ -2124,3 +2138,25 @@ def ioshell():
                 return
                 
             print(f"ERR: {which_io} not in sg.gc.Input_IOs")
+
+
+def exec_routine_by_idx(routine_idx, routine_ref=None):
+    """Function to execute a routine from Routines.py file, using either the normal or Cocotb flows.
+       For Cocotb, you only need to supply routine_idx, while for the normal flow, you need
+       routine_ref to allow this function to call into the global scope.
+       """
+    start_timestamp = datetime.now()
+    
+    if routine_idx >= 0 and routine_idx < len(sg.ROUTINES):
+        
+        if sg.USE_COCOTB:
+            sg.log.debug(f"Evaluating {sg.ROUTINES[routine_idx].name} as a Cocotb Test")
+            run_routine_cocotb(sg.ROUTINES[routine_idx].name)
+        else:
+            sg.log.debug(f"Evaluating: {sg.ROUTINES[routine_idx].name}()")
+            routine_ref()
+
+        runtime = str(datetime.now().replace(microsecond=0) - start_timestamp.replace(microsecond=0))
+        sg.log.info(f"This Routine took: {runtime}")
+    else:
+        sg.log.error(f"Invalid routine # {routine_idx} (out of range)")

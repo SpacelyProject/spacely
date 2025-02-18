@@ -1,0 +1,4 @@
+// -- Macros --
+// COMMON_BLOCKS - should point to the spacely-caribou-common-blocks repo, found at
+//                 https://github.com/SpacelyProject/spacely-caribou-common-blocks
+DEF COMMON_BLOCKS ???
