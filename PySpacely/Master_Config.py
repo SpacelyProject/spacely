@@ -19,6 +19,7 @@ FW_TOP_MODULE = None
 TWIN_MODE=None
 COCOTB_BUILD_ARGS = None
 TARGET = "???"
+IGNORE_MODULES = "???"
 """
 
 # Ensure that Spacely always starts executing from the spacely/PySpacely directory.
@@ -78,9 +79,17 @@ try:
     sg.TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
     sg.TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in sg.TARGET_SUBROUTINES_PY]
     modules_to_try = [sg.TARGET_CONFIG_MOD] + sg.TARGET_SUBROUTINES_MOD + [sg.TARGET_ROUTINES_MOD]
+
+    # save only modules not ignored
+    temp = []
     print(f"{sg.TARGET} has the following modules: ")
     for module in modules_to_try:
-        print(f"  - {module}")
+        if module.split(".")[-1] in config_dict["IGNORE_MODULES"]:
+            print(f"  - {module} (!! USER REQUESTED IGNORE !!)")
+        else:
+            print(f"  - {module}")
+            temp.append(module)
+    modules_to_try = temp
 
     for module_name in modules_to_try:
 
