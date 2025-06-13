@@ -263,9 +263,9 @@ class Device(object):
     def get_current(self, name):
         """Get the measured current of a named periphery port."""
         return float(self._request('get_current', name))
-    def set_current(self, name, value):
+    def set_current(self, name, value, pol):
         """Set the current of a named periphery port."""
-        self._request('set_current', name, value)
+        self._request('set_current', name, value, pol)
 
     def get_voltage(self, name):
         """Get the measured voltage of a named periphery port."""

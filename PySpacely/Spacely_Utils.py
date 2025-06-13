@@ -34,7 +34,7 @@ from hal_serial import * #todo: this shouldn't import all symbols but just the A
 from pattern_runner import *
 from Spacely_Caribou import *
 from Spacely_Cocotb import *
-
+import PearyClient
 
 
 from fnal_libIO import *
@@ -125,6 +125,14 @@ def report_NI(repeat_delay: float|None = 1, report_non_ni_instr = False):
 
         v_now = ni.get_voltage()
         i_now = ni.get_current()
+
+        if v_now == None:
+            v_now = 0
+            sg.log.warning(f"Could not get voltage for Chan {ni.channel}")
+        if i_now == None:
+            i_now = 0
+            sg.log.warning(f"Could not get current for Chan {ni.channel}")
+        
         v_stats[stat_key].append(v_now)
         i_stats[stat_key].append(i_now)
 
@@ -919,8 +927,11 @@ def initialize_INSTR(interactive: bool = False):
                 continue
             else:
                 sg.INSTR[instr] = Caribou(INSTR[instr]["host"], INSTR[instr]["port"], INSTR[instr]["device"], sg.log)
-
-            
+                try:
+                    sg.INSTR[instr].init_car()
+                except PearyClient.Failure:
+                    sg.log.error("Tried to automatically init CaR board, but I2C write failed. Is CaR board connected + powered on?")
+                
             if sg.pr is None:
                 sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR[instr])
             else:
@@ -931,7 +942,7 @@ def initialize_INSTR(interactive: bool = False):
         if "alias" in INSTR[instr].keys():
             globals()[INSTR[instr]["alias"]] = sg.INSTR[instr]
             
-        sg.log.notice(f"{INSTR[instr]['type']} {instr} successfully initialized!")
+        sg.log.notice(f"{INSTR[instr]['type']} {instr} initialization complete!")
         
         
 def deinitialize_INSTR():
@@ -1109,7 +1120,7 @@ def initialize_GlueConverter():
 
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_Rails():
-    global V_CURR_LIMIT, I_VOLT_LIMIT
+    global V_CURR_LIMIT, I_VOLT_LIMIT, V_WARN_VOLTAGE
     
 
     sg.log.debug("Initializing power/bias rails...")
@@ -1119,20 +1130,36 @@ def initialize_Rails():
             try:
                 V_CURR_LIMIT
             except NameError:
-                sg.log.warning("No current limits specified for sources in MyASIC_Config.py. Setting to default 100 mA.")
+                sg.log.warning("No current limits specified for Vsources in MyASIC_Config.py. Setting to default 100 mA.")
                 V_CURR_LIMIT = 0.1
+
+            try:
+                V_WARN_VOLTAGE
+            except NameError:
+                sg.log.warning("No warn voltages specified for Vsources in MyASIC_Config.py")
+                V_WARN_VOLTAGE = None
+                
             sg.log.debug("Vsource init")
             for Vsource in V_SEQUENCE:
-                #time.sleep(0.5)
-                
+
+                if type(V_WARN_VOLTAGE) == dict:
+                    warn_voltages = V_WARN_VOLTAGE[Vsource]
+                else:
+                    warn_voltages = [None,None]
                 
                 if type(V_CURR_LIMIT) == dict:
                     curr_limit = V_CURR_LIMIT[Vsource]
                 else:
                     curr_limit = V_CURR_LIMIT
+
+                #Attempt pretty formatting of curr_limit.
+                try:
+                    curr_limit_str = f"{curr_limit:.4f}"
+                except TypeError:
+                    curr_limit_str = f"{curr_limit}"
                     
-                sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={curr_limit:.4f})")
-                V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit)
+                sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={curr_limit_str})")
+                V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit, warn_voltages=warn_voltages)
                 V_PORT[Vsource].set_voltage(V_LEVEL[Vsource])
                 V_PORT[Vsource].set_output_on()
                 sg.log.block_res()
@@ -1163,17 +1190,20 @@ def initialize_Rails():
                 sg.log.block_res()
             sg.log.debug("Isource init done")
         
+
+            sg.RAILS_INITIALIZED = True
+            sg.log.notice("Power/bias rails initialized")
             
     except Exception as e:
         sg.log.block_res(False)
         if isinstance(e, OSError) and hasattr(e, 'winerror') and e.winerror == -1066598273:
             sg.log.emerg("NI INSTR failed due to Windows error. Make sure you're NOT using Microsoft Store Python (see https://github.com/ni/nimi-python/issues/1904)")
         else:
-            sg.log.emerg("NI INSTR failed (do you have \"NI-DCPower ver >=2022-Q4\" driver installed?)")
+            sg.log.emerg("Initializing rails failed due to the following error:")
         raise
 
-    sg.NI_CONNECTED = True
-    sg.log.notice("Power/bias rails initialized")
+    
+    
 
 
 #def cycle_NI():
@@ -1238,7 +1268,14 @@ def logger_demo():
 
 def auto_voltage_monitor():
     global V_SEQUENCE, I_SEQUENCE
-    if sg.NI_CONNECTED:
+
+    #If the rails have not been initialized, don't run voltage monitor.
+    try:
+        sg.RAILS_INITIALIZED
+    except NameError:
+        sg.RAILS_INITIALIZED=False
+
+    if sg.RAILS_INITIALIZED:
         # Automatic Voltage Warning
         abnormal_rails = []
         abnormal_rail_voltages = []
@@ -1260,7 +1297,9 @@ def auto_voltage_monitor():
             for Vsource in V_SEQUENCE:
                 if Vsource in V_WARN_VOLTAGE.keys():
                     voltage = V_PORT[Vsource].get_voltage()
-                    if voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
+                    if voltage is None:
+                        sg.log.warning(f"[auto voltage monitor] Tried to monitor {Vsource} but get_voltage() returned 'None'")
+                    elif voltage < V_WARN_VOLTAGE[Vsource][0] or voltage > V_WARN_VOLTAGE[Vsource][1]:
                         abnormal_rails.append(Vsource)
                         abnormal_rail_voltages.append(voltage)
                 else:
@@ -1271,7 +1310,9 @@ def auto_voltage_monitor():
             for Isource in I_SEQUENCE:
                 if Isource in I_WARN_VOLTAGE.keys():
                     voltage = I_PORT[Isource].get_voltage()
-                    if voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
+                    if voltage is None:
+                        sg.log.warning(f"[auto voltage monitor] Tried to monitor {Isource} but get_voltage() returned 'None'")
+                    elif voltage < I_WARN_VOLTAGE[Isource][0] or voltage > I_WARN_VOLTAGE[Isource][1]:
                         abnormal_rails.append(Isource)
                         abnormal_rail_voltages.append(voltage)
                 else:

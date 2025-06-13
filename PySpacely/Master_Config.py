@@ -19,6 +19,7 @@ FW_TOP_MODULE = None
 TWIN_MODE=None
 COCOTB_BUILD_ARGS = None
 TARGET = "???"
+IGNORE_MODULES = "???"
 """
 
 # Ensure that Spacely always starts executing from the spacely/PySpacely directory.
@@ -54,6 +55,11 @@ sg.FW_TOP_MODULE = config_dict["FW_TOP_MODULE"]
 sg.TWIN_MODE = config_dict["TWIN_MODE"]
 sg.COCOTB_BUILD_ARGS = config_dict["COCOTB_BUILD_ARGS"]
 sg.TARGET = config_dict["TARGET"]
+sg.IGNORE_MODULES = config_dict["IGNORE_MODULES"]
+
+#Type must be string
+if sg.IGNORE_MODULES == None:
+    sg.IGNORE_MODULES = ""
 
 if sg.TARGET == "???":
     print("ERROR: You need to specify the name of the ASIC you wish to target in Master_Config.txt")
@@ -78,9 +84,17 @@ try:
     sg.TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
     sg.TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in sg.TARGET_SUBROUTINES_PY]
     modules_to_try = [sg.TARGET_CONFIG_MOD] + sg.TARGET_SUBROUTINES_MOD + [sg.TARGET_ROUTINES_MOD]
+
+    # save only modules not ignored
+    temp = []
     print(f"{sg.TARGET} has the following modules: ")
     for module in modules_to_try:
-        print(f"  - {module}")
+        if module.split(".")[-1] in sg.IGNORE_MODULES:
+            print(f"  - {module} (!! USER REQUESTED IGNORE !!)")
+        else:
+            print(f"  - {module}")
+            temp.append(module)
+    modules_to_try = temp
 
     for module_name in modules_to_try:
 
