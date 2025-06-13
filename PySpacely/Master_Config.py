@@ -55,6 +55,11 @@ sg.FW_TOP_MODULE = config_dict["FW_TOP_MODULE"]
 sg.TWIN_MODE = config_dict["TWIN_MODE"]
 sg.COCOTB_BUILD_ARGS = config_dict["COCOTB_BUILD_ARGS"]
 sg.TARGET = config_dict["TARGET"]
+sg.IGNORE_MODULES = config_dict["IGNORE_MODULES"]
+
+#Type must be string
+if sg.IGNORE_MODULES == None:
+    sg.IGNORE_MODULES = ""
 
 if sg.TARGET == "???":
     print("ERROR: You need to specify the name of the ASIC you wish to target in Master_Config.txt")
@@ -84,7 +89,7 @@ try:
     temp = []
     print(f"{sg.TARGET} has the following modules: ")
     for module in modules_to_try:
-        if module.split(".")[-1] in config_dict["IGNORE_MODULES"]:
+        if module.split(".")[-1] in sg.IGNORE_MODULES:
             print(f"  - {module} (!! USER REQUESTED IGNORE !!)")
         else:
             print(f"  - {module}")

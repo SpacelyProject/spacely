@@ -201,7 +201,7 @@ class Caribou(Source_Instrument):
         self._device_name = device_name
         self.log = log
         self.client_connected = False
-        self.client_connected = False
+        self.car_initialized= False
 
         if self._host == "EMULATE":
             self.log.info("Due to settings in your Config file, Peary will be EMULATED in this session.")
@@ -254,8 +254,13 @@ class Caribou(Source_Instrument):
         self.log.debug("[Step 1] Setting PCA9539 Dir to Output")
         self.car_i2c_write(0,0x76,6,0)
         self.car_i2c_write(0,0x76,7,0)
-        
 
+        self.car_initialized = True
+        
+    def check_init_car(self):
+        if not self.car_initialized:
+            self.log.warning("Running a CaR board command, but Spacely_Caribou.init_car() has not been run!")
+        
     def set_axi_registers(self, regmap):
         """Sets AXI registers for use by axi_shell and (if enabled) VirtualCaribou"""
         self.axi_registers = regmap
@@ -314,23 +319,47 @@ class Caribou(Source_Instrument):
 
     def get_voltage(self, name):
         """Get the voltage of a named DAC channel."""
+        self.check_init_car()
+        if "CUR" in name:
+            self.log.warning("Spacely-Caribou Warning: Getting voltage for CUR_* sources is not possible on the CaR board.")
+            return None
+        
         return self._dev.get_voltage(name)
 
     def set_voltage(self, name, value, curr_limit=None):
         """Set the voltage of a named DAC channel."""
+        self.check_init_car()
         if curr_limit != None:
             self.log.warning("Spacely-Caribou Warning: Current limits for V supplies not implemented.")
         return self.request('set_voltage',name, value)
     
     def get_current(self, name):
         """Get the current of a named DAC channel."""
+        self.check_init_car()
+        if not "PWR_OUT" in name:
+            self.log.warning(f"Spacely-Caribou Warning: Getting current is only possible for PWR_OUT_* sources on the CaR board, not {name}.")
+            return None
         return self._dev.get_current(name)
 
     def set_current(self, name, value, volt_limit=None):
         """Set the current of a named DAC channel."""
+        self.check_init_car()
         if volt_limit != None:
             self.log.warning("Spacely-Caribou Warning: Voltage limits for I supplies not implemented.")
-        return self._dev.set_current(name, value)
+
+        #Caribout CUR sources take two arguments: uint current in uA (0~1024) and polarity
+        if value >= 0:
+            polarity = 1 #PUSH
+        else:
+            polarity = 0 #PULL
+
+        current_uA = int(abs(value)/1e-6)
+
+        if current_uA > 1024:
+            self.log.warning("Spacely-Caribou Warning: Attempted to set CUR source to > 1024 uA (ignored)")
+            return
+            
+        return self._dev.set_current(name, current_uA, polarity)
 
 
     def set_input_cmos_level(self, voltage):
