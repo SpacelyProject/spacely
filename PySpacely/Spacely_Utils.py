@@ -1272,7 +1272,7 @@ def auto_voltage_monitor():
     #If the rails have not been initialized, don't run voltage monitor.
     try:
         sg.RAILS_INITIALIZED
-    except NameError:
+    except AttributeError:
         sg.RAILS_INITIALIZED=False
 
     if sg.RAILS_INITIALIZED:
