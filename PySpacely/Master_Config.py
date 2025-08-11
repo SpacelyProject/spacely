@@ -82,7 +82,7 @@ try:
     # Use glob to find all submodules that have a particular name format.
     subroutines = os.path.join("spacely-asic-config",sg.TARGET,f"{sg.TARGET}_Subroutines*.py")
     sg.TARGET_SUBROUTINES_PY = list(sorted(glob.glob(subroutines))) 
-    sg.TARGET_SUBROUTINES_MOD = [i.replace("/",".")[:-3] for i in sg.TARGET_SUBROUTINES_PY]
+    sg.TARGET_SUBROUTINES_MOD = [i.replace(os.sep,".")[:-3] for i in sg.TARGET_SUBROUTINES_PY]
     modules_to_try = [sg.TARGET_CONFIG_MOD] + sg.TARGET_SUBROUTINES_MOD + [sg.TARGET_ROUTINES_MOD]
 
     # save only modules not ignored

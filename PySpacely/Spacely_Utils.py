@@ -753,6 +753,8 @@ instr_type_required_fields = {"NIDCPower" : ["slot"],
                               "Oscilloscope" : ["io"],
                               "AWG"          : ["io"],
                               "Supply"       : ["io"],
+                              "OpticalPowerMeter": ["io"],
+                              "Laser":         ["io"],
                               "Caribou"    : ["host","port","device"]}
 
 # Exception: If we use cocotb, then we don't need all these fields...
@@ -762,7 +764,8 @@ if sg.USE_COCOTB:
    
 #Fields that must be present to use a given type of io.   
 io_required_fields = {"VISA" : ["resource"],
-                      "Prologix" : ["ipaddr", "gpibaddr"]}
+                      "Prologix" : ["ipaddr", "gpibaddr"],
+                      "IP"  : ["ipaddr","port"]}
 
 
 #Lint checker for INSTR library.
@@ -774,7 +777,7 @@ def INSTR_lint():
     for instr in INSTR.keys():
         this_type = INSTR[instr]["type"]
         if this_type not in instr_type_required_fields.keys():
-            sg.log.error(f"INSTR Error: {instr} is {this_type} which is not a valid instrument type. Valid instrument types are: {instr_type_required_fileds.keys()}.")
+            sg.log.error(f"INSTR Error: {instr} is {this_type} which is not a valid instrument type. Valid instrument types are: {instr_type_required_fields.keys()}.")
             return -1
         
         for field in instr_type_required_fields[this_type]:
@@ -893,6 +896,8 @@ def initialize_INSTR(interactive: bool = False):
                 io = initialize_VISA(INSTR[instr], interactive)
             elif INSTR[instr]["io"] == "Prologix":
                 io = initialize_Prologix(INSTR[instr], interactive)
+            elif INSTR[instr]["io"] == "IP":
+                io = initialize_IP(INSTR[instr], interactive)
                 
                 
             if io == None:
@@ -909,6 +914,12 @@ def initialize_INSTR(interactive: bool = False):
             sg.INSTR[instr] = Oscilloscope(sg.log,io)
             
             
+        elif INSTR[instr]["type"] == "OpticalPowerMeter":
+            sg.INSTR[instr] = OpticalPowerMeter(sg.log, io)
+         
+        elif INSTR[instr]["type"] == "Laser":
+            sg.INSTR[instr] = Laser(sg.log, io)
+        
         elif INSTR[instr]["type"] == "Supply":
             sg.INSTR[instr] = Supply(sg.log,io)
                   
@@ -1003,6 +1014,17 @@ def deinitialize_INSTR():
             except KeyError:
                 sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
     
+        elif INSTR[instr]["type"] == "OpticalPowerMeter":
+            sg.log.debug(f"No deinit required for \"{instr}\"")
+            
+        elif INSTR[instr]["type"] == "Laser":
+            try:
+                sg.log.blocking(f"Setting Laser \"{instr}\" output to \"OFF\"")
+                sg.INSTR[instr].set_output_off()
+                sg.log.block_res()
+            except KeyError:
+                sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
+    
         #For any instruments that use Prologix, deinitialize that:
         if "io" in INSTR[instr].keys() and INSTR[instr]["io"] == "Prologix":
             try:
@@ -1086,6 +1108,49 @@ def initialize_Prologix(cfg, interactive = False):
             interactive = True
             
     return prologix_interface
+    
+    
+    
+#Set up an IP Interface connection, interactively if requested.
+def initialize_IP(cfg, interactive = False):
+    
+    DEFAULT_IPADDR = cfg["ipaddr"]
+    DEFAULT_PORT = cfg["port"]
+
+    connected = False
+    while True:
+        if interactive:
+            IPADDR = input(f"IP ADDRESS? (Hit enter to use \"{DEFAULT_IPADDR}\") >>>")
+
+            if IPADDR == "":
+                IPADDR = DEFAULT_IPADDR
+
+            PORT = input(f"PORT? (Hit enter to use \"{DEFAULT_PORT}\") >>>")
+
+            if PORT == "":
+                PORT = DEFAULT_PORT
+        else:
+            IPADDR = DEFAULT_IPADDR
+            PORT = DEFAULT_PORT
+
+        sg.log.info(f"Connecting to Device @ Address:{IPADDR} Port:{PORT}")
+        
+        ip_interface = IPInterface(sg.log, IPADDR, PORT)
+        
+        # Connection succesful
+        if ip_interface.is_connected():
+            sg.log.info("IP interface successfully connected...")
+            break
+
+        ip_interface = None
+        
+        if interactive:
+            sg.log.error(f"IP connection failed! Try again.")
+        else:
+            sg.log.warning(f"IP connection failed - falling back to interactive mode")
+            interactive = True
+            
+    return ip_interface
 
 
 def initialize_NIFPGA():
