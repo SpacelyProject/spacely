@@ -888,6 +888,10 @@ def rail_lint():
 
 def initialize_INSTR(interactive: bool = False):
 
+    if sg.USE_COCOTB:
+        sg.log.info("Skipping initialize_INSTR step because sg.USE_COCOTB is set. (No instruments needed for COCOTB.)")
+        return
+    
     for instr in INSTR.keys():
     
         #If io setup is necessary, do that first.
@@ -1186,7 +1190,10 @@ def initialize_GlueConverter():
 # todo: Some of the logs here about initing sources can probably be moved to generic_nidcpower
 def initialize_Rails():
     global V_CURR_LIMIT, I_VOLT_LIMIT, V_WARN_VOLTAGE
-    
+
+    if sg.USE_COCOTB:
+        sg.log.info("Skipping initialize_INSTR step because sg.USE_COCOTB is set. (No instruments needed for COCOTB.)")
+        return
 
     sg.log.debug("Initializing power/bias rails...")
     try:

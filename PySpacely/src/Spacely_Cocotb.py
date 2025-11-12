@@ -118,6 +118,13 @@ async def cocotb_entry_fn(dut):
         for _ in range(10):
             await RisingEdge(dut.AXI_ACLK)
 
+    #Run onstartup() code if defined.
+    try:
+        await cocotb.external(onstartup)()
+        sg.log.debug(">> (B.4) Completed onstartup() code.")
+    except NameError:
+        sg.log.debug(">> (B.4) No onstartup() code is defined.")
+
     #Run the requested routine.
     {routine_call}
 
@@ -277,7 +284,8 @@ def run_routine_cocotb(routine_name):
     runner.build(
         sources = hdl_sources_with_path,
         hdl_toplevel = sg.HDL_TOP_MODULE,
-        clean=True,
+        clean=False,
+        build_dir="cocotb_build_dir",
         build_args = sg.COCOTB_BUILD_ARGS, 
         timescale = ('1n','1p')
         )
@@ -294,6 +302,7 @@ def run_routine_cocotb(routine_name):
     
     runner.test(hdl_toplevel=sg.HDL_TOP_MODULE,
                 verbose=False,
+                build_dir="cocotb_build_dir",
                 extra_env={"COCOTB_LOG_LEVEL":"INFO"},
                 test_module=cocotb_test_file.replace(".py",""))
 
@@ -838,6 +847,24 @@ class CaribouTwin(Source_Instrument):
     def disable_all_pwr_rails(self):
         pass
 
+    def init_car(self):
+        sg.log.debug("Ran Caribou.init_car() (no effect in digital twin simulation)")
+
+    def check_init_car(self):
+        pass
+
+    def auto_set_axi_registers(self, module_list):
+        pass
+
+    def set_axi_registers(self, regmap):
+        pass
+
+    def set_input_cmos_level(self, voltage):
+        pass
+
+    def set_output_cmos_level(self, vltage):
+        pass
+
     def close(self):
         pass
 
@@ -962,13 +989,19 @@ def vanessa(vivado_netlist_file, axi_block_addr, axi_block_num):
     #index of line we are currently evaluating.
     i = 0
 
-    while not netlist_lines[i].startswith("module "):
-        i += 1
+    while True:
+        while not netlist_lines[i].startswith("module "):
+            i += 1
 
-    top_name = netlist_lines[i].split()[-1]
-    start_top_idx = i
+        top_name = netlist_lines[i].split()[-1]
+        start_top_idx = i
 
-    vlog(f"First module is {top_name}, assuming this is the top level module.")
+        if top_name == sg.FW_TOP_MODULE:
+            vlog(f"Found top module {top_name}")
+            break
+        else:
+            vlog(f"Found a module named {top_name}, skipping because it is not sg.FW_TOP_MODULE={sg.FW_TOP_MODULE}")
+            i += 1
 
     j = i
     while not netlist_lines[j].startswith("endmodule"):
@@ -1021,6 +1054,7 @@ def vanessa(vivado_netlist_file, axi_block_addr, axi_block_num):
         j = i
         aclk_connection = None
         reset_connection = None
+        arvalid_connection = None
         axi_prefix = None
 
         # If this is one of the modules we are supposed to discard, discard it.
@@ -1055,13 +1089,27 @@ def vanessa(vivado_netlist_file, axi_block_addr, axi_block_num):
                     aclk_connection = get_signal_connection(netlist_lines[j],".S_AXI_ACLK")
                     vlog(f"  AXI ACLK is connected to {aclk_connection}")
 
+                elif ".s_axi_aclk" in netlist_lines[j]:
+                    aclk_connection = get_signal_connection(netlist_lines[j],".s_axi_aclk")
+                    vlog(f"  AXI ACLK is connected to {aclk_connection}")
+
                 if ".S_AXI_ARESETN" in netlist_lines[j]:
                     reset_connection = get_signal_connection(netlist_lines[j],".S_AXI_ARESETN")
+                    vlog(f"  AXI ARESETN is connected to {reset_connection}")
+
+                elif ".s_axi_aresetn" in netlist_lines[j]:
+                    reset_connection = get_signal_connection(netlist_lines[j],".s_axi_aresetn")
                     vlog(f"  AXI ARESETN is connected to {reset_connection}")
 
                 if ".S_AXI_ARVALID" in netlist_lines[j]:
                     arvalid_connection = get_signal_connection(netlist_lines[j],".S_AXI_ARVALID")
                     vlog(f"  AXI ARVALID is connected to {arvalid_connection}")
+
+                elif ".s_axi_arvalid" in netlist_lines[j]:
+                    arvalid_connection = get_signal_connection(netlist_lines[j],".s_axi_arvalid")
+                    vlog(f"  AXI ARVALID is connected to {arvalid_connection}")
+
+                if arvalid_connection is not None:
                     if arvalid_connection.endswith("ARVALID"):
                         axi_prefix = arvalid_connection.replace("ARVALID","")
                         vlog(f"  Inferring that AXI prefix is: {axi_prefix}")

@@ -164,8 +164,17 @@ I2C_COMPONENTS = { 0 : [PCA9539(0x76,"U15"), PCA9539(0x75,"U31")],
                    3 : [ADS7828(0x48,"U77","vol_in")]}
 
 
+# Module register fields based on spacely-caribou-common-blocks
 
-
+SPACELY_MODULES_DEFAULT_REGS = {"Arbitrary_Pattern_Generator" : ["run","clear","write_channel","read_channel","write_defaults",
+                                                                 "async_read_channel","sample_count","n_samples","control","write_buffer_len",
+                                                                 "next_read_sample","wave_ptr","status","dbg_error","param_NUM_SIG",
+                                                                 "param_NUM_SAMP"],
+                                "logic_clk_div" : ["divider_cycles", "divider_rstn"],
+                                "test_data_source" : ["control", "data", "param_DATA_WIDTH"],
+                                "generic_spi_controller" :["mem_write","mem_write_ptr","mem_write_ptr_reset","mem_read","mem_read_ptr",
+                                                           "mem_read_ptr_reset","transaction_count","transaction_len",
+                                                           "run","status","loop_pattern","loop_pattern_len","loop_iters","loop_mode","loop_counter","param_MEM_DEPTH"]}
 
 
 #class Device_emu(object):
@@ -261,6 +270,27 @@ class Caribou(Source_Instrument):
         if not self.car_initialized:
             self.log.warning("Running a CaR board command, but Spacely_Caribou.init_car() has not been run!")
         
+
+    def auto_set_axi_registers(self,module_list):
+        """Given a list of modules that are present in the spacely-caribou-common-blocks repo, 
+           we can automatically set up the list of AXI registers for those modules. 
+           module_list is a dictionary, where the keys are the names we want to use in axi_shell(), and the 
+           values are a length 2 list, where item 0 is the type of module from spacely-caribou-common-blocks 
+           and item 1 is the prefix added before that module's registers in the mem_map.txt
+           Example module_list:
+           {"myAPG" : ["Arbitrary_Pattern_Generator", "apg_"]}
+        """
+
+        for mod_name in module_list.keys():
+            mod_type = module_list[mod_name][0]
+            mod_prefix = module_list[mod_name][1]
+
+            if self.axi_registers is None:
+                self.axi_registers = {}
+
+            self.axi_registers[mod_name] = [mod_prefix + a for a in SPACELY_MODULES_DEFAULT_REGS[mod_type]]
+        
+
     def set_axi_registers(self, regmap):
         """Sets AXI registers for use by axi_shell and (if enabled) VirtualCaribou"""
         self.axi_registers = regmap
@@ -509,7 +539,7 @@ class Caribou(Source_Instrument):
                 print(f"{i}. {reg : <16} -- {reg_contents}")
                 i = i+1
 
-            write_reg_num = input("write which?").strip()
+            write_reg_num = input("write which (hit enter for none)?").strip()
 
             if write_reg_num == "":
                 continue
