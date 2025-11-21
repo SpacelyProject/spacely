@@ -1191,10 +1191,6 @@ def initialize_GlueConverter():
 def initialize_Rails():
     global V_CURR_LIMIT, I_VOLT_LIMIT, V_WARN_VOLTAGE
 
-    if sg.USE_COCOTB:
-        sg.log.info("Skipping initialize_INSTR step because sg.USE_COCOTB is set. (No instruments needed for COCOTB.)")
-        return
-
     sg.log.debug("Initializing power/bias rails...")
     try:
 
@@ -1229,6 +1225,10 @@ def initialize_Rails():
                     curr_limit_str = f"{curr_limit:.4f}"
                 except TypeError:
                     curr_limit_str = f"{curr_limit}"
+
+                if V_INSTR[Vsource] not in sg.INSTR:
+                    sg.log.warning(f"Rail {Vsource} is associated with instrument {V_INSTR[Vsource]} which has not been initialized yet, so cannot initialize {Vsource}.")
+                    continue
                     
                 sg.log.blocking(f"Initializing Vsource \"{Vsource}\" @ {V_INSTR[Vsource]}#{V_CHAN[Vsource]} to {V_LEVEL[Vsource]}V (IMax={curr_limit_str})")
                 V_PORT[Vsource] = Source_Port(sg.INSTR[V_INSTR[Vsource]], V_CHAN[Vsource],default_current_limit=curr_limit, warn_voltages=warn_voltages)

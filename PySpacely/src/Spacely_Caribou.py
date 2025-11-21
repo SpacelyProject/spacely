@@ -3,6 +3,7 @@ from tkinter import filedialog
 from datetime import datetime
 import os
 from os import stat
+import time
 
 WINDOWS_OS = ('nt' in os.name)
 

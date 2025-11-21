@@ -106,6 +106,11 @@ async def cocotb_entry_fn(dut):
         sg.log.debug(">> (B.2) Initializing CaribouTwin")
         sg.INSTR["car"] = CaribouTwin(dut=dut)
         sg.pr = CaribouPatternRunner(sg.log, sg.gc, sg.INSTR["car"])
+
+        #Initialize Rails, just in case any user code is depending on that.
+        #(needs to come after initialization of CaribouTwin())
+        rail_lint()
+        initialize_Rails()
         
         #Start the AXI clock.
         sg.log.debug(">> (B.3) Starting AXI Clk")
@@ -134,6 +139,12 @@ async def cocotb_entry_fn(dut):
       
       $dumpfile("DB.vcd");
       $dumpvars(0,{sg.HDL_TOP_MODULE});
+
+      $dumpoff;
+
+      #{sg.DUMPVARS_START_TIME};
+
+      $dumpon;
    end"""
     try:
         DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("{sg.HDL_TOP_MODULE}",sg.HDL_TOP_MODULE)
@@ -141,6 +152,15 @@ async def cocotb_entry_fn(dut):
         #There will be a type error if sg.HDL_TOP_MODULE is not defined. This is fine,
         #we'll catch it later if anyone tries to actually run Cocotb LOL. 
         pass
+
+    try:
+        DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("#{sg.DUMPVARS_START_TIME};","#"+str(sg.DUMPVARS_START_TIME)+";")
+    except (AttributeError,TypeError):
+        #If the user doesn't specify sg.DUMPVARS_START_TIME, we will just start dumping from time=0
+        DB_DUMP_STATEMENT = DB_DUMP_STATEMENT.replace("#{sg.DUMPVARS_START_TIME};","")
+        pass
+
+    
 
 
 
