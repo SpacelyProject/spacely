@@ -764,7 +764,8 @@ if sg.USE_COCOTB:
    
 #Fields that must be present to use a given type of io.   
 io_required_fields = {"VISA" : ["resource"],
-                      "Prologix" : ["ipaddr", "gpibaddr"],
+                      "PrologixGPIBEthernet" : ["ipaddr", "gpibaddr"],
+                      "PrologixGPIBUSB" : ["port", "gpibaddr"],
                       "IP"  : ["ipaddr","port"]}
 
 
@@ -898,8 +899,10 @@ def initialize_INSTR(interactive: bool = False):
         if "io" in INSTR[instr].keys():
             if INSTR[instr]["io"] == "VISA":
                 io = initialize_VISA(INSTR[instr], interactive)
-            elif INSTR[instr]["io"] == "Prologix":
-                io = initialize_Prologix(INSTR[instr], interactive)
+            elif INSTR[instr]["io"] == "PrologixGPIBEthernet":
+                io = initialize_PrologixGPIBEthernet(INSTR[instr], interactive)
+            elif INSTR[instr]["io"] == "PrologixGPIBUSB":
+                io = initialize_PrologixGPIBUSB(INSTR[instr], interactive)
             elif INSTR[instr]["io"] == "IP":
                 io = initialize_IP(INSTR[instr], interactive)
                 
@@ -1029,8 +1032,8 @@ def deinitialize_INSTR():
             except KeyError:
                 sg.log.debug(f"{instr} was never initialized in the first place, skipping...")
     
-        #For any instruments that use Prologix, deinitialize that:
-        if "io" in INSTR[instr].keys() and INSTR[instr]["io"] == "Prologix":
+        #For any instruments that use Prologix, deinitialize that. (Same procedure for GPIB-USB and GPIB-Ethernet)
+        if "io" in INSTR[instr].keys() and "Prologix" in INSTR[instr]["io"]:
             try:
                 sg.log.blocking(f"Disconnecting from Prologix Instrument instr \"{instr}\"")
                 sg.INSTR[instr].io.disconnect()
@@ -1072,8 +1075,8 @@ def initialize_VISA(cfg, interactive = False):
 
     return VISAInterface(sg.log, chosen_resource)
 
-#Set up a Prologix connection, interactively if requested.
-def initialize_Prologix(cfg, interactive = False):
+#Set up a Prologix GPIB-to-Ethernet connection, interactively if requested.
+def initialize_PrologixGPIBEthernet(cfg, interactive = False):
     
     DEFAULT_PROLOGIX_IPADDR = cfg["ipaddr"]
     DEFAULT_DEVICE_GPIBADDR = cfg["gpibaddr"]
@@ -1096,24 +1099,63 @@ def initialize_Prologix(cfg, interactive = False):
 
         sg.log.info(f"Connecting to Device @ GPIB#{DEVICE_GPIBADDR} via IP:{PROLOGIX_IPADDR}")
         
-        prologix_interface = PrologixInterface(sg.log, PROLOGIX_IPADDR, DEVICE_GPIBADDR)
+        prologix_interface = PrologixGPIBEthernetInterface(sg.log, PROLOGIX_IPADDR, DEVICE_GPIBADDR)
         
         # Connection succesful
         if prologix_interface.is_connected():
-            sg.log.info("Prologix interface successfully connected...")
+            sg.log.info("Prologix GPIB-Ethernet interface successfully connected...")
             break
 
         prologix_interface = None
         
         if interactive:
-            sg.log.error(f"Prologix connection failed! Try again.")
+            sg.log.error(f"Prologix GPIB-Ethernet connection failed! Try again.")
         else:
-            sg.log.warning(f"Prologix connection failed - falling back to interactive mode")
+            sg.log.warning(f"Prologix GPIB-Ethernet connection failed - falling back to interactive mode")
             interactive = True
             
     return prologix_interface
     
+#Set up a Prologix GPIB-to-USB connection, interactively if requested.
+def initialize_PrologixGPIBUSB(cfg, interactive = False):
     
+    DEFAULT_PROLOGIX_PORT = cfg["port"]
+    DEFAULT_DEVICE_GPIBADDR = cfg["gpibaddr"]
+
+    connected = False
+    while True:
+        if interactive:
+            PROLOGIX_PORT = input(f"USB PORT? (Hit enter to use \"{DEFAULT_PROLOGIX_PORT}\") >>>")
+
+            if PROLOGIX_PORT == "":
+                PROLOGIX_PORT = DEFAULT_PROLOGIX_PORT
+
+            DEVICE_GPIBADDR = input(f"GPIB ADDRESS? (Hit enter to use \"{DEFAULT_DEVICE_GPIBADDR}\") >>>")
+
+            if DEVICE_GPIBADDR == "":
+                DEVICE_GPIBADDR = DEFAULT_DEVICE_GPIBADDR
+        else:
+            PROLOGIX_PORT = DEFAULT_PROLOGIX_PORT
+            DEVICE_GPIBADDR = DEFAULT_DEVICE_GPIBADDR
+
+        sg.log.info(f"Connecting to Device @ GPIB#{DEVICE_GPIBADDR} via USB port:{PROLOGIX_PORT}")
+        
+        prologix_interface = PrologixGPIBUSBInterface(sg.log, PROLOGIX_PORT, DEVICE_GPIBADDR)
+        
+        # Connection succesful
+        if prologix_interface.is_connected():
+            sg.log.info("Prologix GPIB-USB interface successfully connected...")
+            break
+
+        prologix_interface = None
+        
+        if interactive:
+            sg.log.error(f"Prologix GPIB-USB connection failed! Try again.")
+        else:
+            sg.log.warning(f"Prologix GPIB-USB connection failed - falling back to interactive mode")
+            interactive = True
+            
+    return prologix_interface
     
 #Set up an IP Interface connection, interactively if requested.
 def initialize_IP(cfg, interactive = False):
